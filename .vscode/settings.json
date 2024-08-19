@@ -1,0 +1,19 @@
+{
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "always",
+        "source.organizeImports": "always"
+    },
+    "python.analysis.typeCheckingMode": "standard",
+    "ruff.lint.args": [
+        "--unfixable=F401"
+    ],
+    "ruff.exclude": [
+        ".venv"
+    ],
+    "ruff.lineLength": 100
+}
