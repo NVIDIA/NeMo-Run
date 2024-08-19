@@ -1,0 +1,46 @@
+{% macro ft_launcher_setup(fault_tol_cfg_path, fault_tol_finished_flag_file, fault_tol_job_results_file) -%}
+# This script uses experimental fault tolerance launcher
+# Fault tolerance related items
+export FAULT_TOL_CFG_PATH="{{fault_tol_cfg_path}}"
+export FAULT_TOL_FINISHED_FLAG_FILE="{{fault_tol_finished_flag_file}}"
+ANY_JOB_STEP_FAILED=0
+
+# Automatic job resubmission related items
+JOB_RESULTS_FILE="{{fault_tol_job_results_file}}"
+is_job_failures_limit_reached() {
+    if [ $TORCHX_MAX_RETRIES -eq 0 ]; then
+       true
+    else
+        tail -n $TORCHX_MAX_RETRIES "$JOB_RESULTS_FILE" | \
+            awk "/^[[:alnum:]]+[[:space:]]+[[:alnum:]]+[[:space:]]+[XF]$/{f++} END{exit !(f>=$TORCHX_MAX_RETRIES)}"
+    fi
+}
+is_training_finished() {
+    test -f "$(dirname $(dirname $JOB_RESULTS_FILE))$FAULT_TOL_FINISHED_FLAG_FILE"
+}
+# Exit immediately if finished flag file exists and this job is a continuation
+if [ -v SLURM_RESTART_COUNT ] && [ "$SLURM_RESTART_COUNT" -gt 0 ] ; then
+    if is_training_finished ; then echo "Training is finished" ; exit 0 ; fi
+    if is_job_failures_limit_reached ; then echo "Job failures limit reached ($TORCHX_MAX_RETRIES)" ; exit 1 ; fi
+else
+    rm -f "$FAULT_TOL_FINISHED_FLAG_FILE" "$JOB_RESULTS_FILE"
+fi
+
+# Write unknown job status to the job log, we will fix it at the end
+echo "$SLURM_JOB_ID ${SLURM_RESTART_COUNT:-0} X" >> "$JOB_RESULTS_FILE"
+{%- endmacro %}
+
+{% macro ft_launcher_teardown() -%}
+if [ $exitcode -ne 0 ]; then ANY_JOB_STEP_FAILED=1 ; fi
+# Fix the job log entry ("JOB_ID X" -> "JOB_ID S/F"), depending on the job result
+if [ "$ANY_JOB_STEP_FAILED" = "0" ] ; then
+   sed -i "s/$SLURM_JOB_ID ${SLURM_RESTART_COUNT:-0} X/$SLURM_JOB_ID ${SLURM_RESTART_COUNT:-0} S/" "$JOB_RESULTS_FILE"
+else
+   sed -i "s/$SLURM_JOB_ID ${SLURM_RESTART_COUNT:-0} X/$SLURM_JOB_ID ${SLURM_RESTART_COUNT:-0} F/" "$JOB_RESULTS_FILE"
+fi
+
+if ! (is_training_finished || is_job_failures_limit_reached); then
+    scontrol requeue "$SLURM_JOB_ID"
+    exit $exitcode
+fi
+{%- endmacro %}

@@ -1,0 +1,121 @@
+# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[project]
+name = "nemo_run"
+# version = "0.1.0.rc0"
+dynamic = ["version"]
+description = "A powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments."
+dependencies = [
+    "inquirerpy>=0.3.4",
+    "catalogue>=2.0.10",
+    "fabric>=3.2.2",
+    "fiddle>=0.3.0",
+    "lark>=1.1.9",
+    "torchx>=0.7.0",
+    "typer>=0.12.3",
+    "rich>=13.7.1",
+    "jinja2>=3.1.4",
+    "cryptography < 43.0.0"
+]
+readme = "README.md"
+requires-python = ">= 3.10"
+
+[project.scripts]
+"nemorun" = "nemo_run.__main__:app"
+
+[project.entry-points."torchx.schedulers"]
+slurm_tunnel = "nemo_run.run.torchx_backend.schedulers.slurm:create_scheduler"
+skypilot = "nemo_run.run.torchx_backend.schedulers.skypilot:create_scheduler"
+local_persistent = "nemo_run.run.torchx_backend.schedulers.local:create_scheduler"
+
+[project.optional-dependencies]
+skypilot = [
+    "skypilot[kubernetes]>=v0.6.1",
+]
+skypilot-all = [
+    "skypilot[all]>=v0.6.1",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "pytest>=8.2.0",
+    "ruff>=0.4.4",
+    "coverage>=7.5.1",
+    "pre-commit>=3.7.1",
+    "pytest-sugar>=1.0.0",
+    "pytest-mock>=3.14.0",
+    "ipykernel>=6.29.4",
+    "ipywidgets>=8.1.2",
+]
+
+[tool.rye.scripts]
+cov = { chain = ["coverage run -m pytest", "coverage report -m" ] }
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+addopts = '-m "not slow"'
+
+[tool.coverage.run]
+branch = true
+include = ["src/nemo_run/**/*.py"]
+omit = ["src/nemo_run/core/tunnel/callback.py", "src/nemo_run/help.py", "src/nemo_run/**/__init__.py", "src/nemo_run/**/_version.py"]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "def _repr_svg_",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+    ]
+
+ignore_errors = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nemo_run"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/nemo_run/_version.py"
+
+[tool.ruff]
+line-length = 100
