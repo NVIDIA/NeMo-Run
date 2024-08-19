@@ -1,0 +1,7 @@
+name: "CodeQL config"
+
+paths:
+  - src/
+  - test/
+  - examples/
+  - .github/
