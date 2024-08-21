@@ -77,7 +77,7 @@ while ! $all_done; do
             sleep 60
             for other_pid in "${pids[@]}"; do
                 if ps -p "$other_pid" > /dev/null; then
-                    echo "Killing processs $other_pid"
+                    echo "Killing process $other_pid"
                     kill -9 "$other_pid"
                 fi
             done

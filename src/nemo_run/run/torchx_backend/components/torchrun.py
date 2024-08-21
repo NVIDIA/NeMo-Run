@@ -83,7 +83,7 @@ def torchrun(
         memMB: cpu memory in MB per replica
         h: a registered named resource (if specified takes precedence over cpu, gpu, memMB)
         j: [{min_nnodes}:]{nnodes}x{nproc_per_node}, for gpu hosts, nproc_per_node must not exceed num gpus
-        env: environment varibles to be passed to the run (e.g. ENV1=v1,ENV2=v2,ENV3=v3)
+        env: environment variables to be passed to the run (e.g. ENV1=v1,ENV2=v2,ENV3=v3)
         max_retries: the number of scheduler retries allowed
         rdzv_port: the port on rank0's host to use for hosting the c10d store used for rendezvous.
                    Only takes effect when running multi-node. When running single node, this parameter
@@ -103,7 +103,7 @@ def torchrun(
     if max_nnodes == 1:
         # using port 0 makes elastic chose a free random port which is ok
         # for single-node jobs since all workers run under a single agent
-        # When nnodes is 0 and max_nnodes is 1, it's stil a single node job
+        # When nnodes is 0 and max_nnodes is 1, it's still a single node job
         # but pending until the resources become available
         rdzv_endpoint = "localhost:0"
         num_nodes = nnodes_rep
