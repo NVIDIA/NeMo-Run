@@ -169,7 +169,7 @@ class PythonicParser:
             >>> parser.parse("x+=5")
             {'x': (Operation.ADD, '5')}
         """
-        assignment_match = re.match(r'^(\w+(?:\.\w+)*)\s*(=|\+=|-=|\*=|/=|\|=|&=)\s*(.+)$', arg)
+        assignment_match = re.match(r'^([\w\[\]\.]+)\s*(=|\+=|-=|\*=|/=|\|=|&=)\s*(.+)$', arg)
         if assignment_match:
             key, op_str, value = assignment_match.groups()
             try:
@@ -939,9 +939,6 @@ def parse_cli_args(
         key, (op, value) = next(iter(parsed.items()))
         logger.debug(f"Parsed key: {key}, op: {op}, value: {value}")
 
-        if value == "dummy_model_config":
-            a = 5
-
         if "." not in key:
             if isinstance(fn, (Config, Partial)):
                 signature = inspect.signature(fn.__fn_or_cls__)
@@ -951,7 +948,10 @@ def parse_cli_args(
         else:
             splitted, nested = key.split("."), output
             for attr in splitted[:-1]:
-                nested = getattr(nested, attr)
+                try:
+                    nested = parse_attribute(attr, nested)
+                except AttributeError as e:
+                    raise ArgumentValueError(f"Invalid attribute: {attr}", key, {"nested": nested}) from e
             signature = inspect.signature(nested.__fn_or_cls__)
             arg_name = splitted[-1]
 
@@ -999,19 +999,18 @@ def parse_cli_args(
 
 
 def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> Any:
-    """Parse a factory-style argument and instantiate the corresponding object.
+    """Parse a factory-style argument and instantiate the corresponding object(s).
 
-    This function is used internally by parse_cli_args to handle factory-style arguments,
-    where the value is a string representing a factory function call.
+    This function handles both single factory calls and lists of factory calls.
 
     Args:
         parent (Type): The parent class or function where the argument is defined.
         arg_name (str): The name of the argument.
         arg_type (Type): The expected type of the argument.
-        value (str): The string value to parse, expected to be in factory format.
+        value (str): The string value to parse, expected to be in factory format or a list of factory formats.
 
     Returns:
-        Any: The instantiated object created by the factory function.
+        Any: The instantiated object(s) created by the factory function(s).
 
     Raises:
         ValueError: If the factory format is invalid or no matching factory is found.
@@ -1019,11 +1018,14 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
     Example:
         >>> parse_factory(MyClass, "optimizer", OptimizerType, "Adam(lr=0.001)")
         <Adam optimizer object>
+        >>> parse_factory(MyClass, "layers", List[LayerType], "[Conv2D(64), MaxPool2D(), Dense(128)]")
+        [<Conv2D layer>, <MaxPool2D layer>, <Dense layer>]
 
     Notes:
         - This function uses the catalogue library to look up registered factory functions.
         - It supports nested factory calls and argument passing to the factory function.
         - The function is designed to work with the NeMo Run configuration system.
+        - It now supports parsing lists of factories.
     """
     import catalogue
 
@@ -1040,36 +1042,48 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 
         return catalogue._get((str(annotation), val))
 
-    # Extract factory name and arguments
-    match = re.match(r'^(\w+)(?:\((.*)\))?$', value)
-    if not match:
-        raise ValueError(f"Invalid factory format: {value}")
+    def parse_single_factory(factory_str):
+        # Extract factory name and arguments
+        match = re.match(r'^(\w+)(?:\((.*)\))?$', factory_str.strip())
+        if not match:
+            raise ValueError(f"Invalid factory format: {factory_str}")
 
-    factory_name, args_str = match.groups()
-    args_str = args_str or ""
+        factory_name, args_str = match.groups()
+        args_str = args_str or ""
 
-    # Find the factory function
-    factory_fn = None
-    try:
-        factory_fn = _get_from_registry(factory_name, parent, name=arg_name)
-    except catalogue.RegistryError:
-        types = get_underlying_types(arg_type)
-        for t in types:
-            try:
-                factory_fn = _get_from_registry(factory_name, t, name=factory_name)
-                break
-            except catalogue.RegistryError:
-                continue
+        # Find the factory function
+        factory_fn = None
+        try:
+            factory_fn = _get_from_registry(factory_name, parent, name=arg_name)
+        except catalogue.RegistryError:
+            types = get_underlying_types(arg_type)
+            for t in types:
+                try:
+                    factory_fn = _get_from_registry(factory_name, t, name=factory_name)
+                    break
+                except catalogue.RegistryError:
+                    continue
 
-    if not factory_fn:
-        raise ValueError(f"No matching factory found for: {value}")
+        if not factory_fn:
+            raise ValueError(f"No matching factory found for: {factory_str}")
 
-    if args_str:
-        cli_args = [arg.strip() for arg in args_str.split(',') if arg.strip()]
-        partial_factory = parse_cli_args(factory_fn, cli_args, output_type=Partial)
-        return fdl.build(partial_factory)()
+        if args_str:
+            cli_args = [arg.strip() for arg in args_str.split(',') if arg.strip()]
+            partial_factory = parse_cli_args(factory_fn, cli_args, output_type=Partial)
+            return fdl.build(partial_factory)()
 
-    return factory_fn()
+        return factory_fn()
+
+    # Check if the value is a list
+    list_match = re.match(r'^\s*\[(.*)\]\s*$', value)
+    if list_match:
+        # Check if arg_type is List[T], if so get T
+        if get_origin(arg_type) == list:
+            arg_type = get_args(arg_type)[0]
+        items = re.findall(r'([^,]+(?:\([^)]*\))?)', list_match.group(1))
+        return [parse_single_factory(item.strip()) for item in items]
+
+    return parse_single_factory(value)
 
 
 def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
@@ -1106,3 +1120,19 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
                 )
 
     return updated_args
+
+
+def parse_attribute(attr, nested):
+    """Parse and apply attribute access and indexing operations."""
+    if '[' not in attr:
+        return getattr(nested, attr)
+
+    parts = re.split(r'[\[\]]', attr)
+    result = getattr(nested, parts[0])
+    for index in parts[1:]:
+        if index:  # Skip empty strings from split
+            try:
+                result = result[int(index)]
+            except (IndexError, KeyError) as e:
+                raise ArgumentValueError(f"Invalid index '{index}' for {attr}", attr, {"nested": nested}) from e
+    return result

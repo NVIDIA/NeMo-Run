@@ -135,6 +135,19 @@ class TestFactoryFunctionParsing:
         assert result.model.hidden == 1000
         assert result.model.activation == "tanh"
 
+    def test_factory_function_with_list(self):
+        def func(model: List[DummyModel]): pass
+        result = parse_cli_args(func, [
+            "model=[my_dummy_model(1000), my_dummy_model(2000)]",
+            "model[0].hidden=5000",
+        ])
+        assert isinstance(result.model, list)
+        assert len(result.model) == 2
+        assert result.model[0].hidden == 5000
+        assert result.model[1].hidden == 2000
+        assert result.model[0].activation == "tanh"
+        assert result.model[1].activation == "tanh"
+
     def test_factory_function_with_kwargs(self):
         def func(model: DummyModel): pass
         result = parse_cli_args(func, ["model=my_dummy_model(hidden=3000)"])

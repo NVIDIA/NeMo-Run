@@ -773,7 +773,7 @@ class TestEntrypoint:
     def test_parse_executor_args(self):
         entrypoint = Entrypoint(lambda: None, namespace="test")
         args = ["a=1", "executor=local", "executor.gpus=2", "b=3"]
-        executor_name, executor_args, filtered_args = entrypoint._parse_executor_args(args)
+        executor_name, executor_args, filtered_args = entrypoint._parse_prefixed_args(args, "executor")
         assert executor_name == "local"
         assert executor_args == ["gpus=2"]
         assert filtered_args == ["a=1", "b=3"]
@@ -811,7 +811,12 @@ class TestEntrypoint:
         def experiment_func(experiment, executor):
             pass
 
-        entrypoint = Entrypoint(experiment_func, namespace="test", type="sequential_experiment")
+        entrypoint = Entrypoint(
+            experiment_func,
+            namespace="test",
+            type="sequential_experiment",
+            require_conformation=False
+        )
         entrypoint._execute_with_executor(
             [],
             mock_console,

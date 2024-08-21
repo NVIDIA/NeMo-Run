@@ -42,6 +42,7 @@ from nemo_run.core.cli_parser import parse_cli_args, parse_factory
 from nemo_run.core.execution import (LocalExecutor, SkypilotExecutor,
                                      SlurmExecutor)
 from nemo_run.core.execution.base import Executor
+from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
 F = TypeVar("F", bound=Callable[..., Any])
 Params = ParamSpec("Params")
@@ -669,6 +670,14 @@ class Entrypoint(Generic[Params, ReturnType]):
 
         raise ValueError(f"Executor {name} not found")
 
+    def parse_plugin(self, name: str, args: List[str]) -> Optional[Partial[Plugin]]:
+        if not args:
+            return None
+
+        plugin = parse_factory(self.fn, "plugin", Plugin, name)
+        plugin = parse_cli_args(plugin, args)
+        return plugin
+
     def cli(self, parent: typer.Typer):
         self._add_command(parent)
 
@@ -752,11 +761,11 @@ class Entrypoint(Generic[Params, ReturnType]):
                 "-s",
                 help="Throw an exception if unknown arguments are passed in.",
             ),
-            interactive: bool = typer.Option(  # Add this new option
+            interactive: bool = typer.Option(
                 False,
                 "--interactive",
                 "-i",
-                help="Enter interactive mode to construct and visualize the Partial object.",
+                help="Enter interactive mode in a ipython-shell to construct and visualize the run.",
             ),
         ):
             console = Console()
@@ -803,8 +812,10 @@ class Entrypoint(Generic[Params, ReturnType]):
         if strict:
             self.env["NEMO_TASK_STRICT"] = "1"
 
-        executor_args_name, executor_args, filtered_args = self._parse_executor_args(args)
+        executor_args_name, executor_args, filtered_args = self._parse_prefixed_args(args, "executor")
+        plugin_args_name, plugin_args, filtered_args = self._parse_prefixed_args(filtered_args, "plugin")
         executor = self._get_executor(executor_args_name, executor_args)
+        plugin = self.parse_plugin(plugin_args_name, plugin_args)
         _run_name = run_name or self.name
 
         if load:
@@ -832,6 +843,7 @@ class Entrypoint(Generic[Params, ReturnType]):
                             fn_or_script=task,
                             name=_run_name,
                             executor=executor,
+                            plugins=plugin,
                             direct=direct or executor is None,
                             wait=wait,
                         )
@@ -841,7 +853,7 @@ class Entrypoint(Generic[Params, ReturnType]):
                 embed(colors="neutral")
                 return
 
-            run.dryrun_fn(partial, executor=executor)
+            run.dryrun_fn(task, executor=executor)
 
             if dryrun:
                 console.print(f"[bold cyan]Dry run for {_run_name}:[/bold cyan]")
@@ -850,9 +862,10 @@ class Entrypoint(Generic[Params, ReturnType]):
             if self._should_continue():
                 console.print(f"[bold cyan]Launching {_run_name}...[/bold cyan]")
                 run.run(
-                    fn_or_script=partial,
+                    fn_or_script=task,
                     name=_run_name,
                     executor=executor,
+                    plugins=plugin,
                     direct=direct or executor is None,
                     wait=wait,
                 )
@@ -874,20 +887,37 @@ class Entrypoint(Generic[Params, ReturnType]):
         else:
             raise ValueError(f"Unknown entrypoint type: {self.type}")
 
+    def _parse_prefixed_args(self, args: List[str], prefix: str) -> Tuple[Optional[str], List[str], List[str]]:
+        """
+        Parse arguments to separate prefixed args from others.
 
-    def _parse_executor_args(self, args: List[str]) -> Tuple[Optional[str], List[str], List[str]]:
-        executor_args_name, executor_args, filtered_args = None, [], []
+        Args:
+            args (List[str]): List of command-line arguments.
+            prefix (str): The prefix to look for in arguments.
+
+        Returns:
+            Tuple[Optional[str], List[str], List[str]]: A tuple containing:
+                - The value of the prefixed argument (if any)
+                - List of arguments specific to the prefix
+                - List of other arguments
+
+        Example:
+            For prefix "executor":
+            executor=local executor.gpus=2 other_arg=value
+            Returns: ("local", ["gpus=2"], ["other_arg=value"])
+        """
+        prefixed_arg_value, prefixed_args, other_args = None, [], []
         for arg in args:
-            if arg.startswith("executor"):
-                if arg.startswith("executor="):
-                    executor_args_name = arg.split("=")[1]
+            if arg.startswith(prefix):
+                if arg.startswith(f"{prefix}="):
+                    prefixed_arg_value = arg.split("=")[1]
                 else:
-                    if not arg.startswith("executor."):
-                        raise ValueError(f"Executor overwrites must start with 'executor.'. Got {arg}")
-                    executor_args.append(arg.replace("executor.", ""))
+                    if not arg.startswith(f"{prefix}."):
+                        raise ValueError(f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}")
+                    prefixed_args.append(arg.replace(f"{prefix}.", ""))
             else:
-                filtered_args.append(arg)
-        return executor_args_name, executor_args, filtered_args
+                other_args.append(arg)
+        return prefixed_arg_value, prefixed_args, other_args
 
     def _get_executor(self, executor_args_name: Optional[str], executor_args: List[str]) -> Optional[Executor]:
         if executor_args:
