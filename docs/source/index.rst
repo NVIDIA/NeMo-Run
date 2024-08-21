@@ -6,7 +6,7 @@
 NeMo-Run documentation
 ======================
 
-NeMo-Run is a powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments. NeMo Run has three core responsiblities:
+NeMo-Run is a powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments. NeMo Run has three core responsibilities:
 
 1. `Configuration <./guides/configuration.html>`_
 2. `Execution <./guides/execution.html>`_

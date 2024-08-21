@@ -70,7 +70,7 @@ rye test
 
 1) Make sure your PR does one thing. Have a clear answer to "What does this PR do?".
 2) Read General Principles and style guide above
-3) Make sure you sign your commits. E.g. use ``git commit -sS`` when committing.
+3) Make sure you sign off your commits. E.g. use ``git commit --signoff`` when committing.
 4) Make sure all unit tests finish successfully before sending PR
 5) Send your PR and request a review
 
@@ -83,9 +83,9 @@ Every release `dev` and `main` will sync to be the same.
 
   * Any contribution which contains commits that are not Signed-Off will not be accepted.
 
-* To sign off on a commit you simply use the `-sS` option when committing your changes:
+* To sign off on a commit you simply use the `--signoff` option when committing your changes:
   ```bash
-  $ git commit -sS -m "Add cool feature."
+  $ git commit --signoff -m "Add cool feature."
   ```
 
 ## Full text of the DCO:

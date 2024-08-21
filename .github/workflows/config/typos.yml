@@ -1,0 +1,6 @@
+[files]
+extend-exclude = [
+    ".git/",
+    "test/",
+]
+ignore-hidden = false

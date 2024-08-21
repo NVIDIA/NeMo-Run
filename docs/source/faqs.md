@@ -78,7 +78,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 
 ## Execution
 #### **Q:** For SlurmExecutor, how can I execute directly from the login node of the cluster.
-**A**: For example, to execute the SlurmExecutor from your local maching via SSH, you may have:
+**A**: For example, to execute the SlurmExecutor from your local machine via SSH, you may have:
 ```python
 ssh_tunnel = run.SSHTunnel(
     host="your-slurm-host",

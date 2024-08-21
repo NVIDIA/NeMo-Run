@@ -18,7 +18,7 @@ Additionally, in the future, we also aim to provide interoperability between Pyt
 In summary, you should use NemoRun to configure your tasks because it provides **Flexibility** and **Modularity** when defining your config, and, once done, allows you to launch your configured tasks anywhere in a breeze.
 
 ## Execution
-One key philosohpy that NemoRun uses is decoupling of configuration and execution. As a result, you can configure your task seperately from defining your execution environment. This makes it trivial to switch from one execution environment to the other.
+One key philosophy that NemoRun uses is decoupling of configuration and execution. As a result, you can configure your task separately from defining your execution environment. This makes it trivial to switch from one execution environment to the other.
 
 There is a one-time cost of defining your executor, but this is amortized across your workspace or your team.
 
@@ -58,6 +58,6 @@ All in all, you should use NemoRun because it provides
 - **Flexibility**
 - **Modularity**
 - **Reproducibility**
-- **Organziation**
+- **Organization**
 
 for your experiments. On top of all this, if you're using Nemo 2.0, NemoRun has a close knit integration with it, and this will only continue to get better over time.

@@ -58,7 +58,7 @@ Your working directory at the time of execution will look like:
 ```
 If you're executing a Python function, this working directory will automatically be included in your Python path.
 
-> **_NOTE:_** git archive doesn't package uncomitted changes. In the future, we may add support for including uncommitted changes while honoring `.gitignore`.
+> **_NOTE:_** git archive doesn't package uncommitted changes. In the future, we may add support for including uncommitted changes while honoring `.gitignore`.
 
 ### Defining Executors
 Next, We'll describe details on setting up each of the executors below.

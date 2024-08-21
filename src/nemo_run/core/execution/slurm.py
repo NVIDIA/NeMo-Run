@@ -279,7 +279,7 @@ class SlurmExecutor(Executor):
     packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore
     #: List of TorchX app handles that will be parsed and passed to --dependency flag in sbatch.
     dependencies: list[str] = field(default_factory=list)
-    #: Optional parameter to explicity specify nproc_per_node for torchrun like components if the slurm cluster doesn't support granular resource allocation.
+    #: Optional parameter to explicitly specify nproc_per_node for torchrun like components if the slurm cluster doesn't support granular resource allocation.
     torchrun_nproc_per_node: Optional[int] = None
 
     #: Set by the executor; cannot be initialized
