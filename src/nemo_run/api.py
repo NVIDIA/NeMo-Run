@@ -13,160 +13,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import importlib.util
-import inspect
-import os
-from functools import cache, wraps
-from typing import (
-    Any,
-    Callable,
-    Concatenate,
-    Literal,
-    Optional,
-    ParamSpec,
-    Protocol,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    overload,
-    runtime_checkable,
-)
+from functools import wraps
+from typing import (Any, Callable, Concatenate, Literal, Optional, ParamSpec,
+                    Protocol, Type, TypeVar, Union, cast, overload,
+                    runtime_checkable)
 
-import catalogue
 import fiddle as fdl
-import importlib_metadata as metadata
 from fiddle.experimental import auto_config as _auto_config
 from rich.pretty import Pretty
 from rich.table import Table
 
-from nemo_run.config import NEMORUN_HOME, Config, Partial
+from nemo_run.config import Config, Partial
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.api import CONSOLE, CustomConfigRepr
 
 F = TypeVar("F", bound=Callable[..., Any])
 T = TypeVar("T")
 P = ParamSpec("P")
-C = TypeVar("C", bound=Callable)
-
 ROOT_TASK_NAMESPACE = "nemo_run.task"
 ROOT_TASK_FACTORY_NAMESPACE = "nemo_run.task_factory"
 ROOT_TYPER_NAMESPACE = "nemo_run.typer"
 DEFAULT_NAME = "default"
 
 AUTOBUILD_CLASSES = (Executor,)
-
-
-@cache
-def _load_entrypoints():
-    try:
-        entrypoints = metadata.entry_points().select(group="run.factories")
-        for ep in entrypoints:
-            ep.load()
-    except Exception:
-        ...
-
-
-def _search_workspace_file() -> str | None:
-    current_dir = os.getcwd()
-    file_names = [
-        "workspace_private.py",
-        "workspace.py",
-        os.path.join(NEMORUN_HOME, "workspace.py"),
-    ]
-
-    while True:
-        for file_name in file_names:
-            workspace_file_path = os.path.join(current_dir, file_name)
-            if os.path.exists(workspace_file_path):
-                return workspace_file_path
-
-        # Go up one directory level
-        parent_dir = os.path.dirname(current_dir)
-        if parent_dir == current_dir:  # Root directory
-            break
-        current_dir = parent_dir
-
-    return None
-
-
-def _load_workspace_file(path):
-    spec = importlib.util.spec_from_file_location("workspace", path)
-    assert spec
-    workspace_module = importlib.util.module_from_spec(spec)
-    assert spec.loader
-    spec.loader.exec_module(workspace_module)
-
-
-@cache
-def _load_workspace():
-    workspace_file_path = _search_workspace_file()
-
-    if workspace_file_path:
-        return _load_workspace_file(workspace_file_path)
-
-
-def task(
-    fn: Optional[F] = None,
-    *,
-    name: Optional[str] = None,
-    namespace=None,
-    help: Optional[str] = None,
-    parse_partial: Optional[Callable[[T, list[str]], Partial[T]]] = None,
-    **kwargs,
-) -> F | Callable[[F], F]:
-    from nemo_run.cli.dynamic_cli import Task
-
-    if namespace:
-        _namespace = namespace
-    else:
-        caller = inspect.stack()[1]
-        _module = inspect.getmodule(caller[0])
-        assert _module, "Module is None for task."
-        _namespace = _module.__name__
-
-    def wrapper(f: F) -> F:
-        task = Task(
-            f,
-            name=name,
-            namespace=_namespace,
-            help_str=help,
-            parse_partial=parse_partial,
-        )
-        parts = _namespace.split(".")
-        task_namespace = (ROOT_TASK_NAMESPACE, *parts, f.__name__)
-        catalogue._set(task_namespace, task)
-
-        return f
-
-    if fn is None:
-        return wrapper
-
-    return wrapper(fn)
-
-
-def list_tasks(
-    namespace: Optional[str] = None,
-) -> dict[str, dict[str, F]] | dict[str, F]:
-    """List all tasks for a given or root namespace."""
-    _load_entrypoints()
-    _load_workspace()
-
-    full_namespace = (ROOT_TASK_NAMESPACE,)
-    if namespace:
-        full_namespace += (namespace,)
-    response = catalogue._get_all(full_namespace)
-    output = {}
-    for key, fn in response.items():
-        parts = fn.path.split(".")
-        current_level = output
-        for part in parts[:-1]:
-            if part not in current_level:
-                current_level[part] = {}
-            current_level = current_level[part]
-        current_level[parts[-1]] = fn
-
-    return output
 
 
 def default_autoconfig_buildable(
@@ -234,7 +103,9 @@ def autoconvert(
 
 
 def autoconvert(
-    fn: Optional[Callable[P, T] | Callable[P, Config[T]] | Callable[P, Partial[T]]] = None,
+    fn: Optional[
+        Callable[P, T] | Callable[P, Config[T]] | Callable[P, Partial[T]]
+    ] = None,
     *,
     partial: bool = False,
     to_buildable_fn: Callable[
@@ -259,23 +130,23 @@ def autoconvert(
 
     - Directly as a decorator for a function you define:
 
-      .. code-block:: python
-
-        @autoconvert
-        def my_func(param1: int, param2: str) -> MyType:
-            return MyType(param1=param1, param2=param2)
+      ```python
+      @autoconvert
+      def my_func(param1: int, param2: str) -> MyType:
+          return MyType(param1=param1, param2=param2)
+      ```
 
       This will return `run.Config(MyType, param1=param1, param2=param2)` when called, assuming that
       `partial=False` (otherwise, it would be a run.Partial instance).
 
     - Indirectly, as a way to convert an existing function:
 
-      .. code-block:: python
+      ```python
+      def my_func(param1: int, param2: str) -> MyType:
+          return MyType(param1=param1, param2=param2)
 
-        def my_func(param1: int, param2: str) -> MyType:
-            return MyType(param1=param1, param2=param2)
-
-        my_new_func = autoconvert(partial=True)(my_func)
+      my_new_func = autoconvert(partial=True)(my_func)
+      ```
 
       Now, calling `my_new_func` will actually return `run.Partial(MyType, param1=param1, param2=param2)` rather
       than a `MyType` instance.
@@ -326,7 +197,9 @@ def dryrun_fn(
 
     fn = configured_fn.__fn_or_cls__
     console = CONSOLE
-    console.print(f"[bold cyan]Dry run for task {fn.__module__}:{fn.__name__}[/bold cyan]")
+    console.print(
+        f"[bold cyan]Dry run for task {fn.__module__}:{fn.__name__}[/bold cyan]"
+    )
 
     table_resolved_args = Table(show_header=True, header_style="bold magenta")
     table_resolved_args.add_column("Argument Name", style="dim", width=20)
@@ -351,7 +224,5 @@ def dryrun_fn(
 
 
 @runtime_checkable
-class AutoConfigProtocol(Protocol[C]):
+class AutoConfigProtocol(Protocol):
     def __auto_config__(self) -> bool: ...
-
-    __call__: C

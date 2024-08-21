@@ -24,9 +24,9 @@ import sys
 import typing
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Generic, Optional, Type, TypeVar, Union, get_args
+from typing import (Any, Callable, Generic, Optional, Type, TypeVar, Union,
+                    get_args)
 
-import catalogue
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
 import graphviz
@@ -37,7 +37,6 @@ from fiddle.graphviz import render, render_diff
 from typing_extensions import Annotated, ParamSpec, Self
 
 import nemo_run.exceptions as run_exceptions
-from nemo_run.core.lark_parser import parse_args
 
 Params = ParamSpec("Params")
 ReturnType = TypeVar("ReturnType")
@@ -66,9 +65,9 @@ def get_type_namespace(typ: Type | Callable) -> str:
         'your_module.MyClass'
     """
     module = typ.__module__
-    if module == "__main__":
+    if module == '__main__':
         # Get the filename without extension
-        main_module = sys.modules["__main__"]
+        main_module = sys.modules['__main__']
         filename = os.path.basename(main_module.__file__)
         module = os.path.splitext(filename)[0]
 
@@ -92,7 +91,7 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
 def from_dict(raw_data: dict | list | str | float | int | bool, cls: Type[_T]) -> _T:
     if isinstance(raw_data, dict):
         underlying_types = get_underlying_types(cls)
-        underlying_types = [tp for tp in underlying_types if tp is not type(None)]
+        underlying_types = [tp for tp in underlying_types if tp != type(None)]
         assert (
             len(underlying_types) == 1
         ), f"Unable to load {cls}. Nested union types are not currently supported."
@@ -136,7 +135,9 @@ def set_value(cfg: config.Buildable, key: str, value: Any) -> None:
         else:
             raise run_exceptions.SetValueError(f"Unexpected path element {last}.")
     except Exception as e:
-        raise run_exceptions.SetValueError(f'Could not set "{key}" to "{value}".') from e
+        raise run_exceptions.SetValueError(
+            f'Could not set "{key}" to "{value}".'
+        ) from e
 
 
 class _CloneAndFNMixin:
@@ -259,6 +260,11 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
 
+    @classmethod
+    def from_cli(cls, fn_or_cls: Union[fdl.Buildable[_T], TypeOrCallableProducingT[_T]], *args: str) -> Config[_T]:
+        from nemo_run.core.cli_parser import parse_cli_args
+        return parse_cli_args(fn_or_cls, list(args), cls)
+
 
 class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
     """
@@ -282,6 +288,11 @@ class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
 
+    @classmethod
+    def from_cli(cls, fn_or_cls: Union[fdl.Buildable[_T], TypeOrCallableProducingT[_T]], *args: str) -> Partial[_T]:
+        from nemo_run.core.cli_parser import parse_cli_args
+        return parse_cli_args(fn_or_cls, list(args), cls)
+
 
 register_supported_cast(fdl.Config, Config)
 register_supported_cast(fdl.Partial, Partial)
@@ -291,38 +302,12 @@ register_supported_cast(Partial, Partial)
 
 @dataclasses.dataclass
 class Script:
-    """
-    Dataclass to configure raw scripts.
-
-    Examples:
-
-    .. code-block:: python
-
-        file_based_script = run.Script("./scripts/echo.sh")
-
-        inline_script = run.Script(
-            inline=\"\"\"
-        env
-        echo "Hello 1"
-        echo "Hello 2"
-        \"\"\"
-        )
-
-    """
-
-    #: Path to your script
     path: str = ""
-    #: Inline contents of the script. Either path or inline needs to be set.
     inline: str = ""
-    #: Args to pass to your scripts, only applicable when path is set.
     args: list[str] = dataclasses.field(default_factory=list)
-    #: Environment variables to set when running the script.
     env: dict[str, str] = dataclasses.field(default_factory=dict)
-    #: Shell to use, defaults to bash.
     shell: str = "bash"
-    #: Whether to use a python binary to run your script, set shell="" to activate.
     python: str = "python"
-    #: Whether to use ``python -m`` when executing via python.
     m: bool = False
 
     def __post_init__(self):
@@ -408,58 +393,19 @@ def _construct_args(
     primitive = [str, float, int, bool, bytes]
     primitive.extend([Optional[t] for t in primitive])
 
-    from nemo_run.api import AutoConfigProtocol
-
-    def _get_from_registry(val, annotation, name):
-        if catalogue.check_exists(
-            get_type_namespace(annotation),
-            val,
-        ):
-            return catalogue._get(
-                (
-                    get_type_namespace(annotation),
-                    val,
-                )
-            )
-
-        namespace = f"{get_type_namespace(fn_or_cls)}.{name}"
-        if catalogue.check_exists(namespace, val):
-            return catalogue._get((namespace, val))
-
-        return catalogue._get((str(annotation), val))
-
     for name, parameter in params.items():
-        is_primitive = parameter.annotation in primitive
         arg = kwargs.get(name, None)
 
         if arg:
-            if is_primitive:
-                final_args[name] = arg
+            if dataclasses.is_dataclass(arg):
+                final_args[name] = fdl.cast(
+                    Config,
+                    fdl_dc.convert_dataclasses_to_configs(
+                        arg, allow_post_init=True
+                    ),
+                )
             else:
-                if isinstance(arg, str):
-                    types = get_underlying_types(parameter.annotation)
-                    for t in types:
-                        try:
-                            arg = _get_from_registry(arg, t, name=name)
-                            break
-                        except catalogue.RegistryError:
-                            ...
-
-                if isinstance(arg, (Config, Partial, fdl.ArgFactory)):
-                    # TODO: Check validity
-                    final_args[name] = arg
-                elif callable(arg):
-                    if _is_config_or_partial_factory(arg) or isinstance(arg, AutoConfigProtocol):
-                        final_args[name] = arg()
-                    else:
-                        final_args[name] = Partial(arg)
-                else:
-                    if dataclasses.is_dataclass(arg):
-                        arg = fdl.cast(
-                            Config,
-                            fdl_dc.convert_dataclasses_to_configs(arg, allow_post_init=True),
-                        )
-                    final_args[name] = arg
+                final_args[name] = arg
         elif str(parameter.annotation).startswith("typing.Annotated"):
             args = get_args(parameter.annotation)
             if str(args[0]).startswith("typing.Optional") and len(args) > 1:
@@ -490,64 +436,3 @@ def _try_set_all(config: _BuildableT, _walk: bool = False, **kwargs) -> _Buildab
                 pass
 
     return config
-
-
-def enable_overrides(fn_or_cfg: Any, prefix: str = ""):
-    """
-    Enables hydra style overrides via the CLI for a configured function in a script.
-
-    This works on either configured objects or on objects which allow setattr/getattr on dot paths.
-    An optional prefix specifies the namespace for the passed in object.
-
-    .. note::
-        This is experimental, and prone to errors.
-
-    .. note::
-        Only to be used inside a main function in a python script because it gets the arguments from sys.argv.
-
-    Examples
-    --------
-    .. code-block:: python
-
-        # in script
-        if __name__ == "__main__":
-            fn = run.Partial(
-                add_object,
-                obj_1="commonly_used_object",
-                obj_2=run.Config(SomeObject, value_1=10, value_2=20, value_3=30),
-            )
-            run.enable_overrides(fn)
-            executor = run.LocalExecutor()
-            run.enable_overrides(executor, prefix="executor")
-
-        # from cli
-        >>> python script.py obj_1.value_1=500 executor.launcher="torchrun"
-
-    """
-    possible_overrides = sys.argv[1:]
-    parsed_args, parsed_overrides = parse_args(possible_overrides)
-    parsed_overrides = parsed_args | parsed_overrides
-    for key, value in parsed_overrides.items():
-        try:
-            if prefix:
-                if key.startswith(f"{prefix}."):
-                    key = key.partition(f"{prefix}.")[-1]
-                    set_value(fn_or_cfg, key, value)
-            else:
-                set_value(fn_or_cfg, key, value)
-        except run_exceptions.SetValueError:
-            ...
-
-
-def _is_config_or_partial_factory(func):
-    sig = inspect.signature(func)
-    return_annotation = sig.return_annotation
-    has_only_kwargs = all(param.kind == param.KEYWORD_ONLY for param in sig.parameters.values())
-    return (
-        has_only_kwargs
-        and return_annotation in (Config, Partial)
-        or (
-            hasattr(return_annotation, "__origin__")
-            and return_annotation.__origin__ in (Config, Partial)
-        )
-    )

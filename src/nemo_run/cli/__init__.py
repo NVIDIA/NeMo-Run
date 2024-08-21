@@ -13,3 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from nemo_run.cli.api import (create_cli, entrypoint, factory,
+                              list_entrypoints, list_factories, main,
+                              resolve_factory)
+
+__all__ = [
+    "create_cli",
+    "main",
+    "entrypoint",
+    "factory",
+    "resolve_factory",
+    "list_entrypoints",
+    "list_factories",
+]
