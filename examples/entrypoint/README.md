@@ -118,21 +118,24 @@ if __name__ == "__main__":
 
 ## Running the Entrypoints
 
-To run the single task entrypoint, use the following command:
+To run the single task entrypoint, you can use various configurations. Here are some examples:
 
+1. Basic configuration:
 ```
-python task.py --model.hidden_size 256 --model.num_layers 3 --model.activation relu \
-                --optimizer.learning_rate 0.001 --optimizer.weight_decay 1e-5 \
-                --optimizer.betas 0.9 0.999 --epochs 10 --batch_size 32
-```
-
-To run the sequential experiment entrypoint, use the following command:
-
-```
-python experiment.py --model.hidden_size 256 --model.num_layers 3 --model.activation relu \
-                     --optimizer.learning_rate 0.001 --optimizer.weight_decay 1e-5 \
-                     --optimizer.betas 0.9 0.999 --train_epochs 10 --eval_epochs 2
+python experiment.py model=my_model optimizer=my_optimizer
 ```
 
-Note that you can modify the configuration parameters as needed by providing different values for
-the command-line arguments.
+2. Modifying a specific parameter:
+```
+python experiment.py model=my_model optimizer=my_optimizer model.hidden_size=100
+```
+
+3. Scaling a parameter:
+```
+python experiment.py model=my_model optimizer=my_optimizer model.hidden_size*=5
+```
+
+4. Specifying a parameter directly in the factory function call:
+```
+python experiment.py model=my_model(activation="tanh") optimizer=my_optimizer
+```
