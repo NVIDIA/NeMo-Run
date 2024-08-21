@@ -752,6 +752,12 @@ class Entrypoint(Generic[Params, ReturnType]):
                 "-s",
                 help="Throw an exception if unknown arguments are passed in.",
             ),
+            interactive: bool = typer.Option(  # Add this new option
+                False,
+                "--interactive",
+                "-i",
+                help="Enter interactive mode to construct and visualize the Partial object.",
+            ),
         ):
             console = Console()
             try:
@@ -767,6 +773,7 @@ class Entrypoint(Generic[Params, ReturnType]):
                     run_name=run_name,
                     direct=direct,
                     strict=strict,
+                    interactive=interactive,  # Pass the new parameter
                 )
             except Exception as e:
                 console.print(f"[bold red]Error: {str(e)}[/bold red]")
@@ -789,6 +796,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         run_name: Optional[str],
         direct: bool,
         strict: bool,
+        interactive: bool = False,  # Add this new parameter
     ):
         import nemo_run as run
 
@@ -804,9 +812,34 @@ class Entrypoint(Generic[Params, ReturnType]):
 
         if self.type == "task":
             if factory:
-                partial = resolve_factory(self.fn, factory)()
+                task = resolve_factory(self.fn, factory)()
             else:
-                partial = self.parse_partial(filtered_args)
+                task = self.parse_partial(filtered_args)
+
+            if interactive:
+                from IPython import embed
+
+                console.print("[bold cyan]Entering interactive mode...[/bold cyan]")
+                console.print("Use 'task' to access and modify the Partial object.")
+                console.print("Use 'run_task()' to execute the task when ready.")
+
+                def run_task():
+                    nonlocal task
+                    run.dryrun_fn(task, executor=executor)
+                    if self._should_continue():
+                        console.print(f"[bold cyan]Launching {_run_name}...[/bold cyan]")
+                        run.run(
+                            fn_or_script=task,
+                            name=_run_name,
+                            executor=executor,
+                            direct=direct or executor is None,
+                            wait=wait,
+                        )
+                    else:
+                        console.print("[bold cyan]Exiting...[/bold cyan]")
+
+                embed(colors="neutral")
+                return
 
             run.dryrun_fn(partial, executor=executor)
 
