@@ -30,7 +30,6 @@ def run(
     dryrun: bool = False,
     direct: bool = False,
     detach: bool = False,
-    wait: bool = False,
     tail_logs: bool = True,
     log_level: str = "INFO",
 ):

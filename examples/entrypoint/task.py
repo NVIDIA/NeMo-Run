@@ -20,33 +20,6 @@ class Optimizer:
     betas: List[float]
 
 
-@run.cli.entrypoint
-def train_model(
-    model: Model,
-    optimizer: Optimizer,
-    epochs: int = 10,
-    batch_size: int = 32
-):
-    """
-    Train a model using the specified configuration.
-
-    Args:
-        model (Model): Configuration for the model.
-        optimizer (Optimizer): Configuration for the optimizer.
-        epochs (int, optional): Number of training epochs. Defaults to 10.
-        batch_size (int, optional): Batch size for training. Defaults to 32.
-    """
-    print(f"Training model with the following configuration:")
-    print(f"Model: {model}")
-    print(f"Optimizer: {optimizer}")
-    print(f"Epochs: {epochs}")
-    print(f"Batch size: {batch_size}")
-
-    # Simulating model training
-    for epoch in range(epochs):
-        print(f"Epoch {epoch + 1}/{epochs}")
-
-    print("Training completed!")
 
 
 @run.cli.factory
@@ -73,6 +46,35 @@ def my_optimizer(
     Create an optimizer configuration.
     """
     return Optimizer(learning_rate=learning_rate, weight_decay=weight_decay, betas=betas)
+
+
+@run.cli.entrypoint
+def train_model(
+    model: Model = my_model(),
+    optimizer: Optimizer = my_optimizer(),
+    epochs: int = 10,
+    batch_size: int = 32
+):
+    """
+    Train a model using the specified configuration.
+
+    Args:
+        model (Model): Configuration for the model.
+        optimizer (Optimizer): Configuration for the optimizer.
+        epochs (int, optional): Number of training epochs. Defaults to 10.
+        batch_size (int, optional): Batch size for training. Defaults to 32.
+    """
+    print(f"Training model with the following configuration:")
+    print(f"Model: {model}")
+    print(f"Optimizer: {optimizer}")
+    print(f"Epochs: {epochs}")
+    print(f"Batch size: {batch_size}")
+
+    # Simulating model training
+    for epoch in range(epochs):
+        print(f"Epoch {epoch + 1}/{epochs}")
+
+    print("Training completed!")
 
 
 if __name__ == "__main__":

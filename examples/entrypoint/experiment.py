@@ -75,10 +75,9 @@ def my_optimizer(
     return Optimizer(learning_rate=learning_rate, weight_decay=weight_decay, betas=betas)
 
 
-@run.cli.entrypoint(type="sequential_experiment")
+@run.cli.entrypoint(type="experiment")
 def train_and_evaluate(
-    experiment: run.Experiment,
-    executor: run.Executor,
+    ctx: run.cli.RunContext,
     model: Model = my_model(),
     optimizer: Optimizer = my_optimizer(),
     train_epochs: int = 10,
@@ -98,10 +97,9 @@ def train_and_evaluate(
     train = run.Partial(train_model, model=model, optimizer=optimizer, epochs=train_epochs)
     evaluate = run.Partial(train_model, model=model, optimizer=optimizer, epochs=eval_epochs)
 
-    experiment.add(train, executor=executor, name="train")
-    experiment.add(evaluate, executor=executor, name="evaluate")
-
-    return experiment
+    ctx.sequential = True
+    ctx.add(train, executor=ctx.executor, name="train")
+    ctx.add(evaluate, executor=ctx.executor, name="evaluate")
 
 
 if __name__ == "__main__":

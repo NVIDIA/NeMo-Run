@@ -930,8 +930,13 @@ def parse_cli_args(
     parser = PythonicParser()
     if isinstance(fn, (Config, Partial)):
         output = fn
+    elif isinstance(fn, (list, tuple)) and all(isinstance(item, (Config, Partial)) for item in fn):
+        output = fn
     else:
-        output = output_type(fn)
+        if output_type in (Partial, Config):
+            output = output_type(fn)
+        else:
+            output = output_type
 
     for arg in _args_to_kwargs(fn, args):
         logger.debug(f"Processing argument: {arg}")
@@ -1089,8 +1094,20 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
     if isinstance(fn, (Config, Partial)):
         signature = inspect.signature(fn.__fn_or_cls__)
+    elif isinstance(fn, (list, tuple)):
+        signature = None
     else:
         signature = inspect.signature(fn)
+    if signature is None:
+        for arg in args:
+            if not "=" in arg:
+                raise ArgumentParsingError(
+                    "Positional argument found after keyword argument",
+                    arg,
+                    {"position": len(args)}
+                )
+
+        return args
     params = list(signature.parameters.values())
 
     updated_args = []
@@ -1124,15 +1141,21 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
 
 def parse_attribute(attr, nested):
     """Parse and apply attribute access and indexing operations."""
-    if '[' not in attr:
-        return getattr(nested, attr)
+    parts = re.split(r'(\[|\])', attr)
+    result = nested
 
-    parts = re.split(r'[\[\]]', attr)
-    result = getattr(nested, parts[0])
-    for index in parts[1:]:
-        if index:  # Skip empty strings from split
+    for part in parts:
+        if part == '[' or part == ']' or part == '':
+            continue
+        elif part.isdigit():
             try:
-                result = result[int(index)]
-            except (IndexError, KeyError) as e:
-                raise ArgumentValueError(f"Invalid index '{index}' for {attr}", attr, {"nested": nested}) from e
+                result = result[int(part)]
+            except (IndexError, KeyError, TypeError) as e:
+                raise ArgumentValueError(f"Invalid index '{part}' for {attr}", attr, {"nested": nested}) from e
+        else:
+            try:
+                result = getattr(result, part)
+            except AttributeError as e:
+                raise ArgumentValueError(f"Invalid attribute '{part}' for {attr}", attr, {"nested": nested}) from e
+
     return result

@@ -18,14 +18,15 @@ import inspect
 import logging
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache, wraps
 from typing import (Any, Callable, Generic, List, Literal, Optional, Protocol,
-                    Tuple, Type, TypeVar, get_args, overload,
+                    Tuple, Type, TypeVar, Union, get_args, overload,
                     runtime_checkable)
 
 import catalogue
 import fiddle as fdl
+import fiddle._src.experimental.dataclasses as fdl_dc
 import importlib_metadata as metadata
 import typer
 from rich.console import Console
@@ -36,12 +37,13 @@ from typing_extensions import ParamSpec
 
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
-from nemo_run.config import (NEMORUN_HOME, Config, Partial, get_type_namespace,
-                             get_underlying_types, set_value)
+from nemo_run.config import (NEMORUN_HOME, Config, Partial, Script,
+                             get_type_namespace, get_underlying_types)
 from nemo_run.core.cli_parser import parse_cli_args, parse_factory
 from nemo_run.core.execution import (LocalExecutor, SkypilotExecutor,
                                      SlurmExecutor)
 from nemo_run.core.execution.base import Executor
+from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -53,6 +55,7 @@ ROOT_ENTRYPOINT_NAMESPACE = "nemo_run.cli.entrypoints"
 ROOT_FACTORY_NAMESPACE = "nemo_run.cli.factories"
 DEFAULT_NAME = "default"
 EXECUTOR_CLASSES = [Executor, LocalExecutor, SkypilotExecutor, SlurmExecutor]
+PLUGIN_CLASSES = [Plugin, List[Plugin]]
 
 
 def entrypoint(
@@ -61,10 +64,10 @@ def entrypoint(
     name: Optional[str] = None,
     namespace: Optional[str] = None,
     help: Optional[str] = None,
-    require_conformation: bool = True,
+    require_confirmation: bool = True,
     enable_executor: bool = True,
     entrypoint_cls: Optional[Type["Entrypoint"]] = None,
-    type: Literal["task", "sequential_experiment", "parallel_experiment"] = "task"
+    type: Literal["task", "experiment"] = "task"
 ) -> F | Callable[[F], F]:
     """
     Decorator to register a function as a CLI entrypoint in the NeMo Run framework.
@@ -78,11 +81,9 @@ def entrypoint(
         name (Optional[str]): Custom name for the entrypoint. Defaults to the function name.
         namespace (Optional[str]): Custom namespace for the entrypoint. Defaults to the module name.
         help (Optional[str]): Help text for the entrypoint, displayed in CLI help messages.
-        parse_partial (Optional[Callable[[T, List[str]], Partial[T]]]): Custom parser for partial configurations.
-        parse_executor (Optional[Callable[[List[str]], Executor]]): Custom parser for executor configurations.
-        require_conformation (bool): If True, requires user confirmation before execution. Defaults to True.
+        require_confirmation (bool): If True, requires user confirmation before execution. Defaults to True.
         enable_executor (bool): If True, enables executor functionality for the entrypoint. Defaults to True.
-        type (Literal["task", "sequential_experiment", "parallel_experiment"]): The type of entrypoint. Defaults to "task".
+        type (Literal["task", "experiment"]): The type of entrypoint. Defaults to "task".
 
     Returns:
         F | Callable[[F], F]: The decorated function or a decorator function.
@@ -150,7 +151,7 @@ def entrypoint(
             name=name,
             namespace=_namespace,
             help_str=help,
-            require_conformation=require_conformation,
+            require_confirmation=require_confirmation,
             enable_executor=enable_executor,
             type=type
         )
@@ -611,7 +612,191 @@ def _load_workspace():
         return _load_workspace_file(workspace_file_path)
 
 
+@dataclass(kw_only=True)
+class RunContext:
+    name: str
+    direct: bool = False
+    dryrun: bool = False
+    factory: Optional[str] = None
+    load: Optional[str] = None
+    repl: bool = False
+    sequential: bool = True
+    detach: bool = False
+    require_confirmation: bool = True
+    tail_logs: bool = False
+
+    experiment: Experiment = field(init=False)
+    executor: Optional[Executor] = field(init=False)
+    plugins: List[Plugin] = field(init=False)
+
+    def add(
+        self,
+        fn_or_script: Union[Partial, Script] | list[Union[Partial, Script]],
+        executor: Executor | list[Executor] | None = None,
+        name: str = "",
+        plugins: Optional[list[Plugin]] = None,
+        tail_logs: bool = False,
+    ):
+        self.experiment.add(
+            fn_or_script, executor=executor, name=name, plugins=plugins, tail_logs=tail_logs
+        )
+
+    def run(
+        self,
+        fn: Callable,
+        args: List[str],
+        entrypoint_type: Literal["task", "experiment"] = "task"
+    ):
+        _, run_args, filtered_args = _parse_prefixed_args(args, "run")
+        self.parse_args(run_args)
+
+        if self.load:
+            raise NotImplementedError("Load is not implemented yet")
+
+        if entrypoint_type == "task":
+            self._execute_task(fn, filtered_args)
+        elif entrypoint_type == "experiment":
+            self._execute_experiment(fn, filtered_args)
+        else:
+            raise ValueError(f"Unknown entrypoint type: {entrypoint_type}")
+
+    def _execute_task(self, fn: Callable, task_args: List[str]):
+        import nemo_run as run
+
+        console = Console()
+        task = self.parse_fn(fn, task_args)
+
+        def run_task():
+            nonlocal task
+            run.dryrun_fn(task, executor=self.executor)
+
+            if self.dryrun:
+                console.print(f"[bold cyan]Dry run for {self.name}:[/bold cyan]")
+                return
+
+            if self._should_continue(self.require_confirmation):
+                console.print(f"[bold cyan]Launching {self.name}...[/bold cyan]")
+                run.run(
+                    fn_or_script=task,
+                    name=self.name,
+                    executor=self.executor,
+                    plugins=self.plugins,
+                    direct=self.direct or self.executor is None,
+                    detach=self.detach,
+                )
+            else:
+                console.print("[bold cyan]Exiting...[/bold cyan]")
+
+        if self.repl:
+            from IPython import embed
+
+            console.print("[bold cyan]Entering interactive mode...[/bold cyan]")
+            console.print("Use 'task' to access and modify the Partial object.")
+            console.print("Use 'run_task()' to execute the task when ready.")
+
+            embed(colors="neutral")
+            return
+
+        run_task()
+
+    def _execute_experiment(self, fn: Callable, experiment_args: List[str]):
+        import nemo_run as run
+
+        with run.Experiment(title=self.name) as exp:
+            self.experiment = exp
+            partial = self.parse_fn(fn, experiment_args, ctx=self)
+
+            run.dryrun_fn(partial, executor=self.executor)
+
+            if self._should_continue(self.require_confirmation):
+                fdl.build(partial)()
+
+                if not exp.tasks:
+                    raise ValueError(
+                        "No tasks found in experiment, please add tasks using the `ctx.add` method."
+                    )
+
+                if self.dryrun:
+                    exp.dryrun()
+                else:
+                    exp.run(
+                        sequential=self.sequential,
+                        detach=self.detach,
+                        direct=self.direct or self.executor is None,
+                        tail_logs=self.tail_logs
+                    )
+
+    def _should_continue(self, require_confirmation: bool) -> bool:
+        return not require_confirmation or typer.confirm("Continue?")
+
+    def parse_fn(self, fn: T, args: List[str], **default_kwargs) -> Partial[T]:
+        if self.factory:
+            output = parse_factory(fn, "factory", fn, self.factory)
+        else:
+            output = self._parse_partial(fn, args, **default_kwargs)
+
+        return output
+
+    def _parse_partial(self, fn: Callable, args: List[str], **default_args) -> Partial[T]:
+        config = parse_cli_args(fn, args, output_type=Partial)
+        for key, value in default_args.items():
+            setattr(config, key, value)
+        return config
+
+    def parse_args(self, args: List[str]):
+        executor_name, executor_args, args = _parse_prefixed_args(args, "executor")
+        plugin_name, plugin_args, args = _parse_prefixed_args(args, "plugins")
+
+        if executor_name:
+            self.executor = self.parse_executor(executor_name, *executor_args)
+        else:
+            self.executor = None
+        if plugin_name:
+            plugins = self.parse_plugin(plugin_name, *plugin_args)
+            if not isinstance(plugins, list):
+                plugins = [plugins]
+            self.plugins = plugins
+        else:
+            self.plugins = []
+
+        if args:
+            parse_cli_args(self, args, self)
+
+    def parse_executor(self, name: str, *args: str) -> Partial[Executor]:
+        for cls in EXECUTOR_CLASSES:
+            try:
+                executor = parse_factory(self.__class__, "executor", cls, name)
+                executor = parse_cli_args(executor, args)
+                return executor
+            except ValueError:
+                continue
+
+        raise ValueError(f"Executor {name} not found")
+
+    def parse_plugin(self, name: str, *args: str) -> Optional[Partial[Plugin]]:
+        for cls in PLUGIN_CLASSES:
+            try:
+                plugins = parse_factory(self.__class__, "plugins", cls, name)
+                plugins = parse_cli_args(plugins, args)
+                return plugins
+            except ValueError:
+                continue
+
+        return None
+
+    def to_config(self) -> Config:
+        """
+        Converts this RunContext object to a run.Config object.
+
+        Returns:
+            Config: A Config object representing this plugin.
+        """
+        return fdl.cast(Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True))
+
+
 class Entrypoint(Generic[Params, ReturnType]):
+    run_ctx_cls: Type[RunContext] = RunContext
+
     def __init__(
         self,
         fn: Callable[Params, ReturnType],
@@ -620,17 +805,15 @@ class Entrypoint(Generic[Params, ReturnType]):
         name=None,
         help_str=None,
         enable_executor: bool = True,
-        require_conformation: bool = True,
-        type: Literal["task", "sequential_experiment", "parallel_experiment"] = "task"
+        require_confirmation: bool = True,
+        type: Literal["task", "experiment"] = "task"
     ):
         if type == "task":
             if "executor" in inspect.signature(fn).parameters:
                 raise ValueError("The function cannot have an argument named `executor` as it is a reserved keyword.")
         elif type in ("sequential_experiment", "parallel_experiment"):
-            if "executor" not in inspect.signature(fn).parameters:
-                raise ValueError("The function must have an argument named `executor` as it is a required argument for experiments.")
-            if "experiment" not in inspect.signature(fn).parameters:
-                raise ValueError("The function must have an argument named `experiment` as it is a required argument for experiments.")
+            if "ctx" not in inspect.signature(fn).parameters:
+                raise ValueError("The function must have an argument named `ctx` as it is a required argument for experiments.")
 
         self.fn = fn
         self.arg_types = {}
@@ -644,7 +827,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         self.namespace = namespace
         self._configured_fn = None
         self.enable_executor = enable_executor
-        self.require_conformation = require_conformation
+        self.require_confirmation = require_confirmation
         self.type = type
 
     def __call__(self, *args: Params.args, **kwargs: Params.kwargs) -> ReturnType:
@@ -658,25 +841,6 @@ class Entrypoint(Generic[Params, ReturnType]):
         for key, value in default_args.items():
             setattr(config, key, value)
         return config
-
-    def parse_executor(self, name: str, args: List[str]) -> Partial[Executor]:
-        for cls in EXECUTOR_CLASSES:
-            try:
-                executor = parse_factory(self.fn, "executor", cls, name)
-                executor = parse_cli_args(executor, args)
-                return executor
-            except ImportError:
-                continue
-
-        raise ValueError(f"Executor {name} not found")
-
-    def parse_plugin(self, name: str, args: List[str]) -> Optional[Partial[Plugin]]:
-        if not args:
-            return None
-
-        plugin = parse_factory(self.fn, "plugin", Plugin, name)
-        plugin = parse_cli_args(plugin, args)
-        return plugin
 
     def cli(self, parent: typer.Typer):
         self._add_command(parent)
@@ -718,7 +882,6 @@ class Entrypoint(Generic[Params, ReturnType]):
             cls=CLITaskCommand,
             context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         )
-
         def cmd_task(
             ctx: typer.Context,
             load: Optional[str] = typer.Option(
@@ -733,11 +896,11 @@ class Entrypoint(Generic[Params, ReturnType]):
                 "-f",
                 help="Predefined factory to use for the task.",
             ),
-            wait: bool = typer.Option(
+            detach: bool = typer.Option(
                 False,
-                "--wait",
-                "-w",
-                help="Wait for the task to finish before exiting.",
+                "--detach",
+                "-d",
+                help="Detach from the run.",
             ),
             dryrun: bool = typer.Option(
                 False,
@@ -755,35 +918,29 @@ class Entrypoint(Generic[Params, ReturnType]):
                 "-d",
                 help="Execute the run directly.",
             ),
-            strict: bool = typer.Option(
-                False,
-                "--strict",
-                "-s",
-                help="Throw an exception if unknown arguments are passed in.",
-            ),
             interactive: bool = typer.Option(
                 False,
-                "--interactive",
-                "-i",
+                "--repl",
+                "-r",
                 help="Enter interactive mode in a ipython-shell to construct and visualize the run.",
             ),
         ):
             console = Console()
+            run_ctx = self.run_ctx_cls(
+                name=run_name or self.name,
+                direct=direct,
+                dryrun=dryrun,
+                factory=factory,
+                load=load,
+                repl=interactive,
+                detach=detach,
+                require_confirmation=self.require_confirmation,
+            )
             try:
                 _load_entrypoints()
                 _load_workspace()
-                self._execute_with_executor(
-                    ctx.args,
-                    console,
-                    load=load,
-                    factory=factory,
-                    wait=wait,
-                    dryrun=dryrun,
-                    run_name=run_name,
-                    direct=direct,
-                    strict=strict,
-                    interactive=interactive,  # Pass the new parameter
-                )
+
+                run_ctx.run(self.fn, ctx.args, self.type)
             except Exception as e:
                 console.print(f"[bold red]Error: {str(e)}[/bold red]")
                 sys.exit(1)
@@ -793,142 +950,6 @@ class Entrypoint(Generic[Params, ReturnType]):
         fn = fdl.build(config)
         fn.func.__io__ = config
         fn()
-
-    def _execute_with_executor(
-        self,
-        args: List[str],
-        console: Console,
-        load: Optional[str],
-        factory: Optional[str],
-        wait: bool,
-        dryrun: bool,
-        run_name: Optional[str],
-        direct: bool,
-        strict: bool,
-        interactive: bool = False,  # Add this new parameter
-    ):
-        import nemo_run as run
-
-        if strict:
-            self.env["NEMO_TASK_STRICT"] = "1"
-
-        executor_args_name, executor_args, filtered_args = self._parse_prefixed_args(args, "executor")
-        plugin_args_name, plugin_args, filtered_args = self._parse_prefixed_args(filtered_args, "plugin")
-        executor = self._get_executor(executor_args_name, executor_args)
-        plugin = self.parse_plugin(plugin_args_name, plugin_args)
-        _run_name = run_name or self.name
-
-        if load:
-            raise NotImplementedError("Load is not implemented yet")
-
-        if self.type == "task":
-            if factory:
-                task = resolve_factory(self.fn, factory)()
-            else:
-                task = self.parse_partial(filtered_args)
-
-            if interactive:
-                from IPython import embed
-
-                console.print("[bold cyan]Entering interactive mode...[/bold cyan]")
-                console.print("Use 'task' to access and modify the Partial object.")
-                console.print("Use 'run_task()' to execute the task when ready.")
-
-                def run_task():
-                    nonlocal task
-                    run.dryrun_fn(task, executor=executor)
-                    if self._should_continue():
-                        console.print(f"[bold cyan]Launching {_run_name}...[/bold cyan]")
-                        run.run(
-                            fn_or_script=task,
-                            name=_run_name,
-                            executor=executor,
-                            plugins=plugin,
-                            direct=direct or executor is None,
-                            wait=wait,
-                        )
-                    else:
-                        console.print("[bold cyan]Exiting...[/bold cyan]")
-
-                embed(colors="neutral")
-                return
-
-            run.dryrun_fn(task, executor=executor)
-
-            if dryrun:
-                console.print(f"[bold cyan]Dry run for {_run_name}:[/bold cyan]")
-                return
-
-            if self._should_continue():
-                console.print(f"[bold cyan]Launching {_run_name}...[/bold cyan]")
-                run.run(
-                    fn_or_script=task,
-                    name=_run_name,
-                    executor=executor,
-                    plugins=plugin,
-                    direct=direct or executor is None,
-                    wait=wait,
-                )
-            else:
-                console.print("[bold cyan]Exiting...[/bold cyan]")
-        elif self.type in ("sequential_experiment", "parallel_experiment"):
-            with run.Experiment(title=_run_name) as exp:
-                partial = self.parse_partial(filtered_args, experiment=exp, executor=executor)
-
-                run.dryrun_fn(partial, executor=executor)
-
-                if self._should_continue():
-                    fdl.build(partial)()
-
-                    if dryrun:
-                        exp.dryrun()
-                    else:
-                        exp.run(sequential=self.type == "sequential_experiment", detach=not wait)
-        else:
-            raise ValueError(f"Unknown entrypoint type: {self.type}")
-
-    def _parse_prefixed_args(self, args: List[str], prefix: str) -> Tuple[Optional[str], List[str], List[str]]:
-        """
-        Parse arguments to separate prefixed args from others.
-
-        Args:
-            args (List[str]): List of command-line arguments.
-            prefix (str): The prefix to look for in arguments.
-
-        Returns:
-            Tuple[Optional[str], List[str], List[str]]: A tuple containing:
-                - The value of the prefixed argument (if any)
-                - List of arguments specific to the prefix
-                - List of other arguments
-
-        Example:
-            For prefix "executor":
-            executor=local executor.gpus=2 other_arg=value
-            Returns: ("local", ["gpus=2"], ["other_arg=value"])
-        """
-        prefixed_arg_value, prefixed_args, other_args = None, [], []
-        for arg in args:
-            if arg.startswith(prefix):
-                if arg.startswith(f"{prefix}="):
-                    prefixed_arg_value = arg.split("=")[1]
-                else:
-                    if not arg.startswith(f"{prefix}."):
-                        raise ValueError(f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}")
-                    prefixed_args.append(arg.replace(f"{prefix}.", ""))
-            else:
-                other_args.append(arg)
-        return prefixed_arg_value, prefixed_args, other_args
-
-    def _get_executor(self, executor_args_name: Optional[str], executor_args: List[str]) -> Optional[Executor]:
-        if executor_args:
-            if not executor_args_name:
-                raise ValueError("Executor name is required if executor args are provided. "
-                                 "Use 'executor=<name>' to specify the executor name.")
-            return self.parse_executor(self.fn, executor_args_name, executor_args)
-        return None
-
-    def _should_continue(self) -> bool:
-        return not self.require_conformation or typer.confirm("Continue?")
 
     def main(self):
         app = typer.Typer(help=self.help_str)
@@ -984,6 +1005,42 @@ class GeneralCommand(TyperGroup):
         # print(sys.argv[1:])
 
         return out
+
+
+def _parse_prefixed_args(args: List[str], prefix: str) -> Tuple[Optional[str], List[str], List[str]]:
+    """
+    Parse arguments to separate prefixed args from others.
+
+    Args:
+        args (List[str]): List of command-line arguments.
+        prefix (str): The prefix to look for in arguments.
+
+    Returns:
+        Tuple[Optional[str], List[str], List[str]]: A tuple containing:
+            - The value of the prefixed argument (if any)
+            - List of arguments specific to the prefix
+            - List of other arguments
+
+    Example:
+        For prefix "executor":
+        executor=local executor.gpus=2 other_arg=value
+        Returns: ("local", ["gpus=2"], ["other_arg=value"])
+    """
+    prefixed_arg_value, prefixed_args, other_args = None, [], []
+    for arg in args:
+        if arg.startswith(prefix):
+            if arg.startswith(f"{prefix}="):
+                prefixed_arg_value = arg.split("=")[1]
+            else:
+                if not arg.startswith(f"{prefix}.") and not arg.startswith(f"{prefix}["):
+                    raise ValueError(f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}")
+                if arg.startswith(f"{prefix}."):
+                    prefixed_args.append(arg.replace(f"{prefix}.", ""))
+                elif arg.startswith(f"{prefix}["):
+                    prefixed_args.append(arg.replace(prefix, ""))
+        else:
+            other_args.append(arg)
+    return prefixed_arg_value, prefixed_args, other_args
 
 
 if __name__ == "__main__":

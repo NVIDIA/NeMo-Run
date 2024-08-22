@@ -14,8 +14,8 @@
 # limitations under the License.
 
 from functools import wraps
-from typing import (Any, Callable, Concatenate, Literal, Optional, ParamSpec,
-                    Protocol, Type, TypeVar, Union, cast, overload,
+from typing import (Any, Callable, Concatenate, List, Literal, Optional,
+                    ParamSpec, Protocol, Type, TypeVar, Union, cast, overload,
                     runtime_checkable)
 
 import fiddle as fdl
@@ -43,19 +43,21 @@ def default_autoconfig_buildable(
     cls: Type[Union[Partial, Config]],
     *args: P.args,
     **kwargs: P.kwargs,
-) -> Config[T] | Partial[T]:
+) -> Config[T] | Partial[T] | List[Config[T]] | List[Partial[T]]:
     def exemption_policy(cfg):
         return cfg in [Partial, Config] or getattr(cfg, "__auto_config__", False)
 
-    return fdl.cast(
-        cls,
-        _auto_config.auto_config(
-            fn,
-            experimental_allow_control_flow=False,
-            experimental_allow_dataclass_attribute_access=True,
-            experimental_exemption_policy=exemption_policy,
-        ).as_buildable(*args, **kwargs),
-    )
+    _output = _auto_config.auto_config(
+        fn,
+        experimental_allow_control_flow=False,
+        experimental_allow_dataclass_attribute_access=True,
+        experimental_exemption_policy=exemption_policy,
+    ).as_buildable(*args, **kwargs)
+
+    if isinstance(_output, list):
+        return [fdl.cast(cls, item) for item in _output]
+
+    return fdl.cast(cls, _output)
 
 
 @overload

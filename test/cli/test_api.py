@@ -27,8 +27,7 @@ from typer.testing import CliRunner
 
 import nemo_run as run
 from nemo_run import cli, config
-from nemo_run.cli.api import Entrypoint, create_cli
-from nemo_run.core.execution.base import Executor
+from nemo_run.cli.api import Entrypoint, RunContext, create_cli
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
 [nemo_run.cli]
@@ -80,6 +79,85 @@ def optimizer() -> Optimizer:
     return Optimizer()
 
 
+class TestRunContext:
+    @pytest.fixture
+    def sample_function(self):
+        def func(a: int, b: str, c: float = 1.0):
+            return a, b, c
+        return func
+
+    @pytest.fixture
+    def sample_experiment(self):
+        def func(ctx, a: int, b: str, c: float = 1.0):
+            return a, b, c
+        return func
+
+    def test_run_context_initialization(self):
+        ctx = RunContext(name="test_run")
+        assert ctx.name == "test_run"
+        assert ctx.direct == False
+        assert ctx.dryrun == False
+        assert ctx.factory is None
+        assert ctx.load is None
+        assert ctx.repl == False
+        assert ctx.sequential == True
+        assert ctx.detach == False
+        assert ctx.require_confirmation == True
+        assert ctx.tail_logs == False
+
+    def test_run_context_parse_args(self):
+        ctx = RunContext(name="test_run")
+        ctx.parse_args(["executor=local_executor", "executor.ntasks_per_node=2", "plugins=dummy_plugin"])
+        assert isinstance(ctx.executor, run.Config)
+        assert ctx.executor.__fn_or_cls__ == run.LocalExecutor
+        assert ctx.executor.ntasks_per_node == 2
+        assert isinstance(ctx.plugins[0], run.Config)
+        assert ctx.plugins[0].some_arg == 20
+
+    def test_run_context_plugin_list_factory(self):
+        ctx = RunContext(name="test_run")
+        ctx.parse_args([
+            "executor=local_executor",
+            "executor.ntasks_per_node=2",
+            "plugins=plugin_list",
+            "plugins[0].some_arg=50",
+        ])
+        assert isinstance(ctx.executor, run.Config)
+        assert ctx.executor.__fn_or_cls__ == run.LocalExecutor
+        assert ctx.executor.ntasks_per_node == 2
+        assert len(ctx.plugins) == 2
+        assert isinstance(ctx.plugins[0], run.Config)
+        assert ctx.plugins[0].some_arg == 50
+
+    def test_run_context_parse_fn(self, sample_function):
+        ctx = RunContext(name="test_run")
+        partial = ctx.parse_fn(sample_function, ["a=10", "b=hello"])
+        assert partial.a == 10
+        assert partial.b == "hello"
+        assert partial.c == 1.0  # Default value
+
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_run_context_execute_task(self, mock_run, mock_dryrun_fn, sample_function):
+        ctx = RunContext(name="test_run", require_confirmation=False)
+        ctx.run(sample_function, ["a=10", "b=hello"])
+        mock_dryrun_fn.assert_called_once()
+        mock_run.assert_called_once()
+
+    @patch("nemo_run.Experiment")
+    def test_run_context_execute_experiment(self, mock_experiment, sample_experiment):
+        ctx = RunContext(name="test_experiment", require_confirmation=False)
+        ctx.run(sample_experiment, ["a=10", "b=hello"], entrypoint_type="experiment")
+        mock_experiment.assert_called_once()
+        mock_experiment.return_value.__enter__.return_value.run.assert_called_once()
+
+    def test_run_context_to_config(self):
+        ctx = RunContext(name="test_run")
+        config = ctx.to_config()
+        assert isinstance(config, run.Config)
+        assert config.name == "test_run"
+
+
 class TestEntrypoint:
     @pytest.fixture
     def sample_function(self):
@@ -93,25 +171,8 @@ class TestEntrypoint:
         assert entrypoint.namespace == "test_namespace"
         assert entrypoint.name == "func"
         assert entrypoint.enable_executor == True
-        assert entrypoint.require_conformation == True
+        assert entrypoint.require_confirmation == True
         assert entrypoint.type == "task"
-
-    def test_entrypoint_initialization_with_custom_params(self, sample_function):
-        entrypoint = Entrypoint(
-            sample_function,
-            namespace="custom_namespace",
-            name="custom_name",
-            help_str="Custom help",
-            enable_executor=False,
-            require_conformation=False,
-            type="sequential_experiment"
-        )
-        assert entrypoint.namespace == "custom_namespace"
-        assert entrypoint.name == "custom_name"
-        assert "Custom help" in entrypoint.help_str
-        assert entrypoint.enable_executor == False
-        assert entrypoint.require_conformation == False
-        assert entrypoint.type == "sequential_experiment"
 
     def test_entrypoint_call(self, sample_function):
         entrypoint = Entrypoint(sample_function, namespace="test")
@@ -125,255 +186,33 @@ class TestEntrypoint:
         assert entrypoint._configured_fn.a == 5
         assert entrypoint._configured_fn.b == "configured"
 
-    def test_parse_partial(self, sample_function):
+    @patch("nemo_run.cli.api.RunContext")
+    def test_entrypoint_run(self, mock_run_context, sample_function):
         entrypoint = Entrypoint(sample_function, namespace="test")
-        partial = entrypoint.parse_partial(["a=10", "b=hello"])
-        assert partial.a == 10
-        assert partial.b == "hello"
-        assert partial.c == 1.0  # Default value
+        mock_ctx = MagicMock()
+        mock_run_context.return_value = mock_ctx
 
-    def test_parse_executor(self):
-        entrypoint = Entrypoint(lambda: None, namespace="test")
-        executor = entrypoint.parse_executor("local_executor", ["num_gpus=2"])
-        assert executor.__fn_or_cls__ == run.LocalExecutor
-        assert executor.num_gpus == 2
+        entrypoint.run(["a=10", "b=hello"])
+
+        mock_run_context.assert_called_once_with(name=entrypoint.name)
+        mock_ctx.run.assert_called_once_with(sample_function, ["a=10", "b=hello"], "task")
 
     @patch("nemo_run.cli.api.typer.Typer")
-    def test_cli_add_command(self, mock_typer):
-        entrypoint = Entrypoint(lambda: None, namespace="test")
+    def test_entrypoint_cli(self, mock_typer, sample_function):
+        entrypoint = Entrypoint(sample_function, namespace="test")
         entrypoint.cli(mock_typer)
         mock_typer.command.assert_called_once()
 
-    @patch("nemo_run.cli.api.Console")
-    @patch("nemo_run.cli.api.parse_cli_args")
-    def test_execute_simple(self, mock_parse_cli_args, mock_console, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test")
-        mock_parse_cli_args.return_value = run.Partial(sample_function, a=1, b="test")
-        entrypoint._execute_simple(["a=1", "b=test"], mock_console)
-        mock_parse_cli_args.assert_called_once()
-
-    @patch("nemo_run.cli.api.run")
-    @patch("nemo_run.cli.api.Console")
-    def test_execute_with_executor(self, mock_console, mock_run, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test")
-        mock_executor = MagicMock(spec=Executor)
-
-        with patch.object(entrypoint, '_get_executor', return_value=mock_executor):
-            entrypoint._execute_with_executor(
-                ["a=1", "b=test"],
-                mock_console,
-                load=None,
-                factory=None,
-                wait=True,
-                dryrun=False,
-                run_name="test_run",
-                direct=False,
-                strict=False
-            )
-
-        mock_run.run.assert_called_once()
-
-    def test_parse_executor_args(self):
-        entrypoint = Entrypoint(lambda: None, namespace="test")
-        executor_name, executor_args, filtered_args = entrypoint._parse_executor_args([
-            "a=1",
-            "executor=local_executor",
-            "executor.num_gpus=2",
-            "b=test"
-        ])
-        assert executor_name == "local_executor"
-        assert executor_args == ["num_gpus=2"]
-        assert filtered_args == ["a=1", "b=test"]
-
-    @patch("nemo_run.cli.api.typer.confirm", return_value=True)
-    def test_should_continue(self, mock_confirm):
-        entrypoint = Entrypoint(lambda: None, namespace="test", require_conformation=True)
-        assert entrypoint._should_continue() == True
-        mock_confirm.assert_called_once()
-
     @patch("nemo_run.cli.api.run.help")
-    def test_help(self, mock_help, sample_function):
+    def test_entrypoint_help(self, mock_help, sample_function):
         entrypoint = Entrypoint(sample_function, namespace="test")
         console = Console()
         entrypoint.help(console)
         mock_help.assert_called_once_with(sample_function, console=console, with_docs=True)
 
-    def test_path(self, sample_function):
+    def test_entrypoint_path(self, sample_function):
         entrypoint = Entrypoint(sample_function, namespace="test_namespace")
         assert entrypoint.path == "test_namespace.func"
-
-    def test_entrypoint_with_invalid_experiment_type(self, sample_function):
-        with pytest.raises(ValueError, match="Unknown entrypoint type: invalid_type"):
-            Entrypoint(sample_function, namespace="test", type="invalid_type")
-
-    def test_entrypoint_with_missing_executor_for_experiment(self):
-        def experiment_function(experiment):
-            pass
-
-        with pytest.raises(ValueError, match="The function must have an argument named `executor`"):
-            Entrypoint(experiment_function, namespace="test", type="sequential_experiment")
-
-    def test_entrypoint_with_missing_experiment_for_experiment(self):
-        def experiment_function(executor):
-            pass
-
-        with pytest.raises(ValueError, match="The function must have an argument named `experiment`"):
-            Entrypoint(experiment_function, namespace="test", type="sequential_experiment")
-
-    def test_entrypoint_with_executor_for_task(self):
-        def task_function(executor):
-            pass
-
-        with pytest.raises(ValueError, match="The function cannot have an argument named `executor`"):
-            Entrypoint(task_function, namespace="test", type="task")
-
-    def test_entrypoint_with_custom_name(self):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test", name="custom_name")
-        assert entrypoint.name == "custom_name"
-
-    def test_entrypoint_with_help_str(self):
-        def sample_func():
-            """This is a sample function."""
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test", help_str="Custom help")
-        assert "Custom help" in entrypoint.help_str
-        assert "This is a sample function." in entrypoint.help_str
-
-    def test_entrypoint_configure(self):
-        def sample_func(a: int, b: str):
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test")
-        entrypoint.configure(a=5, b="test")
-        assert entrypoint._configured_fn is not None
-        assert entrypoint._configured_fn.a == 5
-        assert entrypoint._configured_fn.b == "test"
-
-    @patch("nemo_run.cli.api.typer.Typer")
-    def test_entrypoint_cli_with_executor(self, mock_typer):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test", enable_executor=True)
-        entrypoint.cli(mock_typer)
-        mock_typer.command.assert_called_once()
-
-    @patch("nemo_run.cli.api.typer.Typer")
-    def test_entrypoint_cli_without_executor(self, mock_typer):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test", enable_executor=False)
-        entrypoint.cli(mock_typer)
-        mock_typer.command.assert_called_once()
-
-    @patch("nemo_run.cli.api.run.dryrun_fn")
-    @patch("nemo_run.cli.api.Console")
-    def test_execute_with_executor_dryrun(self, mock_console, mock_dryrun_fn):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test")
-        entrypoint._execute_with_executor(
-            [],
-            mock_console,
-            load=None,
-            factory=None,
-            wait=False,
-            dryrun=True,
-            run_name="test_run",
-            direct=False,
-            strict=False
-        )
-        mock_dryrun_fn.assert_called_once()
-
-    @patch("nemo_run.cli.api.run.run")
-    @patch("nemo_run.cli.api.Console")
-    def test_execute_with_executor_direct(self, mock_console, mock_run):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test")
-        entrypoint._execute_with_executor(
-            [],
-            mock_console,
-            load=None,
-            factory=None,
-            wait=False,
-            dryrun=False,
-            run_name="test_run",
-            direct=True,
-            strict=False
-        )
-        mock_run.assert_called_once_with(
-            fn_or_script=ANY,
-            name="test_run",
-            executor=None,
-            direct=True,
-            wait=False
-        )
-
-    def test_parse_executor_args(self):
-        entrypoint = Entrypoint(lambda: None, namespace="test")
-        args = ["a=1", "executor=local", "executor.gpus=2", "b=3"]
-        executor_name, executor_args, filtered_args = entrypoint._parse_executor_args(args)
-        assert executor_name == "local"
-        assert executor_args == ["gpus=2"]
-        assert filtered_args == ["a=1", "b=3"]
-
-    @patch("nemo_run.cli.api.typer.confirm", return_value=False)
-    def test_should_continue_false(self, mock_confirm):
-        entrypoint = Entrypoint(lambda: None, namespace="test", require_conformation=True)
-        assert not entrypoint._should_continue()
-
-    def test_should_continue_no_confirmation(self):
-        entrypoint = Entrypoint(lambda: None, namespace="test", require_conformation=False)
-        assert entrypoint._should_continue()
-
-    @patch("nemo_run.cli.api.typer.Typer")
-    @patch("nemo_run.cli.api.Entrypoint._add_command")
-    def test_main(self, mock_add_command, mock_typer):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test")
-        entrypoint.main()
-        mock_add_command.assert_called_once()
-        mock_typer.return_value.assert_called_once()
-
-    def test_entrypoint_with_experiment_type(self):
-        def experiment_func(experiment, executor):
-            pass
-
-        entrypoint = Entrypoint(experiment_func, namespace="test", type="sequential_experiment")
-        assert entrypoint.type == "sequential_experiment"
-
-    @patch("nemo_run.cli.api.Experiment")
-    @patch("nemo_run.cli.api.Console")
-    def test_execute_with_executor_experiment(self, mock_console, mock_experiment):
-        def experiment_func(experiment, executor):
-            pass
-
-        entrypoint = Entrypoint(experiment_func, namespace="test", type="sequential_experiment")
-        entrypoint._execute_with_executor(
-            [],
-            mock_console,
-            load=None,
-            factory=None,
-            wait=False,
-            dryrun=False,
-            run_name="test_experiment",
-            direct=False,
-            strict=False
-        )
-        mock_experiment.assert_called_once()
-        mock_experiment.return_value.__enter__.return_value.run.assert_called_once_with(
-            sequential=True, detach=True
-        )
 
 
 @dataclass
@@ -600,39 +439,12 @@ class TestEntrypoint:
             assert result.exit_code == 0
             mock_nested_model.assert_called_once_with(dummy=DummyModel(hidden=2000, activation="tanh"))
 
-    def test_parse_partial(self):
-        entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
-        partial = entrypoint.parse_partial(["dummy=dummy_model_config"])
-        assert isinstance(partial, run.Partial)
-        assert partial.dummy.hidden == 2000
-        assert partial.dummy.activation == "tanh"
-
     def test_parse_partial_function_call(self):
         entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
         partial = entrypoint.parse_partial(["dummy=my_dummy_model(hidden=100)"])
         assert isinstance(partial, run.Partial)
         assert partial.dummy.hidden == 100
         assert partial.dummy.activation == "tanh"
-
-    def test_parse_executor(self):
-        entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
-        executor = entrypoint.parse_executor("local_executor", ["retries=3"])
-        assert isinstance(executor, run.Config)
-        assert executor.__fn_or_cls__ == run.LocalExecutor
-        assert executor.retries == 3
-
-    def test_parse_executor_with_multiple_args(self):
-        entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
-        executor = entrypoint.parse_executor("local_executor", ["retries=3", "ntasks_per_node=60"])
-        assert isinstance(executor, run.Config)
-        assert executor.__fn_or_cls__ == run.LocalExecutor
-        assert executor.retries == 3
-        assert executor.ntasks_per_node == 60
-
-    def test_parse_executor_invalid_name(self):
-        entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
-        with pytest.raises(ValueError, match="No matching factory found for: invalid_executor"):
-            entrypoint.parse_executor("invalid_executor", [])
 
     def test_experiment_entrypoint(self):
         def dummy_pretrain(log_dir: str):
@@ -641,37 +453,42 @@ class TestEntrypoint:
         def dummy_finetune(log_dir: str):
             pass
 
-        @run.cli.entrypoint(namespace="llm", type="sequential_experiment")
+        @run.cli.entrypoint(namespace="llm", type="experiment")
         def my_experiment(
-            experiment: run.Experiment,
-            executor: run.Executor,
+            ctx: run.cli.RunContext,
             pretrain: run.Partial[dummy_pretrain] = run.Partial(dummy_pretrain, log_dir="/pretrain"),
             finetune: run.Partial[dummy_finetune] = run.Partial(dummy_finetune, log_dir="/finetune")
         ):
-            pretrain.log_dir = f"/{experiment.name}/checkpoints"
-            finetune.log_dir = f"/{experiment.name}/checkpoints"
+            pretrain.log_dir = f"/{ctx.experiment.name}/checkpoints"
+            finetune.log_dir = f"/{ctx.experiment.name}/checkpoints"
 
             for i in range(1):
-                experiment.add(
+                ctx.experiment.add(
                     pretrain,
-                    executor=executor,
-                    name=experiment.name,
-                    tail_logs=True if isinstance(executor, run.LocalExecutor) else False,
+                    executor=ctx.executor,
+                    name=ctx.experiment.name,
+                    tail_logs=True if isinstance(ctx.executor, run.LocalExecutor) else False,
                 )
 
-                experiment.add(
+                ctx.experiment.add(
                     finetune,
-                    executor=executor,
-                    name=experiment.name,
-                    tail_logs=True if isinstance(executor, run.LocalExecutor) else False,
+                    executor=ctx.executor,
+                    name=ctx.experiment.name,
+                    tail_logs=True if isinstance(ctx.executor, run.LocalExecutor) else False,
                 )
 
-            return experiment
+            return ctx.experiment
+
 
         # Mock the necessary objects and methods
         mock_experiment = Mock(spec=run.Experiment)
         mock_experiment.name = "test_experiment"
         mock_executor = Mock(spec=run.LocalExecutor)
+
+        mock_ctx = Mock(spec=run.cli.RunContext)
+        mock_ctx.experiment = mock_experiment
+        mock_ctx.executor = mock_executor
+
         mock_pretrain = Mock(spec=dummy_pretrain)
         mock_pretrain.log_dir = "/pretrain"
         mock_finetune = Mock(spec=dummy_finetune)
@@ -679,8 +496,7 @@ class TestEntrypoint:
 
         # Call the entrypoint function
         result = my_experiment(
-            experiment=mock_experiment,
-            executor=mock_executor,
+            ctx=mock_ctx,
             pretrain=mock_pretrain,
             finetune=mock_finetune
         )
@@ -704,131 +520,7 @@ class TestEntrypoint:
         assert mock_pretrain.log_dir == f"/{mock_experiment.name}/checkpoints"
         assert mock_finetune.log_dir == f"/{mock_experiment.name}/checkpoints"
 
-    def test_entrypoint_with_custom_name(self):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test", name="custom_name")
-        assert entrypoint.name == "custom_name"
-
-    def test_entrypoint_with_help_str(self):
-        def sample_func():
-            """This is a sample function."""
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test", help_str="Custom help")
-        assert entrypoint.name in entrypoint.help_str
-        assert "Custom help" in entrypoint.help_str
-        # The docstring is not automatically included in help_str
-        assert "This is a sample function." not in entrypoint.help_str
-
-    def test_entrypoint_configure(self):
-        def sample_func(a: int, b: str):
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test")
-        entrypoint.configure(a=5, b="test")
-        assert entrypoint._configured_fn is not None
-        assert entrypoint._configured_fn.a == 5
-        assert entrypoint._configured_fn.b == "test"
-
-    @patch("nemo_run.cli.api.typer.Typer")
-    def test_entrypoint_cli_with_executor(self, mock_typer):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test", enable_executor=True)
-        entrypoint.cli(mock_typer)
-        mock_typer.command.assert_called_once()
-
-    @patch("nemo_run.cli.api.typer.Typer")
-    def test_entrypoint_cli_without_executor(self, mock_typer):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test", enable_executor=False)
-        entrypoint.cli(mock_typer)
-        mock_typer.command.assert_called_once()
-
-    @patch("nemo_run.dryrun_fn")
-    @patch("nemo_run.cli.api.Console")
-    def test_execute_with_executor_dryrun(self, mock_console, mock_dryrun_fn):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test")
-        entrypoint._execute_with_executor(
-            [],
-            mock_console,
-            load=None,
-            factory=None,
-            wait=False,
-            dryrun=True,
-            run_name="test_run",
-            direct=False,
-            strict=False
-        )
-        mock_dryrun_fn.assert_called_once()
-
-    def test_parse_executor_args(self):
-        entrypoint = Entrypoint(lambda: None, namespace="test")
-        args = ["a=1", "executor=local", "executor.gpus=2", "b=3"]
-        executor_name, executor_args, filtered_args = entrypoint._parse_prefixed_args(args, "executor")
-        assert executor_name == "local"
-        assert executor_args == ["gpus=2"]
-        assert filtered_args == ["a=1", "b=3"]
-
-    @patch("nemo_run.cli.api.typer.confirm", return_value=False)
-    def test_should_continue_false(self, mock_confirm):
-        entrypoint = Entrypoint(lambda: None, namespace="test", require_conformation=True)
-        assert not entrypoint._should_continue()
-
-    def test_should_continue_no_confirmation(self):
-        entrypoint = Entrypoint(lambda: None, namespace="test", require_conformation=False)
-        assert entrypoint._should_continue()
-
-    @patch("nemo_run.cli.api.typer.Typer")
-    @patch("nemo_run.cli.api.Entrypoint._add_command")
-    def test_main(self, mock_add_command, mock_typer):
-        def sample_func():
-            pass
-
-        entrypoint = Entrypoint(sample_func, namespace="test")
-        entrypoint.main()
-        mock_add_command.assert_called_once()
-        mock_typer.return_value.assert_called_once()
-
-    def test_entrypoint_with_experiment_type(self):
-        def experiment_func(experiment, executor):
-            pass
-
-        entrypoint = Entrypoint(experiment_func, namespace="test", type="sequential_experiment")
-        assert entrypoint.type == "sequential_experiment"
-
-    @patch("nemo_run.Experiment")
-    @patch("nemo_run.cli.api.Console")
-    def test_execute_with_executor_experiment(self, mock_console, mock_experiment):
-        def experiment_func(experiment, executor):
-            pass
-
-        entrypoint = Entrypoint(
-            experiment_func,
-            namespace="test",
-            type="sequential_experiment",
-            require_conformation=False
-        )
-        entrypoint._execute_with_executor(
-            [],
-            mock_console,
-            load=None,
-            factory=None,
-            wait=False,
-            dryrun=False,
-            run_name="test_experiment",
-            direct=False,
-            strict=False
-        )
-        mock_experiment.assert_called_once()
-        mock_experiment.return_value.__enter__.return_value.run.assert_called_once_with(
-            sequential=True, detach=True
-        )
+    @dataclass
+    class SomeObject:
+        value_1: int
+        value_2: int

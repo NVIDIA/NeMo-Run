@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
+from typing import List
 
 import nemo_run as run
 
@@ -27,6 +28,15 @@ class DummyModel:
 @dataclass
 class NestedModel:
     dummy: DummyModel
+
+
+@dataclass(kw_only=True)
+class DummyPlugin(run.Plugin):
+    some_arg: int = 10
+
+@dataclass(kw_only=True)
+class AnotherPlugin(run.Plugin):
+    another_arg: int = 10
 
 
 @run.cli.factory
@@ -45,7 +55,7 @@ def my_dummy_model(hidden=2000) -> DummyModel:
     return DummyModel(hidden=hidden, activation="tanh")
 
 
-@run.cli.entrypoint(namespace="dummy", require_conformation=False)
+@run.cli.entrypoint(namespace="dummy", require_confirmation=False)
 def dummy_entrypoint(dummy: DummyModel):
     NestedModel(dummy=dummy)
 
@@ -59,6 +69,21 @@ def dummy_recipe() -> run.Partial[dummy_entrypoint]:
 @run.autoconvert
 def local_executor() -> run.Executor:
     return run.LocalExecutor()
+
+
+@run.cli.factory
+@run.autoconvert
+def dummy_plugin(some_arg: int = 20) -> run.Plugin:
+    return DummyPlugin(some_arg=some_arg)
+
+
+@run.cli.factory
+@run.autoconvert
+def plugin_list(arg: int = 20) -> List[run.Plugin]:
+    return [
+        dummy_plugin(arg),
+        AnotherPlugin(another_arg=arg),
+    ]
 
 
 if __name__ == "__main__":
