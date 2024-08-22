@@ -17,12 +17,11 @@ from configparser import ConfigParser
 from dataclasses import dataclass
 from test.dummy_factory import DummyModel, dummy_entrypoint
 from typing import Optional, Union
-from unittest.mock import ANY, MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import fiddle as fdl
 import pytest
 from importlib_metadata import EntryPoint, EntryPoints
-from rich.console import Console
 from typer.testing import CliRunner
 
 import nemo_run as run
@@ -95,15 +94,15 @@ class TestRunContext:
     def test_run_context_initialization(self):
         ctx = RunContext(name="test_run")
         assert ctx.name == "test_run"
-        assert ctx.direct == False
-        assert ctx.dryrun == False
+        assert not ctx.direct
+        assert not ctx.dryrun
         assert ctx.factory is None
         assert ctx.load is None
-        assert ctx.repl == False
-        assert ctx.sequential == True
-        assert ctx.detach == False
-        assert ctx.require_confirmation == True
-        assert ctx.tail_logs == False
+        assert not ctx.repl
+        assert ctx.sequential
+        assert not ctx.detach
+        assert ctx.require_confirmation
+        assert not ctx.tail_logs
 
     def test_run_context_parse_args(self):
         ctx = RunContext(name="test_run")
@@ -242,7 +241,8 @@ class TestRunContext:
     @patch("nemo_run.cli.api.RunContext.run")
     def test_run_context_run_task(self, mock_run):
         ctx = RunContext(name="test_run")
-        sample_function = lambda a, b: None
+        def sample_function(a, b):
+            return None
 
         ctx.run(sample_function, ["a=10", "b=hello"])
 
@@ -250,10 +250,11 @@ class TestRunContext:
 
     def test_run_context_run_with_sequential(self):
         ctx = RunContext(name="test_run", require_confirmation=False)
-        sample_function = lambda a, b: None
+        def sample_function(a, b):
+            return None
 
         ctx.run(sample_function, ["a=10", "b=hello", "run.sequential=False"])
-        assert ctx.sequential == False
+        assert not ctx.sequential
 
 
 @dataclass
@@ -393,7 +394,6 @@ class TestFactoryAndResolve:
         )
 
     def test_help(self):
-        from nemo_run import api
 
         registry_details = []
         for t in config.get_underlying_types(Optional[Optimizer]):

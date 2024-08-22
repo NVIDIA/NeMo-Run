@@ -177,7 +177,7 @@ class PythonicParser:
             except ValueError:
                 raise ArgumentParsingError(f"Invalid operation: {op_str}", arg, {"key": key, "value": value})
             return {key: (op, value)}
-        raise ArgumentParsingError(f"Invalid argument format", arg, {})
+        raise ArgumentParsingError("Invalid argument format", arg, {})
 
     def parse_value(self, value: str) -> Any:
         """
@@ -860,7 +860,7 @@ class TypeParser:
             if isinstance(parsed, bool):
                 return bool
             return type(parsed)
-        except:
+        except Exception:
             return str
 
 
@@ -1114,7 +1114,7 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
             signature = inspect.signature(fn.__class__)
     if signature is None:
         for arg in args:
-            if not "=" in arg:
+            if "=" not in arg:
                 raise ArgumentParsingError(
                     "Positional argument found after keyword argument",
                     arg,

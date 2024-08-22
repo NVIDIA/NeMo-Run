@@ -23,7 +23,6 @@ import shutil
 import sys
 import time
 import traceback
-import types
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional, Type, Union

@@ -36,7 +36,7 @@ def train_model(
         epochs (int, optional): Number of training epochs. Defaults to 10.
         batch_size (int, optional): Batch size for training. Defaults to 32.
     """
-    print(f"Training model with the following configuration:")
+    print("Training model with the following configuration:")
     print(f"Model: {model}")
     print(f"Optimizer: {optimizer}")
     print(f"Epochs: {epochs}")
