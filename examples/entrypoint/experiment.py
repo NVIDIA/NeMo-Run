@@ -75,32 +75,38 @@ def my_optimizer(
     return Optimizer(learning_rate=learning_rate, weight_decay=weight_decay, betas=betas)
 
 
+@run.cli.factory
+@run.autoconvert
+def local_executor() -> run.LocalExecutor:
+    return run.LocalExecutor()
+
+
 @run.cli.entrypoint(type="experiment")
-def train_and_evaluate(
+def train_models_experiment(
     ctx: run.cli.RunContext,
-    model: Model = my_model(),
-    optimizer: Optimizer = my_optimizer(),
-    train_epochs: int = 10,
-    eval_epochs: int = 2
+    models: List[Model] = [my_model(), my_model(hidden_size=512)],
+    optimizers: List[Optimizer] = [my_optimizer(), my_optimizer(learning_rate=0.01)],
+    epochs: int = 10,
+    batch_size: int = 32
 ):
     """
-    Run a sequential experiment to train and evaluate a model.
+    Run an experiment to train multiple models with different configurations.
 
     Args:
-        experiment (run.Experiment): The experiment object.
-        executor (run.Executor): The executor for running tasks.
-        model (run.Config["Model"]): Configuration for the model.
-        optimizer (run.Config["Optimizer"]): Configuration for the optimizer.
-        train_epochs (int, optional): Number of training epochs. Defaults to 10.
-        eval_epochs (int, optional): Number of evaluation epochs. Defaults to 2.
+        ctx (run.RunContext): The run context for the experiment.
+        models (List[Model]): List of model configurations to train.
+        optimizers (List[Optimizer]): List of optimizer configurations to use.
+        epochs (int): Number of training epochs for each model.
+        batch_size (int): Batch size for training.
     """
-    train = run.Partial(train_model, model=model, optimizer=optimizer, epochs=train_epochs)
-    evaluate = run.Partial(train_model, model=model, optimizer=optimizer, epochs=eval_epochs)
+    ctx.sequential = False
+    for i, (model, optimizer) in enumerate(zip(models, optimizers)):
+        train = run.Partial(
+            train_model, model=model, optimizer=optimizer, epochs=epochs, batch_size=batch_size
+        )
 
-    ctx.sequential = True
-    ctx.add(train, executor=ctx.executor, name="train")
-    ctx.add(evaluate, executor=ctx.executor, name="evaluate")
+        ctx.add(train, name=f"train_model_{i}", executor=ctx.executor)
 
 
 if __name__ == "__main__":
-    run.cli.main(train_and_evaluate)
+    run.cli.main(train_models_experiment)

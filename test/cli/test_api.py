@@ -157,62 +157,103 @@ class TestRunContext:
         assert isinstance(config, run.Config)
         assert config.name == "test_run"
 
+    def test_run_context_add(self):
+        ctx = RunContext(name="test_run")
+        ctx.experiment = MagicMock()
+        fn = MagicMock()
+        executor = MagicMock()
+        plugins = [MagicMock()]
+        ctx.add(fn, executor=executor, name="test_task", plugins=plugins, tail_logs=True)
+        ctx.experiment.add.assert_called_once_with(
+            fn, executor=executor, name="test_task", plugins=plugins, tail_logs=True
+        )
 
-class TestEntrypoint:
-    @pytest.fixture
-    def sample_function(self):
-        def func(a: int, b: str, c: float = 1.0):
-            return a, b, c
-        return func
+    def test_run_context_parse_executor(self):
+        ctx = RunContext(name="test_run")
+        executor = ctx.parse_executor("local_executor", "ntasks_per_node=4")
+        assert isinstance(executor, run.Config)
+        assert executor.__fn_or_cls__ == run.LocalExecutor
+        assert executor.ntasks_per_node == 4
 
-    def test_entrypoint_initialization(self, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test_namespace")
-        assert entrypoint.fn == sample_function
-        assert entrypoint.namespace == "test_namespace"
-        assert entrypoint.name == "func"
-        assert entrypoint.enable_executor == True
-        assert entrypoint.require_confirmation == True
-        assert entrypoint.type == "task"
+    def test_run_context_parse_plugin(self):
+        ctx = RunContext(name="test_run")
+        plugin = ctx.parse_plugin("dummy_plugin", "some_arg=30")
+        assert isinstance(plugin, run.Config)
+        assert plugin.__fn_or_cls__.__name__ == "DummyPlugin"
+        assert plugin.some_arg == 30
 
-    def test_entrypoint_call(self, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test")
-        result = entrypoint(1, "test", 2.0)
-        assert result == (1, "test", 2.0)
+    def test_run_context_parse_args_with_invalid_executor(self):
+        ctx = RunContext(name="test_run")
+        with pytest.raises(ValueError, match="Executor invalid_executor not found"):
+            ctx.parse_args(["executor=invalid_executor"])
 
-    def test_entrypoint_configure(self, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test")
-        entrypoint.configure(a=5, b="configured")
-        assert entrypoint._configured_fn is not None
-        assert entrypoint._configured_fn.a == 5
-        assert entrypoint._configured_fn.b == "configured"
+    def test_run_context_parse_args_with_invalid_plugin(self):
+        ctx = RunContext(name="test_run")
+        with pytest.raises(ValueError, match="Plugin invalid_plugin not found"):
+            ctx.parse_args(["plugins=invalid_plugin"])
 
-    @patch("nemo_run.cli.api.RunContext")
-    def test_entrypoint_run(self, mock_run_context, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test")
-        mock_ctx = MagicMock()
-        mock_run_context.return_value = mock_ctx
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    def test_run_context_execute_task_with_dryrun(self, mock_run, mock_dryrun_fn, sample_function):
+        ctx = RunContext(name="test_run", dryrun=True, require_confirmation=False)
+        ctx.run(sample_function, ["a=10", "b=hello"])
+        mock_dryrun_fn.assert_called_once()
+        mock_run.assert_not_called()
 
-        entrypoint.run(["a=10", "b=hello"])
+    @patch("nemo_run.Experiment")
+    def test_run_context_execute_experiment_with_dryrun(self, mock_experiment, sample_experiment):
+        ctx = RunContext(name="test_experiment", dryrun=True, require_confirmation=False)
+        ctx.run(sample_experiment, ["a=10", "b=hello"], entrypoint_type="experiment")
+        mock_experiment.assert_called_once()
+        mock_experiment.return_value.__enter__.return_value.dryrun.assert_called_once()
+        mock_experiment.return_value.__enter__.return_value.run.assert_not_called()
 
-        mock_run_context.assert_called_once_with(name=entrypoint.name)
-        mock_ctx.run.assert_called_once_with(sample_function, ["a=10", "b=hello"], "task")
+    @patch("nemo_run.dryrun_fn")
+    @patch("nemo_run.run")
+    @patch("typer.confirm", return_value=False)
+    def test_run_context_execute_task_with_confirmation_denied(self, mock_confirm, mock_run, mock_dryrun_fn, sample_function):
+        ctx = RunContext(name="test_run", require_confirmation=True)
+        ctx.run(sample_function, ["a=10", "b=hello"])
+        mock_dryrun_fn.assert_called_once()
+        mock_confirm.assert_called_once()
+        mock_run.assert_not_called()
 
-    @patch("nemo_run.cli.api.typer.Typer")
-    def test_entrypoint_cli(self, mock_typer, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test")
-        entrypoint.cli(mock_typer)
-        mock_typer.command.assert_called_once()
+    @patch("IPython.embed")
+    def test_run_context_execute_task_with_repl(self, mock_embed, sample_function):
+        ctx = RunContext(name="test_run", repl=True, require_confirmation=False)
+        ctx.run(sample_function, ["a=10", "b=hello"])
+        mock_embed.assert_called_once()
 
-    @patch("nemo_run.cli.api.run.help")
-    def test_entrypoint_help(self, mock_help, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test")
-        console = Console()
-        entrypoint.help(console)
-        mock_help.assert_called_once_with(sample_function, console=console, with_docs=True)
+    def test_run_context_parse_fn_with_factory(self, sample_function):
+        ctx = RunContext(name="test_run", factory="dummy_factory")
+        with patch("nemo_run.cli.api.parse_factory") as mock_parse_factory:
+            mock_parse_factory.return_value = run.Partial(sample_function, a=20, b="world")
+            partial = ctx.parse_fn(sample_function, [])
+            assert partial.a == 20
+            assert partial.b == "world"
+            assert partial.c == 1.0  # Default value
+            mock_parse_factory.assert_called_once()
 
-    def test_entrypoint_path(self, sample_function):
-        entrypoint = Entrypoint(sample_function, namespace="test_namespace")
-        assert entrypoint.path == "test_namespace.func"
+    def test_run_context_with_invalid_entrypoint_type(self, sample_function):
+        ctx = RunContext(name="test_run")
+        with pytest.raises(ValueError, match="Unknown entrypoint type: invalid_type"):
+            ctx.run(sample_function, [], entrypoint_type="invalid_type")
+
+    @patch("nemo_run.cli.api.RunContext.run")
+    def test_run_context_run_task(self, mock_run):
+        ctx = RunContext(name="test_run")
+        sample_function = lambda a, b: None
+
+        ctx.run(sample_function, ["a=10", "b=hello"])
+
+        mock_run.assert_called_once_with(sample_function, ["a=10", "b=hello"])
+
+    def test_run_context_run_with_sequential(self):
+        ctx = RunContext(name="test_run", require_confirmation=False)
+        sample_function = lambda a, b: None
+
+        ctx.run(sample_function, ["a=10", "b=hello", "run.sequential=False"])
+        assert ctx.sequential == False
 
 
 @dataclass
@@ -224,10 +265,7 @@ class SomeObject:
 
 class TestFactoryAndResolve:
     @patch("nemo_run.cli.api.metadata.entry_points", return_value=_ENTRY_POINTS)
-    def test_factory_without_arguments(
-        self,
-        mock_entry_points,
-    ):
+    def test_factory_without_arguments(self, mock_entry_points):
         @cli.factory
         @run.autoconvert
         def commonly_used_object() -> SomeObject:
@@ -245,9 +283,7 @@ class TestFactoryAndResolve:
         assert obj.value_2 == 10
         assert obj.value_3 == 15
 
-    def test_factory_with_target_and_arg(
-        self,
-    ):
+    def test_factory_with_target_and_arg(self):
         @dataclass
         class ChildObject:
             value: str
@@ -260,15 +296,13 @@ class TestFactoryAndResolve:
         def common_factory(value="random") -> ChildObject:
             return ChildObject(value=value)
 
-        cfg = run.Config.from_cli(ParentObject, "child=common_factory")
+        cfg = cli.parse_config(ParentObject, "child=common_factory")
         assert fdl.build(cfg).child.value == "random"
 
-        cfg = run.Config.from_cli(ParentObject, "child=common_factory(custom)")
+        cfg = cli.parse_config(ParentObject, "child=common_factory(custom)")
         assert fdl.build(cfg).child.value == "custom"
 
-    def test_factory_default(
-        self,
-    ):
+    def test_factory_default(self):
         @dataclass
         class DefaultObject:
             value: str = "default"
@@ -282,21 +316,17 @@ class TestFactoryAndResolve:
         def default_factory() -> DefaultObject:
             return DefaultObject()
 
-        cfg = run.Config.from_cli(ParentObject, "obj=default")
+        cfg = cli.parse_config(ParentObject, "obj=default")
         assert fdl.build(cfg).obj.value == "default"
 
-    def test_factory_raises_error_without_return_annotation(
-        self,
-    ):
+    def test_factory_raises_error_without_return_annotation(self):
         with pytest.raises(TypeError, match="Missing return type annotation"):
 
             @cli.factory
             def no_return_annotation_function():
                 pass
 
-    def test_factory_raises_error_without_parent_when_arg_is_used(
-        self,
-    ):
+    def test_factory_raises_error_without_parent_when_arg_is_used(self):
         @dataclass
         class TestObject:
             pass
@@ -424,7 +454,7 @@ class TestListEntrypoints:
         assert result == expected_result
 
 
-class TestEntrypoint:
+class TestEntrypointRunner:
     @pytest.fixture
     def runner(self):
         return CliRunner()

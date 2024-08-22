@@ -19,6 +19,7 @@ import inspect
 import logging
 import operator
 import re
+from dataclasses import is_dataclass
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -947,6 +948,8 @@ def parse_cli_args(
         if "." not in key:
             if isinstance(fn, (Config, Partial)):
                 signature = inspect.signature(fn.__fn_or_cls__)
+            elif is_dataclass(fn):
+                signature = inspect.signature(fn.__class__)
             else:
                 signature = inspect.signature(fn)
             arg_name, nested = key, output
@@ -1001,6 +1004,14 @@ def parse_cli_args(
             raise ArgumentValueError(f"Invalid argument: {str(e)}", arg, {"key": key, "value": value})
 
     return output
+
+
+def parse_partial(fn: Callable, *args: str) -> Partial:
+    return parse_cli_args(fn, args, output_type=Partial)
+
+
+def parse_config(fn: Callable, *args: str) -> Config:
+    return parse_cli_args(fn, args, output_type=Config)
 
 
 def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> Any:
@@ -1096,6 +1107,8 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
         signature = inspect.signature(fn.__fn_or_cls__)
     elif isinstance(fn, (list, tuple)):
         signature = None
+    elif is_dataclass(fn):
+        signature = inspect.signature(fn.__class__)
     else:
         signature = inspect.signature(fn)
     if signature is None:

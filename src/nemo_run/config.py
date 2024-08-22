@@ -65,9 +65,9 @@ def get_type_namespace(typ: Type | Callable) -> str:
         'your_module.MyClass'
     """
     module = typ.__module__
-    if module == '__main__':
+    if module == "__main__":
         # Get the filename without extension
-        main_module = sys.modules['__main__']
+        main_module = sys.modules["__main__"]
         filename = os.path.basename(main_module.__file__)
         module = os.path.splitext(filename)[0]
 
@@ -260,11 +260,6 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
 
-    @classmethod
-    def from_cli(cls, fn_or_cls: Union[fdl.Buildable[_T], TypeOrCallableProducingT[_T]], *args: str) -> Config[_T]:
-        from nemo_run.core.cli_parser import parse_cli_args
-        return parse_cli_args(fn_or_cls, list(args), cls)
-
 
 class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
     """
@@ -288,11 +283,6 @@ class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
 
-    @classmethod
-    def from_cli(cls, fn_or_cls: Union[fdl.Buildable[_T], TypeOrCallableProducingT[_T]], *args: str) -> Partial[_T]:
-        from nemo_run.core.cli_parser import parse_cli_args
-        return parse_cli_args(fn_or_cls, list(args), cls)
-
 
 register_supported_cast(fdl.Config, Config)
 register_supported_cast(fdl.Partial, Partial)
@@ -302,6 +292,25 @@ register_supported_cast(Partial, Partial)
 
 @dataclasses.dataclass
 class Script:
+    """
+    Dataclass to configure raw scripts.
+
+    Examples:
+
+    .. code-block:: python
+
+        file_based_script = run.Script("./scripts/echo.sh")
+
+        inline_script = run.Script(
+            inline=\"\"\"
+        env
+        echo "Hello 1"
+        echo "Hello 2"
+        \"\"\"
+        )
+
+    """
+
     path: str = ""
     inline: str = ""
     args: list[str] = dataclasses.field(default_factory=list)

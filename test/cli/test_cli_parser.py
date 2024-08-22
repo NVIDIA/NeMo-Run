@@ -19,13 +19,13 @@ from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 import pytest
 
+from nemo_run.cli.cli_parser import (ArgumentParsingError, ArgumentValueError,
+                                     DictParseError, ListParseError,
+                                     LiteralParseError, OperationError,
+                                     ParseError, PythonicParser, TypeParser,
+                                     UndefinedVariableError, UnknownTypeError,
+                                     parse_cli_args, parse_value)
 from nemo_run.config import Config, Partial
-from nemo_run.core.cli_parser import (ArgumentParsingError, ArgumentValueError,
-                                      DictParseError, ListParseError,
-                                      LiteralParseError, OperationError,
-                                      ParseError, PythonicParser, TypeParser,
-                                      UndefinedVariableError, UnknownTypeError,
-                                      parse_cli_args, parse_value)
 
 
 class TestSimpleValueParsing:

@@ -37,9 +37,9 @@ from typing_extensions import ParamSpec
 
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
+from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
 from nemo_run.config import (NEMORUN_HOME, Config, Partial, Script,
                              get_type_namespace, get_underlying_types)
-from nemo_run.core.cli_parser import parse_cli_args, parse_factory
 from nemo_run.core.execution import (LocalExecutor, SkypilotExecutor,
                                      SlurmExecutor)
 from nemo_run.core.execution.base import Executor
@@ -782,7 +782,7 @@ class RunContext:
             except ValueError:
                 continue
 
-        return None
+        raise ValueError(f"Plugin {name} not found")
 
     def to_config(self) -> Config:
         """
