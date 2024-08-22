@@ -36,16 +36,13 @@ def my_model(
 
 
 @run.cli.factory
-@run.autoconvert
 def my_optimizer(
     learning_rate: float = 0.001,
     weight_decay: float = 1e-5,
     betas: List[float] = [0.9, 0.999]
-) -> Optimizer:
-    """
-    Create an optimizer configuration.
-    """
-    return Optimizer(learning_rate=learning_rate, weight_decay=weight_decay, betas=betas)
+) -> run.Config[Optimizer]:
+    """Create an optimizer configuration."""
+    return run.Config(Optimizer, learning_rate=learning_rate, weight_decay=weight_decay, betas=betas)
 
 
 @run.cli.entrypoint
