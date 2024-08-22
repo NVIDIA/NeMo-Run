@@ -218,9 +218,9 @@ These examples demonstrate the flexibility and Pythonic nature of the CLI system
 
 This powerful syntax allows you to create complex configurations directly from the command line, making it easy to experiment with different settings without modifying the source code.
 
-## Sequential Experiment Entrypoint
+## Experiment Entrypoint
 
-Now, let's create a more complex entrypoint for a sequential experiment that includes both training and evaluation.
+Now, let's create a more complex entrypoint for a experiment that includes multiple tasks.
 
 ### Step 1: Define the Experiment Entrypoint
 
