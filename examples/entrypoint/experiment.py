@@ -7,6 +7,7 @@ import nemo_run as run
 @dataclass
 class Model:
     """Dummy model config"""
+
     hidden_size: int
     num_layers: int
     activation: str
@@ -15,18 +16,14 @@ class Model:
 @dataclass
 class Optimizer:
     """Dummy optimizer config"""
+
     learning_rate: float
     weight_decay: float
     betas: List[float]
 
 
 @run.cli.entrypoint
-def train_model(
-    model: Model,
-    optimizer: Optimizer,
-    epochs: int = 10,
-    batch_size: int = 32
-):
+def train_model(model: Model, optimizer: Optimizer, epochs: int = 10, batch_size: int = 32):
     """
     Train a model using the specified configuration.
 
@@ -51,11 +48,7 @@ def train_model(
 
 @run.cli.factory
 @run.autoconvert
-def my_model(
-    hidden_size: int = 256,
-    num_layers: int = 3,
-    activation: str = 'relu'
-) -> Model:
+def my_model(hidden_size: int = 256, num_layers: int = 3, activation: str = "relu") -> Model:
     """
     Create a model configuration.
     """
@@ -65,9 +58,7 @@ def my_model(
 @run.cli.factory
 @run.autoconvert
 def my_optimizer(
-    learning_rate: float = 0.001,
-    weight_decay: float = 1e-5,
-    betas: List[float] = [0.9, 0.999]
+    learning_rate: float = 0.001, weight_decay: float = 1e-5, betas: List[float] = [0.9, 0.999]
 ) -> Optimizer:
     """
     Create an optimizer configuration.
@@ -87,7 +78,7 @@ def train_models_experiment(
     models: List[Model] = [my_model(), my_model(hidden_size=512)],
     optimizers: List[Optimizer] = [my_optimizer(), my_optimizer(learning_rate=0.01)],
     epochs: int = 10,
-    batch_size: int = 32
+    batch_size: int = 32,
 ):
     """
     Run an experiment to train multiple models with different configurations.

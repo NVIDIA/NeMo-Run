@@ -66,9 +66,7 @@ def _get_rows_for_factories(
                 f"[link={link}]{module}.{func.__name__}[/link]", style="bold cyan"
             )
         else:
-            func_text = Text(
-                f"{module}.{func.__name__}" if module else "N/A", style="bold cyan"
-            )
+            func_text = Text(f"{module}.{func.__name__}" if module else "N/A", style="bold cyan")
 
         row: list[Text | Syntax] = [
             Text(func_namespace[-1], style="bold magenta"),
@@ -167,8 +165,7 @@ def help_for_callable(
         )
 
     if display_executors:
-        from nemo_run.core.execution import (LocalExecutor, SkypilotExecutor,
-                                             SlurmExecutor)
+        from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
         from nemo_run.core.execution.base import Executor
 
         help_for_type(
@@ -284,9 +281,9 @@ def help(
 
 def _get_module(class_obj) -> str:
     module = class_obj.__module__
-    if module == '__main__':
+    if module == "__main__":
         # Get the filename without extension
-        main_module = sys.modules['__main__']
+        main_module = sys.modules["__main__"]
         filename = os.path.basename(main_module.__file__)
         module = os.path.splitext(filename)[0]
 

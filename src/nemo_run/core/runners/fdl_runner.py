@@ -10,9 +10,13 @@ fdl_runner_app = typer.Typer(pretty_exceptions_enable=False)
 @fdl_runner_app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def fdl_direct_run(
     fdl_ctx: typer.Context,
-    fdl_dryrun: bool = typer.Option(False, "--dryrun", help="Print resolved arguments without running."),
+    fdl_dryrun: bool = typer.Option(
+        False, "--dryrun", help="Print resolved arguments without running."
+    ),
     fdl_run_name: str = typer.Option("run", "--name", "-n", help="Name of the run."),
-    fdl_package_cfg: str = typer.Option(None, "--package-cfg", "-p", help="Serialized Package config."),
+    fdl_package_cfg: str = typer.Option(
+        None, "--package-cfg", "-p", help="Serialized Package config."
+    ),
     fdl_config: str = typer.Argument(..., help="Serialized fdl config."),
 ):
     import os

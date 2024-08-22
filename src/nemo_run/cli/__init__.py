@@ -13,9 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nemo_run.cli.api import (RunContext, create_cli, entrypoint, factory,
-                              list_entrypoints, list_factories, main,
-                              resolve_factory)
+from nemo_run.cli.api import (
+    RunContext,
+    create_cli,
+    entrypoint,
+    factory,
+    list_entrypoints,
+    list_factories,
+    main,
+    resolve_factory,
+)
 from nemo_run.cli.cli_parser import parse_cli_args, parse_config, parse_partial
 
 __all__ = [

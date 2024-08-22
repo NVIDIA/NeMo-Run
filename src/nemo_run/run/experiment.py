@@ -38,14 +38,12 @@ from rich.syntax import Syntax
 from torchx.specs.api import AppState, is_terminal
 
 import nemo_run as run
-from nemo_run.config import (NEMORUN_HOME, Config, Partial, Script,
-                             get_type_namespace)
+from nemo_run.config import NEMORUN_HOME, Config, Partial, Script, get_type_namespace
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
-from nemo_run.core.frontend.console.api import (CONSOLE, configure_logging,
-                                                deconfigure_logging)
+from nemo_run.core.frontend.console.api import CONSOLE, configure_logging, deconfigure_logging
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.client import SSHTunnel, Tunnel
 from nemo_run.run.plugin import ExperimentPlugin
@@ -1030,5 +1028,5 @@ def maybe_load_external_main(exp_dir: str):
         existing_main = sys.modules["__main__"]
 
         for attr in dir(new_main_module):
-            if not attr.startswith('__'):
+            if not attr.startswith("__"):
                 setattr(existing_main, attr, getattr(new_main_module, attr))

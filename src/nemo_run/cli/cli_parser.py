@@ -22,8 +22,19 @@ import re
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import (Any, Callable, Dict, List, Literal, Optional, Type,
-                    TypeVar, Union, get_args, get_origin)
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
 import fiddle as fdl
 
@@ -33,13 +44,13 @@ logger = logging.getLogger(__name__)
 
 
 class Operation(Enum):
-    ASSIGN = '='
-    ADD = '+='
-    SUBTRACT = '-='
-    MULTIPLY = '*='
-    DIVIDE = '/='
-    OR = '|='
-    AND = '&='
+    ASSIGN = "="
+    ADD = "+="
+    SUBTRACT = "-="
+    MULTIPLY = "*="
+    DIVIDE = "/="
+    OR = "|="
+    AND = "&="
 
 
 class CLIException(Exception):
@@ -80,7 +91,11 @@ class ParseError(CLIException):
         self.value = value
         self.expected_type = expected_type
         self.reason = reason
-        super().__init__(f"Failed to parse '{value}' as {expected_type}: {reason}", value, {"expected_type": expected_type})
+        super().__init__(
+            f"Failed to parse '{value}' as {expected_type}: {reason}",
+            value,
+            {"expected_type": expected_type},
+        )
 
 
 class LiteralParseError(ParseError):
@@ -115,6 +130,7 @@ def cli_exception_handler(func):
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")
             raise CLIException("An unexpected error occurred", "", {}) from e
+
     return wrapper
 
 
@@ -140,14 +156,37 @@ class PythonicParser:
             Operation.AND: operator.iand,
         }
         self.safe_builtins = {
-            'abs': abs, 'all': all, 'any': any, 'bin': bin,
-            'bool': bool, 'chr': chr, 'divmod': divmod, 'enumerate': enumerate,
-            'filter': filter, 'float': float, 'hex': hex, 'int': int,
-            'isinstance': isinstance, 'len': len, 'list': list, 'map': map,
-            'max': max, 'min': min, 'oct': oct, 'ord': ord,
-            'pow': pow, 'range': range, 'reversed': reversed, 'round': round,
-            'set': set, 'slice': slice, 'sorted': sorted, 'str': str,
-            'sum': sum, 'tuple': tuple, 'zip': zip
+            "abs": abs,
+            "all": all,
+            "any": any,
+            "bin": bin,
+            "bool": bool,
+            "chr": chr,
+            "divmod": divmod,
+            "enumerate": enumerate,
+            "filter": filter,
+            "float": float,
+            "hex": hex,
+            "int": int,
+            "isinstance": isinstance,
+            "len": len,
+            "list": list,
+            "map": map,
+            "max": max,
+            "min": min,
+            "oct": oct,
+            "ord": ord,
+            "pow": pow,
+            "range": range,
+            "reversed": reversed,
+            "round": round,
+            "set": set,
+            "slice": slice,
+            "sorted": sorted,
+            "str": str,
+            "sum": sum,
+            "tuple": tuple,
+            "zip": zip,
         }
 
     def parse(self, arg: str) -> Dict[str, Any]:
@@ -169,13 +208,15 @@ class PythonicParser:
             >>> parser.parse("x+=5")
             {'x': (Operation.ADD, '5')}
         """
-        assignment_match = re.match(r'^([\w\[\]\.]+)\s*(=|\+=|-=|\*=|/=|\|=|&=)\s*(.+)$', arg)
+        assignment_match = re.match(r"^([\w\[\]\.]+)\s*(=|\+=|-=|\*=|/=|\|=|&=)\s*(.+)$", arg)
         if assignment_match:
             key, op_str, value = assignment_match.groups()
             try:
                 op = Operation(op_str)
             except ValueError:
-                raise ArgumentParsingError(f"Invalid operation: {op_str}", arg, {"key": key, "value": value})
+                raise ArgumentParsingError(
+                    f"Invalid operation: {op_str}", arg, {"key": key, "value": value}
+                )
             return {key: (op, value)}
         raise ArgumentParsingError("Invalid argument format", arg, {})
 
@@ -203,15 +244,15 @@ class PythonicParser:
         try:
             return ast.literal_eval(value)
         except (ValueError, SyntaxError):
-            if isinstance(value, str) and value.lower() in ('true', 'false'):
-                return value.lower() == 'true'
-            elif value.startswith(('dict(', 'list(', 'tuple(', 'set(')):
+            if isinstance(value, str) and value.lower() in ("true", "false"):
+                return value.lower() == "true"
+            elif value.startswith(("dict(", "list(", "tuple(", "set(")):
                 return self.parse_constructor(value)
-            elif '[' in value and ']' in value and 'for' in value:
+            elif "[" in value and "]" in value and "for" in value:
                 return self.parse_comprehension(value)
-            elif value.startswith('lambda'):
+            elif value.startswith("lambda"):
                 return self.parse_lambda(value)
-            elif 'if' in value and 'else' in value:
+            elif "if" in value and "else" in value:
                 return self.parse_ternary(value)
             return value
 
@@ -237,19 +278,19 @@ class PythonicParser:
             >>> parser.parse_constructor("list(1, 2, 3)")
             [1, 2, 3]
         """
-        constructor_match = re.match(r'(dict|list|tuple|set)\((.*)\)$', value)
+        constructor_match = re.match(r"(dict|list|tuple|set)\((.*)\)$", value)
         if constructor_match:
             constructor, args = constructor_match.groups()
-            if constructor == 'dict':
-                pairs = re.findall(r'(\w+)\s*=\s*([^,]+)(?:,|$)', args)
+            if constructor == "dict":
+                pairs = re.findall(r"(\w+)\s*=\s*([^,]+)(?:,|$)", args)
                 return {k: self.parse_value(v.strip()) for k, v in pairs}
             else:
                 parsed_args = self.parse_constructor_args(args)
-                if constructor == 'list':
+                if constructor == "list":
                     return list(parsed_args)
-                elif constructor == 'tuple':
+                elif constructor == "tuple":
                     return tuple(parsed_args)
-                elif constructor == 'set':
+                elif constructor == "set":
                     return set(parsed_args)
         raise ArgumentValueError(f"Invalid constructor: {value}", value, {})
 
@@ -272,18 +313,18 @@ class PythonicParser:
             [1, 'two', [3, 4]]
         """
         parsed_args = []
-        current_arg = ''
+        current_arg = ""
         nesting_level = 0
-        for char in args + ',':
-            if char == ',' and nesting_level == 0:
+        for char in args + ",":
+            if char == "," and nesting_level == 0:
                 if current_arg:
                     parsed_args.append(self.parse_value(current_arg.strip()))
-                    current_arg = ''
+                    current_arg = ""
             else:
                 current_arg += char
-                if char in '([{':
+                if char in "([{":
                     nesting_level += 1
-                elif char in ')]}':
+                elif char in ")]}":
                     nesting_level -= 1
         return parsed_args
 
@@ -308,7 +349,7 @@ class PythonicParser:
             [0, 1, 2]
         """
         try:
-            tree = ast.parse(value, mode='eval')
+            tree = ast.parse(value, mode="eval")
             if isinstance(tree.body, (ast.ListComp, ast.DictComp, ast.SetComp)):
                 return self.eval_ast(tree.body)
             raise ValueError("Not a valid comprehension")
@@ -382,7 +423,7 @@ class PythonicParser:
         elif isinstance(node, (ast.ListComp, ast.DictComp, ast.SetComp)):
             # Implement safe evaluation of comprehensions
             # This is a simplified version and may need more robust implementation
-            return eval(compile(ast.Expression(node), '<string>', 'eval'), {}, {})
+            return eval(compile(ast.Expression(node), "<string>", "eval"), {}, {})
         raise ValueError(f"Unsupported AST node: {type(node)}")
 
     def parse_lambda(self, value: str) -> Callable:
@@ -408,11 +449,11 @@ class PythonicParser:
             10
         """
         try:
-            tree = ast.parse(value, mode='eval')
+            tree = ast.parse(value, mode="eval")
             if isinstance(tree.body, ast.Lambda):
                 if self._contains_unsafe_operations(tree.body):
                     raise ValueError("Unsafe operations detected in lambda")
-                return eval(value, {'__builtins__': self.safe_builtins}, {})
+                return eval(value, {"__builtins__": self.safe_builtins}, {})
             raise ArgumentValueError(f"Invalid lambda: {value}", value, {})
         except Exception as e:
             raise ArgumentValueError(f"Error parsing lambda '{value}': {str(e)}", value, {})
@@ -443,7 +484,7 @@ class PythonicParser:
             return True
         elif isinstance(node, ast.Name):
             # Allow only certain built-in names, parameter names, and safe built-ins
-            allowed_names = {'True', 'False', 'None'}.union(self.safe_builtins.keys())
+            allowed_names = {"True", "False", "None"}.union(self.safe_builtins.keys())
             return node.id not in allowed_names and not node.id.isidentifier()
         elif isinstance(node, ast.Lambda):
             return self._contains_unsafe_operations(node.body)
@@ -451,8 +492,9 @@ class PythonicParser:
             return self._contains_unsafe_operations(node.body)
         elif isinstance(node, ast.BinOp):
             # Allow basic arithmetic operations
-            return (self._contains_unsafe_operations(node.left) or
-                    self._contains_unsafe_operations(node.right))
+            return self._contains_unsafe_operations(node.left) or self._contains_unsafe_operations(
+                node.right
+            )
         elif isinstance(node, ast.UnaryOp):
             return self._contains_unsafe_operations(node.operand)
         elif isinstance(node, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
@@ -483,12 +525,14 @@ class PythonicParser:
             'yes'
         """
         try:
-            tree = ast.parse(value, mode='eval')
+            tree = ast.parse(value, mode="eval")
             if isinstance(tree.body, ast.IfExp):
                 return eval(value)
             raise ArgumentValueError(f"Invalid ternary expression: {value}", value, {})
         except Exception as e:
-            raise ArgumentValueError(f"Error parsing ternary expression '{value}': {str(e)}", value, {})
+            raise ArgumentValueError(
+                f"Error parsing ternary expression '{value}': {str(e)}", value, {}
+            )
 
     def apply_operation(self, op: Operation, old: Any, new: Any) -> Any:
         """
@@ -518,8 +562,16 @@ class PythonicParser:
             try:
                 return operation(old, new)
             except Exception as e:
-                raise OperationError(f"Operation '{op.value}' failed: {str(e)}", f"{old} {op.value} {new}", {"old": old, "new": new})
-        raise OperationError(f"Unsupported operation: {op.value}", f"{old} {op.value} {new}", {"old": old, "new": new})
+                raise OperationError(
+                    f"Operation '{op.value}' failed: {str(e)}",
+                    f"{old} {op.value} {new}",
+                    {"old": old, "new": new},
+                )
+        raise OperationError(
+            f"Unsupported operation: {op.value}",
+            f"{old} {op.value} {new}",
+            {"old": old, "new": new},
+        )
 
 
 class TypeParser:
@@ -542,7 +594,7 @@ class TypeParser:
         [1, 2, 3]
     """
 
-    __slots__ = ('parsers', 'custom_parsers', 'strict_mode')
+    __slots__ = ("parsers", "custom_parsers", "strict_mode")
 
     def __init__(self, strict_mode: bool = True):
         """Initialize the TypeParser.
@@ -581,9 +633,11 @@ class TypeParser:
                 # Custom parsing logic here
                 pass
         """
+
         def decorator(func: Callable[[str, Type], Any]):
             self.custom_parsers[type_] = func
             return func
+
         return decorator
 
     @lru_cache(maxsize=128)
@@ -618,7 +672,11 @@ class TypeParser:
         except ParseError:
             raise
         except Exception as e:
-            raise TypeParsingError(f"Failed to parse '{value}' as {annotation}: {str(e)}", value, {"expected_type": annotation})
+            raise TypeParsingError(
+                f"Failed to parse '{value}' as {annotation}: {str(e)}",
+                value,
+                {"expected_type": annotation},
+            )
 
     def parse_int(self, value: str, _: Type) -> int:
         """Parse a string value into an integer.
@@ -666,7 +724,9 @@ class TypeParser:
         Returns:
             str: The parsed string value.
         """
-        if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
+        if (value.startswith("'") and value.endswith("'")) or (
+            value.startswith('"') and value.endswith('"')
+        ):
             return value[1:-1]
         return value
 
@@ -684,9 +744,9 @@ class TypeParser:
             ParseError: If the value cannot be parsed as a boolean.
         """
         lower_value = value.lower()
-        if lower_value in ('true', 'yes', '1', 'on'):
+        if lower_value in ("true", "yes", "1", "on"):
             return True
-        elif lower_value in ('false', 'no', '0', 'off'):
+        elif lower_value in ("false", "no", "0", "off"):
             return False
         raise ParseError(value, bool, f"Cannot convert '{value}' to bool")
 
@@ -730,7 +790,10 @@ class TypeParser:
             if not isinstance(parsed, dict):
                 raise ValueError("Not a dict")
             key_type, val_type = get_args(annotation)
-            return {self.parse(str(k), key_type): self.parse(str(v), val_type) for k, v in parsed.items()}
+            return {
+                self.parse(str(k), key_type): self.parse(str(v), val_type)
+                for k, v in parsed.items()
+            }
         except Exception as e:
             raise DictParseError(value, Dict, f"Invalid dict: {str(e)}")
 
@@ -744,7 +807,7 @@ class TypeParser:
         Returns:
             Any: The parsed value or None.
         """
-        if value.lower() in ('none', 'null'):
+        if value.lower() in ("none", "null"):
             return None
         return self.parse_union(value, annotation)
 
@@ -762,7 +825,7 @@ class TypeParser:
             ParseError: If the value cannot be parsed as any of the Union types.
         """
         args = get_args(annotation)
-        if type(None) in args and value.lower() in ('none', 'null'):
+        if type(None) in args and value.lower() in ("none", "null"):
             return None
         errors = []
         for arg in args:
@@ -771,7 +834,9 @@ class TypeParser:
                     return self.parse(value, arg)
                 except ParseError as e:
                     errors.append(str(e))
-        raise ParseError(value, annotation, f"No matching type in Union. Errors: {'; '.join(errors)}")
+        raise ParseError(
+            value, annotation, f"No matching type in Union. Errors: {'; '.join(errors)}"
+        )
 
     def parse_unknown(self, value: str, annotation: Type) -> Any:
         """Parse a string value for an unknown or unsupported type.
@@ -802,7 +867,7 @@ class TypeParser:
         Returns:
             Any: The parsed value, attempting to infer the correct type.
         """
-        if value.lower() in ('none', 'null'):
+        if value.lower() in ("none", "null"):
             return None
         try:
             return ast.literal_eval(value)
@@ -823,11 +888,17 @@ class TypeParser:
             LiteralParseError: If the value is not one of the allowed Literal values.
         """
         literal_values = get_args(annotation)
-        if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
+        if (value.startswith("'") and value.endswith("'")) or (
+            value.startswith('"') and value.endswith('"')
+        ):
             value = value[1:-1]
         if value in literal_values:
             return value
-        raise LiteralParseError(value, Literal, f"Invalid value for Literal type. Expected one of {literal_values}, got '{value}'")
+        raise LiteralParseError(
+            value,
+            Literal,
+            f"Invalid value for Literal type. Expected one of {literal_values}, got '{value}'",
+        )
 
     def parse_path(self, value: str, _: Type) -> Path:
         """Parse a string value into a Path object.
@@ -842,7 +913,7 @@ class TypeParser:
         Raises:
             ParseError: If the path contains null characters.
         """
-        if '\0' in value:
+        if "\0" in value:
             raise ParseError(value, Path, "Invalid path: contains null character")
         return Path(value)
 
@@ -876,10 +947,8 @@ def parse_value(value: str, annotation: Type = None) -> Any:
 
 @cli_exception_handler
 def parse_cli_args(
-    fn: Callable,
-    args: List[str],
-    output_type: Type[TypeVar('OutputT', Partial, Config)] = Partial
-) -> TypeVar('OutputT', Partial, Config):
+    fn: Callable, args: List[str], output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial
+) -> TypeVar("OutputT", Partial, Config):
     """Parse command-line arguments and apply them to a function or class.
 
     This is the main public API for parsing command-line arguments in the NeMo Run framework.
@@ -959,7 +1028,9 @@ def parse_cli_args(
                 try:
                     nested = parse_attribute(attr, nested)
                 except AttributeError as e:
-                    raise ArgumentValueError(f"Invalid attribute: {attr}", key, {"nested": nested}) from e
+                    raise ArgumentValueError(
+                        f"Invalid attribute: {attr}", key, {"nested": nested}
+                    ) from e
             signature = inspect.signature(nested.__fn_or_cls__)
             arg_name = splitted[-1]
 
@@ -968,7 +1039,7 @@ def parse_cli_args(
             raise ArgumentValueError(
                 f"Invalid argument: No parameter named '{arg_name}' exists for {fn}",
                 arg,
-                {"key": key, "value": value}
+                {"key": key, "value": value},
             )
 
         annotation, parsed_value = None, None
@@ -990,7 +1061,7 @@ def parse_cli_args(
                 raise e.__class__(
                     f"Error parsing argument: {str(e)}",
                     arg,
-                    {"key": key, "value": value, "expected_type": param.annotation}
+                    {"key": key, "value": value, "expected_type": param.annotation},
                 ) from e
 
         try:
@@ -998,10 +1069,18 @@ def parse_cli_args(
                 setattr(nested, arg_name, parsed_value)
             else:
                 if not hasattr(nested, arg_name):
-                    raise UndefinedVariableError(f"Cannot use '{op.value}' on undefined variable", arg, {"key": key})
-                setattr(nested, arg_name, parser.apply_operation(op, getattr(nested, arg_name), parsed_value))
+                    raise UndefinedVariableError(
+                        f"Cannot use '{op.value}' on undefined variable", arg, {"key": key}
+                    )
+                setattr(
+                    nested,
+                    arg_name,
+                    parser.apply_operation(op, getattr(nested, arg_name), parsed_value),
+                )
         except AttributeError as e:
-            raise ArgumentValueError(f"Invalid argument: {str(e)}", arg, {"key": key, "value": value})
+            raise ArgumentValueError(
+                f"Invalid argument: {str(e)}", arg, {"key": key, "value": value}
+            )
 
     return output
 
@@ -1045,8 +1124,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
     """
     import catalogue
 
-    from nemo_run.config import (Partial, get_type_namespace,
-                                 get_underlying_types)
+    from nemo_run.config import Partial, get_type_namespace, get_underlying_types
 
     def _get_from_registry(val, annotation, name):
         if catalogue.check_exists(get_type_namespace(annotation), val):
@@ -1060,7 +1138,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 
     def parse_single_factory(factory_str):
         # Extract factory name and arguments
-        match = re.match(r'^(\w+)(?:\((.*)\))?$', factory_str.strip())
+        match = re.match(r"^(\w+)(?:\((.*)\))?$", factory_str.strip())
         if not match:
             raise ValueError(f"Invalid factory format: {factory_str}")
 
@@ -1084,19 +1162,19 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
             raise ValueError(f"No matching factory found for: {factory_str}")
 
         if args_str:
-            cli_args = [arg.strip() for arg in args_str.split(',') if arg.strip()]
+            cli_args = [arg.strip() for arg in args_str.split(",") if arg.strip()]
             partial_factory = parse_cli_args(factory_fn, cli_args, output_type=Partial)
             return fdl.build(partial_factory)()
 
         return factory_fn()
 
     # Check if the value is a list
-    list_match = re.match(r'^\s*\[(.*)\]\s*$', value)
+    list_match = re.match(r"^\s*\[(.*)\]\s*$", value)
     if list_match:
         # Check if arg_type is List[T], if so get T
         if get_origin(arg_type) == list:
             arg_type = get_args(arg_type)[0]
-        items = re.findall(r'([^,]+(?:\([^)]*\))?)', list_match.group(1))
+        items = re.findall(r"([^,]+(?:\([^)]*\))?)", list_match.group(1))
         return [parse_single_factory(item.strip()) for item in items]
 
     return parse_single_factory(value)
@@ -1116,9 +1194,7 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
         for arg in args:
             if "=" not in arg:
                 raise ArgumentParsingError(
-                    "Positional argument found after keyword argument",
-                    arg,
-                    {"position": len(args)}
+                    "Positional argument found after keyword argument", arg, {"position": len(args)}
                 )
 
         return args
@@ -1129,7 +1205,7 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
     seen_kwarg = False
 
     for arg in args:
-        if '=' in arg:
+        if "=" in arg:
             seen_kwarg = True
             updated_args.append(arg)
         else:
@@ -1137,7 +1213,7 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
                 raise ArgumentParsingError(
                     "Positional argument found after keyword argument",
                     arg,
-                    {"position": len(updated_args)}
+                    {"position": len(updated_args)},
                 )
             if positional_count < len(params):
                 param_name = params[positional_count].name
@@ -1145,9 +1221,7 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
                 positional_count += 1
             else:
                 raise ArgumentParsingError(
-                    "Too many positional arguments",
-                    arg,
-                    {"max_positional": len(params)}
+                    "Too many positional arguments", arg, {"max_positional": len(params)}
                 )
 
     return updated_args
@@ -1155,21 +1229,25 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
 
 def parse_attribute(attr, nested):
     """Parse and apply attribute access and indexing operations."""
-    parts = re.split(r'(\[|\])', attr)
+    parts = re.split(r"(\[|\])", attr)
     result = nested
 
     for part in parts:
-        if part == '[' or part == ']' or part == '':
+        if part == "[" or part == "]" or part == "":
             continue
         elif part.isdigit():
             try:
                 result = result[int(part)]
             except (IndexError, KeyError, TypeError) as e:
-                raise ArgumentValueError(f"Invalid index '{part}' for {attr}", attr, {"nested": nested}) from e
+                raise ArgumentValueError(
+                    f"Invalid index '{part}' for {attr}", attr, {"nested": nested}
+                ) from e
         else:
             try:
                 result = getattr(result, part)
             except AttributeError as e:
-                raise ArgumentValueError(f"Invalid attribute '{part}' for {attr}", attr, {"nested": nested}) from e
+                raise ArgumentValueError(
+                    f"Invalid attribute '{part}' for {attr}", attr, {"nested": nested}
+                ) from e
 
     return result

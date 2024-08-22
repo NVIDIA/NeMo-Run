@@ -24,8 +24,7 @@ import sys
 import typing
 from pathlib import Path
 from types import MappingProxyType
-from typing import (Any, Callable, Generic, Optional, Type, TypeVar, Union,
-                    get_args)
+from typing import Any, Callable, Generic, Optional, Type, TypeVar, Union, get_args
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -135,9 +134,7 @@ def set_value(cfg: config.Buildable, key: str, value: Any) -> None:
         else:
             raise run_exceptions.SetValueError(f"Unexpected path element {last}.")
     except Exception as e:
-        raise run_exceptions.SetValueError(
-            f'Could not set "{key}" to "{value}".'
-        ) from e
+        raise run_exceptions.SetValueError(f'Could not set "{key}" to "{value}".') from e
 
 
 class _CloneAndFNMixin:
@@ -409,9 +406,7 @@ def _construct_args(
             if dataclasses.is_dataclass(arg):
                 final_args[name] = fdl.cast(
                     Config,
-                    fdl_dc.convert_dataclasses_to_configs(
-                        arg, allow_post_init=True
-                    ),
+                    fdl_dc.convert_dataclasses_to_configs(arg, allow_post_init=True),
                 )
             else:
                 final_args[name] = arg

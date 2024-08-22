@@ -39,9 +39,7 @@ def sshserver(space_zlib: str, verbose: bool = False):
 
     console.print("\n")
     console.rule("[bold green]Local connection", characters="*")
-    console.print(
-        "To connect to the tunnel, run the following command on your local machine:"
-    )
+    console.print("To connect to the tunnel, run the following command on your local machine:")
     console.print("\n")
     console.print(f"nemorun devspace connect {user}@{hostname} {server_dir}")
     console.rule("[bold green]", characters="*")

@@ -20,9 +20,22 @@ import os
 import sys
 from dataclasses import dataclass, field
 from functools import cache, wraps
-from typing import (Any, Callable, Generic, List, Literal, Optional, Protocol,
-                    Tuple, Type, TypeVar, Union, get_args, overload,
-                    runtime_checkable)
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    overload,
+    runtime_checkable,
+)
 
 import catalogue
 import fiddle as fdl
@@ -38,10 +51,15 @@ from typing_extensions import ParamSpec
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
-from nemo_run.config import (NEMORUN_HOME, Config, Partial, Script,
-                             get_type_namespace, get_underlying_types)
-from nemo_run.core.execution import (LocalExecutor, SkypilotExecutor,
-                                     SlurmExecutor)
+from nemo_run.config import (
+    NEMORUN_HOME,
+    Config,
+    Partial,
+    Script,
+    get_type_namespace,
+    get_underlying_types,
+)
+from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
@@ -67,7 +85,7 @@ def entrypoint(
     require_confirmation: bool = True,
     enable_executor: bool = True,
     entrypoint_cls: Optional[Type["Entrypoint"]] = None,
-    type: Literal["task", "experiment"] = "task"
+    type: Literal["task", "experiment"] = "task",
 ) -> F | Callable[[F], F]:
     """
     Decorator to register a function as a CLI entrypoint in the NeMo Run framework.
@@ -153,7 +171,7 @@ def entrypoint(
             help_str=help,
             require_confirmation=require_confirmation,
             enable_executor=enable_executor,
-            type=type
+            type=type,
         )
 
         if _namespace:
@@ -300,8 +318,11 @@ def factory(
         if not target and not hasattr(fn, "__auto_config__"):
             return_type = _get_return_type(fn)
             if not (
-                isinstance(return_type, (Config, Partial)) or
-                (hasattr(return_type, "__origin__") and issubclass(return_type.__origin__, (Config, Partial)))
+                isinstance(return_type, (Config, Partial))
+                or (
+                    hasattr(return_type, "__origin__")
+                    and issubclass(return_type.__origin__, (Config, Partial))
+                )
             ):
                 raise ValueError(
                     f"Factory function {fn} has a return type which is not a subclass of Config or Partial. "
@@ -322,7 +343,7 @@ def factory(
             target_arg=target_arg,
             name=name,
             namespace=namespace,
-            is_target_default=is_target_default
+            is_target_default=is_target_default,
         )
 
         return as_factory
@@ -331,7 +352,8 @@ def factory(
 
 
 def resolve_factory(
-    target: Type[T] | str, name: str,
+    target: Type[T] | str,
+    name: str,
 ) -> Callable[..., Config[T] | Partial[T]]:
     """
     Helper function to resolve the factory for the give type or namespace.
@@ -532,9 +554,9 @@ def _register_factory(
         _namespace = get_type_namespace(target)
     else:
         _return_type = _get_return_type(fn)
-        if (
-            isinstance(_return_type, (Config, Partial)) or
-            (hasattr(_return_type, "__origin__") and issubclass(_return_type.__origin__, (Config, Partial)))
+        if isinstance(_return_type, (Config, Partial)) or (
+            hasattr(_return_type, "__origin__")
+            and issubclass(_return_type.__origin__, (Config, Partial))
         ):
             _return_type = get_args(_return_type)[0]
 
@@ -642,10 +664,7 @@ class RunContext:
         )
 
     def run(
-        self,
-        fn: Callable,
-        args: List[str],
-        entrypoint_type: Literal["task", "experiment"] = "task"
+        self, fn: Callable, args: List[str], entrypoint_type: Literal["task", "experiment"] = "task"
     ):
         _, run_args, filtered_args = _parse_prefixed_args(args, "run")
         self.parse_args(run_args)
@@ -723,7 +742,7 @@ class RunContext:
                         sequential=self.sequential,
                         detach=self.detach,
                         direct=self.direct or self.executor is None,
-                        tail_logs=self.tail_logs
+                        tail_logs=self.tail_logs,
                     )
 
     def _should_continue(self, require_confirmation: bool) -> bool:
@@ -806,14 +825,18 @@ class Entrypoint(Generic[Params, ReturnType]):
         help_str=None,
         enable_executor: bool = True,
         require_confirmation: bool = True,
-        type: Literal["task", "experiment"] = "task"
+        type: Literal["task", "experiment"] = "task",
     ):
         if type == "task":
             if "executor" in inspect.signature(fn).parameters:
-                raise ValueError("The function cannot have an argument named `executor` as it is a reserved keyword.")
+                raise ValueError(
+                    "The function cannot have an argument named `executor` as it is a reserved keyword."
+                )
         elif type in ("sequential_experiment", "parallel_experiment"):
             if "ctx" not in inspect.signature(fn).parameters:
-                raise ValueError("The function must have an argument named `ctx` as it is a required argument for experiments.")
+                raise ValueError(
+                    "The function must have an argument named `ctx` as it is a required argument for experiments."
+                )
 
         self.fn = fn
         self.arg_types = {}
@@ -1007,7 +1030,9 @@ class GeneralCommand(TyperGroup):
         return out
 
 
-def _parse_prefixed_args(args: List[str], prefix: str) -> Tuple[Optional[str], List[str], List[str]]:
+def _parse_prefixed_args(
+    args: List[str], prefix: str
+) -> Tuple[Optional[str], List[str], List[str]]:
     """
     Parse arguments to separate prefixed args from others.
 
@@ -1033,7 +1058,9 @@ def _parse_prefixed_args(args: List[str], prefix: str) -> Tuple[Optional[str], L
                 prefixed_arg_value = arg.split("=")[1]
             else:
                 if not arg.startswith(f"{prefix}.") and not arg.startswith(f"{prefix}["):
-                    raise ValueError(f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}")
+                    raise ValueError(
+                        f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}"
+                    )
                 if arg.startswith(f"{prefix}."):
                     prefixed_args.append(arg.replace(f"{prefix}.", ""))
                 elif arg.startswith(f"{prefix}["):

@@ -90,9 +90,7 @@ class TestFromDict:
         assert output.data.value == 123
 
     def test_from_dict_with_list(self):
-        input_list = {
-            "data": [{"name": "test1", "value": 123}, {"name": "test2", "value": 456}]
-        }
+        input_list = {"data": [{"name": "test1", "value": 123}, {"name": "test2", "value": 456}]}
         output = from_dict(input_list, ListData)
         assert len(output.data) == 2
         assert output.data[0].name == "test1"
@@ -293,9 +291,7 @@ class TestScript:
         assert script.get_name() == "echo_hi_w"
 
     def test_get_name_from_inline_long_string(self):
-        script = Script(
-            inline="this is a very long inline script that should be truncated"
-        )
+        script = Script(inline="this is a very long inline script that should be truncated")
         assert script.get_name() == "this_is_a_"
 
     def test_get_name_from_path(self):

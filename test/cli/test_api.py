@@ -51,9 +51,7 @@ def EntryPoint_from_text(text: str) -> list[EntryPoint]:
     return EntryPoint_from_config(config)
 
 
-_ENTRY_POINTS: EntryPoints = EntryPoints(
-    EntryPoint_from_text(_RUN_FACTORIES_ENTRYPOINT)
-)
+_ENTRY_POINTS: EntryPoints = EntryPoints(EntryPoint_from_text(_RUN_FACTORIES_ENTRYPOINT))
 
 
 @dataclass
@@ -83,12 +81,14 @@ class TestRunContext:
     def sample_function(self):
         def func(a: int, b: str, c: float = 1.0):
             return a, b, c
+
         return func
 
     @pytest.fixture
     def sample_experiment(self):
         def func(ctx, a: int, b: str, c: float = 1.0):
             return a, b, c
+
         return func
 
     def test_run_context_initialization(self):
@@ -106,7 +106,9 @@ class TestRunContext:
 
     def test_run_context_parse_args(self):
         ctx = RunContext(name="test_run")
-        ctx.parse_args(["executor=local_executor", "executor.ntasks_per_node=2", "plugins=dummy_plugin"])
+        ctx.parse_args(
+            ["executor=local_executor", "executor.ntasks_per_node=2", "plugins=dummy_plugin"]
+        )
         assert isinstance(ctx.executor, run.Config)
         assert ctx.executor.__fn_or_cls__ == run.LocalExecutor
         assert ctx.executor.ntasks_per_node == 2
@@ -115,12 +117,14 @@ class TestRunContext:
 
     def test_run_context_plugin_list_factory(self):
         ctx = RunContext(name="test_run")
-        ctx.parse_args([
-            "executor=local_executor",
-            "executor.ntasks_per_node=2",
-            "plugins=plugin_list",
-            "plugins[0].some_arg=50",
-        ])
+        ctx.parse_args(
+            [
+                "executor=local_executor",
+                "executor.ntasks_per_node=2",
+                "plugins=plugin_list",
+                "plugins[0].some_arg=50",
+            ]
+        )
         assert isinstance(ctx.executor, run.Config)
         assert ctx.executor.__fn_or_cls__ == run.LocalExecutor
         assert ctx.executor.ntasks_per_node == 2
@@ -210,7 +214,9 @@ class TestRunContext:
     @patch("nemo_run.dryrun_fn")
     @patch("nemo_run.run")
     @patch("typer.confirm", return_value=False)
-    def test_run_context_execute_task_with_confirmation_denied(self, mock_confirm, mock_run, mock_dryrun_fn, sample_function):
+    def test_run_context_execute_task_with_confirmation_denied(
+        self, mock_confirm, mock_run, mock_dryrun_fn, sample_function
+    ):
         ctx = RunContext(name="test_run", require_confirmation=True)
         ctx.run(sample_function, ["a=10", "b=hello"])
         mock_dryrun_fn.assert_called_once()
@@ -241,6 +247,7 @@ class TestRunContext:
     @patch("nemo_run.cli.api.RunContext.run")
     def test_run_context_run_task(self, mock_run):
         ctx = RunContext(name="test_run")
+
         def sample_function(a, b):
             return None
 
@@ -250,6 +257,7 @@ class TestRunContext:
 
     def test_run_context_run_with_sequential(self):
         ctx = RunContext(name="test_run", require_confirmation=False)
+
         def sample_function(a, b):
             return None
 
@@ -360,10 +368,7 @@ class TestFactoryAndResolve:
         def custom_factory() -> CustomObject:
             return CustomObject(value="custom")
 
-        assert (
-            run.cli.resolve_factory("custom_namespace", "custom_factory")().value
-            == "custom"
-        )
+        assert run.cli.resolve_factory("custom_namespace", "custom_factory")().value == "custom"
 
     def test_resolve(self):
         dummy_model = run.cli.resolve_factory(DummyModel, "dummy_model")()
@@ -388,13 +393,9 @@ class TestFactoryAndResolve:
             run.cli.resolve_factory(Union[DummyModel, Optimizer], "dummy_model_123")
 
     def test_resolve_entrypoints(self):
-        assert (
-            run.cli.resolve_factory(DummyModel, "dummy_factory_for_entrypoint")().hidden
-            == 1000
-        )
+        assert run.cli.resolve_factory(DummyModel, "dummy_factory_for_entrypoint")().hidden == 1000
 
     def test_help(self):
-
         registry_details = []
         for t in config.get_underlying_types(Optional[Optimizer]):
             namespace = config.get_type_namespace(t)
@@ -464,10 +465,12 @@ class TestEntrypointRunner:
         return create_cli(add_verbose_callback=False, nested_entrypoints_creation=False)
 
     def test_dummy_entrypoint_cli(self, runner, app):
-        with patch('test.dummy_factory.NestedModel') as mock_nested_model:
+        with patch("test.dummy_factory.NestedModel") as mock_nested_model:
             result = runner.invoke(app, ["dummy", "dummy_entrypoint", "dummy=dummy_model_config"])
             assert result.exit_code == 0
-            mock_nested_model.assert_called_once_with(dummy=DummyModel(hidden=2000, activation="tanh"))
+            mock_nested_model.assert_called_once_with(
+                dummy=DummyModel(hidden=2000, activation="tanh")
+            )
 
     def test_parse_partial_function_call(self):
         entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
@@ -486,8 +489,12 @@ class TestEntrypointRunner:
         @run.cli.entrypoint(namespace="llm", type="experiment")
         def my_experiment(
             ctx: run.cli.RunContext,
-            pretrain: run.Partial[dummy_pretrain] = run.Partial(dummy_pretrain, log_dir="/pretrain"),
-            finetune: run.Partial[dummy_finetune] = run.Partial(dummy_finetune, log_dir="/finetune")
+            pretrain: run.Partial[dummy_pretrain] = run.Partial(
+                dummy_pretrain, log_dir="/pretrain"
+            ),
+            finetune: run.Partial[dummy_finetune] = run.Partial(
+                dummy_finetune, log_dir="/finetune"
+            ),
         ):
             pretrain.log_dir = f"/{ctx.experiment.name}/checkpoints"
             finetune.log_dir = f"/{ctx.experiment.name}/checkpoints"
@@ -509,7 +516,6 @@ class TestEntrypointRunner:
 
             return ctx.experiment
 
-
         # Mock the necessary objects and methods
         mock_experiment = Mock(spec=run.Experiment)
         mock_experiment.name = "test_experiment"
@@ -525,26 +531,16 @@ class TestEntrypointRunner:
         mock_finetune.log_dir = "/finetune"
 
         # Call the entrypoint function
-        result = my_experiment(
-            ctx=mock_ctx,
-            pretrain=mock_pretrain,
-            finetune=mock_finetune
-        )
+        result = my_experiment(ctx=mock_ctx, pretrain=mock_pretrain, finetune=mock_finetune)
 
         # Assert that the experiment methods were called correctly
         assert result == mock_experiment
         assert mock_experiment.add.call_count == 2
         mock_experiment.add.assert_any_call(
-            mock_pretrain,
-            executor=mock_executor,
-            name=mock_experiment.name,
-            tail_logs=True
+            mock_pretrain, executor=mock_executor, name=mock_experiment.name, tail_logs=True
         )
         mock_experiment.add.assert_any_call(
-            mock_finetune,
-            executor=mock_executor,
-            name=mock_experiment.name,
-            tail_logs=True
+            mock_finetune, executor=mock_executor, name=mock_experiment.name, tail_logs=True
         )
 
         assert mock_pretrain.log_dir == f"/{mock_experiment.name}/checkpoints"

@@ -34,6 +34,7 @@ class NestedModel:
 class DummyPlugin(run.Plugin):
     some_arg: int = 10
 
+
 @dataclass(kw_only=True)
 class AnotherPlugin(run.Plugin):
     another_arg: int = 10
@@ -48,6 +49,7 @@ def dummy_factory_for_entrypoint() -> DummyModel:
 @run.cli.factory
 def dummy_model_config() -> run.Config[DummyModel]:
     return run.Config(DummyModel, hidden=2000, activation="tanh")
+
 
 @run.cli.factory
 @run.autoconvert

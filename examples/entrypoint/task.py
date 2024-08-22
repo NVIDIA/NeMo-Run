@@ -7,6 +7,7 @@ import nemo_run as run
 @dataclass
 class Model:
     """Dummy model config"""
+
     hidden_size: int
     num_layers: int
     activation: str
@@ -15,20 +16,15 @@ class Model:
 @dataclass
 class Optimizer:
     """Dummy optimizer config"""
+
     learning_rate: float
     weight_decay: float
     betas: List[float]
 
 
-
-
 @run.cli.factory
 @run.autoconvert
-def my_model(
-    hidden_size: int = 256,
-    num_layers: int = 3,
-    activation: str = 'relu'
-) -> Model:
+def my_model(hidden_size: int = 256, num_layers: int = 3, activation: str = "relu") -> Model:
     """
     Create a model configuration.
     """
@@ -37,12 +33,12 @@ def my_model(
 
 @run.cli.factory
 def my_optimizer(
-    learning_rate: float = 0.001,
-    weight_decay: float = 1e-5,
-    betas: List[float] = [0.9, 0.999]
+    learning_rate: float = 0.001, weight_decay: float = 1e-5, betas: List[float] = [0.9, 0.999]
 ) -> run.Config[Optimizer]:
     """Create an optimizer configuration."""
-    return run.Config(Optimizer, learning_rate=learning_rate, weight_decay=weight_decay, betas=betas)
+    return run.Config(
+        Optimizer, learning_rate=learning_rate, weight_decay=weight_decay, betas=betas
+    )
 
 
 @run.cli.entrypoint
@@ -50,7 +46,7 @@ def train_model(
     model: Model = my_model(),
     optimizer: Optimizer = my_optimizer(),
     epochs: int = 10,
-    batch_size: int = 32
+    batch_size: int = 32,
 ):
     """
     Train a model using the specified configuration.

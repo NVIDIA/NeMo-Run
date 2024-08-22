@@ -14,9 +14,22 @@
 # limitations under the License.
 
 from functools import wraps
-from typing import (Any, Callable, Concatenate, List, Literal, Optional,
-                    ParamSpec, Protocol, Type, TypeVar, Union, cast, overload,
-                    runtime_checkable)
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    List,
+    Literal,
+    Optional,
+    ParamSpec,
+    Protocol,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+    runtime_checkable,
+)
 
 import fiddle as fdl
 from fiddle.experimental import auto_config as _auto_config
@@ -105,9 +118,7 @@ def autoconvert(
 
 
 def autoconvert(
-    fn: Optional[
-        Callable[P, T] | Callable[P, Config[T]] | Callable[P, Partial[T]]
-    ] = None,
+    fn: Optional[Callable[P, T] | Callable[P, Config[T]] | Callable[P, Partial[T]]] = None,
     *,
     partial: bool = False,
     to_buildable_fn: Callable[
@@ -199,9 +210,7 @@ def dryrun_fn(
 
     fn = configured_fn.__fn_or_cls__
     console = CONSOLE
-    console.print(
-        f"[bold cyan]Dry run for task {fn.__module__}:{fn.__name__}[/bold cyan]"
-    )
+    console.print(f"[bold cyan]Dry run for task {fn.__module__}:{fn.__name__}[/bold cyan]")
 
     table_resolved_args = Table(show_header=True, header_style="bold magenta")
     table_resolved_args.add_column("Argument Name", style="dim", width=20)
