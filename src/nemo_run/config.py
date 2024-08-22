@@ -24,8 +24,7 @@ import sys
 import typing
 from pathlib import Path
 from types import MappingProxyType
-from typing import (Any, Callable, Generic, Optional, Type, TypeVar, Union,
-                    get_args)
+from typing import Any, Callable, Generic, Optional, Type, TypeVar, Union, get_args
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
