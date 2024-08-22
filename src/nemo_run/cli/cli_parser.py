@@ -19,7 +19,6 @@ import inspect
 import logging
 import operator
 import re
-from dataclasses import is_dataclass
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -948,10 +947,11 @@ def parse_cli_args(
         if "." not in key:
             if isinstance(fn, (Config, Partial)):
                 signature = inspect.signature(fn.__fn_or_cls__)
-            elif is_dataclass(fn):
-                signature = inspect.signature(fn.__class__)
             else:
-                signature = inspect.signature(fn)
+                try:
+                    signature = inspect.signature(fn)
+                except Exception:
+                    signature = inspect.signature(fn.__class__)
             arg_name, nested = key, output
         else:
             splitted, nested = key.split("."), output
@@ -1107,10 +1107,11 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
         signature = inspect.signature(fn.__fn_or_cls__)
     elif isinstance(fn, (list, tuple)):
         signature = None
-    elif is_dataclass(fn):
-        signature = inspect.signature(fn.__class__)
     else:
-        signature = inspect.signature(fn)
+        try:
+            signature = inspect.signature(fn)
+        except Exception:
+            signature = inspect.signature(fn.__class__)
     if signature is None:
         for arg in args:
             if not "=" in arg:
