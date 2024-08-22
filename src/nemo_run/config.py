@@ -24,7 +24,8 @@ import sys
 import typing
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Generic, Optional, Type, TypeVar, Union, get_args
+from typing import (Any, Callable, Generic, Optional, Type, TypeVar, Union,
+                    get_args)
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -90,7 +91,7 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
 def from_dict(raw_data: dict | list | str | float | int | bool, cls: Type[_T]) -> _T:
     if isinstance(raw_data, dict):
         underlying_types = get_underlying_types(cls)
-        underlying_types = [tp for tp in underlying_types if tp != type(None)]
+        underlying_types = [tp for tp in underlying_types if tp is not type(None)]
         assert (
             len(underlying_types) == 1
         ), f"Unable to load {cls}. Nested union types are not currently supported."

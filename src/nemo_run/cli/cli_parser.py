@@ -22,19 +22,8 @@ import re
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    get_args,
-    get_origin,
-)
+from typing import (Any, Callable, Dict, List, Literal, Optional, Type,
+                    TypeVar, Union, get_args, get_origin)
 
 import fiddle as fdl
 
@@ -1124,7 +1113,8 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
     """
     import catalogue
 
-    from nemo_run.config import Partial, get_type_namespace, get_underlying_types
+    from nemo_run.config import (Partial, get_type_namespace,
+                                 get_underlying_types)
 
     def _get_from_registry(val, annotation, name):
         if catalogue.check_exists(get_type_namespace(annotation), val):
@@ -1172,7 +1162,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
     list_match = re.match(r"^\s*\[(.*)\]\s*$", value)
     if list_match:
         # Check if arg_type is List[T], if so get T
-        if get_origin(arg_type) == list:
+        if get_origin(arg_type) is list:
             arg_type = get_args(arg_type)[0]
         items = re.findall(r"([^,]+(?:\([^)]*\))?)", list_match.group(1))
         return [parse_single_factory(item.strip()) for item in items]
