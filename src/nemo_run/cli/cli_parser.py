@@ -1023,8 +1023,8 @@ def parse_cli_args(
                     signature = inspect.signature(fn.__class__)
             arg_name, nested = key, output
         else:
-            splitted, nested = key.split("."), output
-            for attr in splitted[:-1]:
+            dot_split, nested = key.split("."), output
+            for attr in dot_split[:-1]:
                 try:
                     nested = parse_attribute(attr, nested)
                 except AttributeError as e:
@@ -1032,7 +1032,7 @@ def parse_cli_args(
                         f"Invalid attribute: {attr}", key, {"nested": nested}
                     ) from e
             signature = inspect.signature(nested.__fn_or_cls__)
-            arg_name = splitted[-1]
+            arg_name = dot_split[-1]
 
         param = signature.parameters.get(arg_name)
         if param is None:
