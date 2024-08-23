@@ -1,0 +1,25 @@
+name: Rye lint
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: eifinger/setup-rye@v2
+
+      - name: Rye sync
+        run: rye sync
+
+      - name: Rye test
+        run: rye test
+
+      - name: Rye coverage
+        run: rye run cov
