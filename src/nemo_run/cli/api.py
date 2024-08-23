@@ -192,13 +192,19 @@ def entrypoint(
     return wrapper(fn)
 
 
-def main(fn: F, default_factory: Optional[Callable] = None, **kwargs):
+def main(
+    fn: F,
+    default_factory: Optional[Callable] = None,
+    default_executor: Optional[Config[Executor]] = None,
+    **kwargs,
+):
     """
     Execute the main CLI entrypoint for the given function.
 
     Args:
         fn (F): The function to be executed as a CLI entrypoint.
-        default_factory (Optional[Callable]): A custom default factory to use for this execution.
+        default_factory (Optional[Callable]): A custom default factory to use in the context of this main function.
+        default_executor (Optional[Config[Executor]]): A custom default executor to use in the context of this main function.
         **kwargs: Additional keyword arguments to pass to the entrypoint decorator.
 
     Example:
@@ -218,8 +224,14 @@ def main(fn: F, default_factory: Optional[Callable] = None, **kwargs):
     if default_factory:
         fn.cli_entrypoint.default_factory = default_factory
 
+    _original_default_executor = fn.cli_entrypoint.default_executor
+    if default_executor:
+        fn.cli_entrypoint.default_executor = default_executor
+
     fn.cli_entrypoint.main()
+
     fn.cli_entrypoint.default_factory = _original_default_factory
+    fn.cli_entrypoint.default_executor = _original_default_executor
 
 
 @overload
@@ -681,6 +693,7 @@ class RunContext:
         name: str,
         fn: Callable,
         default_factory: Optional[Callable] = None,
+        default_executor: Optional[Executor] = None,
         type: Literal["task", "experiment"] = "task",
         command_kwargs: Dict[str, Any] = {},
     ):
@@ -738,6 +751,10 @@ class RunContext:
                 require_confirmation=require_confirmation,
                 tail_logs=tail_logs,
             )
+
+            if default_executor:
+                self.executor = default_executor
+
             try:
                 _load_entrypoints()
                 _load_workspace()
@@ -932,7 +949,12 @@ class RunContext:
         if executor_name:
             self.executor = self.parse_executor(executor_name, *executor_args)
         else:
-            self.executor = None
+            if hasattr(self, "executor"):
+                if isinstance(self.executor, Config):
+                    self.executor = fdl.build(self.executor)
+                parse_cli_args(self.executor, args, self.executor)
+            else:
+                self.executor = None
         if plugin_name:
             plugins = self.parse_plugin(plugin_name, *plugin_args)
             if not isinstance(plugins, list):
@@ -1040,6 +1062,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         fn: Callable[Params, ReturnType],
         namespace: str,
         default_factory: Optional[Callable] = None,
+        default_executor: Optional[Config[Executor]] = None,
         env=None,
         name=None,
         help_str=None,
@@ -1075,6 +1098,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         self.require_confirmation = require_confirmation
         self.type = type
         self.default_factory = default_factory
+        self.default_executor = default_executor
 
     def __call__(self, *args: Params.args, **kwargs: Params.kwargs) -> ReturnType:
         return self.fn(*args, **kwargs)
@@ -1139,6 +1163,7 @@ class Entrypoint(Generic[Params, ReturnType]):
             self.fn,
             type=self.type,
             default_factory=self.default_factory,
+            default_executor=self.default_executor,
             command_kwargs=dict(
                 help=colored_help,
                 cls=CLITaskCommand,

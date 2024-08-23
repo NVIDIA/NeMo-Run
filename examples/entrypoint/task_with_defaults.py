@@ -41,16 +41,6 @@ def my_optimizer(
     )
 
 
-def defaults() -> run.Partial["train_model"]:
-    return run.Partial(
-        train_model,
-        model=my_model(),
-        optimizer=my_optimizer(),
-        epochs=40,
-        batch_size=1024,
-    )
-
-
 def train_model(
     model: Model,
     optimizer: Optimizer,
@@ -89,5 +79,14 @@ def custom_defaults() -> run.Partial[train_model]:
     )
 
 
+@run.autoconvert
+def local_executor() -> run.Executor:
+    return run.LocalExecutor()
+
+
 if __name__ == "__main__":
-    run.cli.main(train_model, default_factory=custom_defaults)
+    run.cli.main(
+        train_model,
+        default_factory=custom_defaults,
+        default_executor=local_executor(),
+    )
