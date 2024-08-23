@@ -51,7 +51,6 @@ def defaults() -> run.Partial["train_model"]:
     )
 
 
-@run.cli.entrypoint(default_factory=defaults)
 def train_model(
     model: Model,
     optimizer: Optimizer,
@@ -80,5 +79,15 @@ def train_model(
     print("Training completed!")
 
 
+def custom_defaults() -> run.Partial[train_model]:
+    return run.Partial(
+        train_model,
+        model=my_model(hidden_size=512),
+        optimizer=my_optimizer(learning_rate=0.0005),
+        epochs=50,
+        batch_size=2048,
+    )
+
+
 if __name__ == "__main__":
-    run.cli.main(train_model)
+    run.cli.main(train_model, default_factory=custom_defaults)

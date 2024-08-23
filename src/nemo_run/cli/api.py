@@ -192,15 +192,14 @@ def entrypoint(
     return wrapper(fn)
 
 
-def main(fn: F, **kwargs):
+def main(fn: F, default_factory: Optional[Callable] = None, **kwargs):
     """
     Execute the main CLI entrypoint for the given function.
 
-    This function is used to run the CLI entrypoint associated with a decorated function.
-    If the function is not decorated as an entrypoint, it will be wrapped with the default entrypoint.
-
     Args:
         fn (F): The function to be executed as a CLI entrypoint.
+        default_factory (Optional[Callable]): A custom default factory to use for this execution.
+        **kwargs: Additional keyword arguments to pass to the entrypoint decorator.
 
     Example:
         @entrypoint
@@ -209,13 +208,18 @@ def main(fn: F, **kwargs):
             pass
 
         if __name__ == "__main__":
-            main(my_cli_function)
+            main(my_cli_function, default_factory=my_custom_defaults)
     """
     if not isinstance(fn, EntrypointProtocol):
         # Wrap the function with the default entrypoint
         fn = entrypoint(**kwargs)(fn)
 
+    _original_default_factory = fn.cli_entrypoint.default_factory
+    if default_factory:
+        fn.cli_entrypoint.default_factory = default_factory
+
     fn.cli_entrypoint.main()
+    fn.cli_entrypoint.default_factory = _original_default_factory
 
 
 @overload
