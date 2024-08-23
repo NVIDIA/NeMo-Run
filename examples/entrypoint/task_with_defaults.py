@@ -84,9 +84,15 @@ def local_executor() -> run.Executor:
     return run.LocalExecutor()
 
 
+class DummyPlugin(run.Plugin):
+    def setup(self, task: run.Partial[train_model], executor: run.Executor):
+        task.epochs *= 2
+
+
 if __name__ == "__main__":
     run.cli.main(
         train_model,
         default_factory=custom_defaults,
         default_executor=local_executor(),
+        default_plugins=run.Config(DummyPlugin),
     )
