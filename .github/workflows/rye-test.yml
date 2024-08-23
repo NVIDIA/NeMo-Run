@@ -1,4 +1,4 @@
-name: Rye lint
+name: Rye test
 
 on:
   workflow_dispatch:
