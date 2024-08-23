@@ -41,7 +41,6 @@ def my_optimizer(
     )
 
 
-@run.cli.entrypoint
 def train_model(
     model: Model = my_model(),
     optimizer: Optimizer = my_optimizer(),

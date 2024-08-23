@@ -192,13 +192,10 @@ def main(fn: F):
     Execute the main CLI entrypoint for the given function.
 
     This function is used to run the CLI entrypoint associated with a decorated function.
-    It checks if the function is properly decorated as an entrypoint and then executes its main CLI logic.
+    If the function is not decorated as an entrypoint, it will be wrapped with the default entrypoint.
 
     Args:
-        fn (F): The function decorated with the @entrypoint decorator.
-
-    Raises:
-        ValueError: If the provided function is not decorated as an entrypoint.
+        fn (F): The function to be executed as a CLI entrypoint.
 
     Example:
         @entrypoint
@@ -210,7 +207,8 @@ def main(fn: F):
             main(my_cli_function)
     """
     if not isinstance(fn, EntrypointProtocol):
-        raise ValueError("The function is not an entrypoint.")
+        # Wrap the function with the default entrypoint
+        fn = entrypoint()(fn)
 
     fn.cli_entrypoint.main()
 
@@ -745,11 +743,20 @@ class RunContext:
 
     def launch(self, experiment: Experiment, sequential: bool = False):
         """
-        Launch the given experiment.
+        Launch the given experiment, respecting the RunContext settings.
+
+        This method launches the experiment, taking into account the various options
+        set in the RunContext, such as dryrun, detach, direct execution, and log tailing.
 
         Args:
             experiment (Experiment): The experiment to launch.
             sequential (bool): If True, run the experiment sequentially.
+
+        Note:
+            - If self.dryrun is True, it will only perform a dry run of the experiment.
+            - The method respects self.detach for detached execution.
+            - It uses direct execution if self.direct is True or if no executor is set.
+            - Log tailing behavior is controlled by self.tail_logs.
         """
         if self.dryrun:
             experiment.dryrun()
