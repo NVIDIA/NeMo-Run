@@ -41,6 +41,17 @@ def my_optimizer(
     )
 
 
+def defaults() -> run.Partial["train_model"]:
+    return run.Partial(
+        train_model,
+        model=my_model(),
+        optimizer=my_optimizer(),
+        epochs=40,
+        batch_size=1024,
+    )
+
+
+@run.cli.entrypoint(default_factory=defaults)
 def train_model(
     model: Model,
     optimizer: Optimizer,

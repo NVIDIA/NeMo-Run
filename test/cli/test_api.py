@@ -16,7 +16,7 @@
 from configparser import ConfigParser
 from dataclasses import dataclass
 from test.dummy_factory import DummyModel, dummy_entrypoint
-from typing import Optional, Union
+from typing import List, Optional, Union
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -428,6 +428,70 @@ class TestListEntrypoints:
         assert result == expected_result
 
 
+@dataclass
+class Model:
+    """Dummy model config"""
+
+    hidden_size: int
+    num_layers: int
+    activation: str
+
+
+@dataclass
+class Optimizer:
+    """Dummy optimizer config"""
+
+    learning_rate: float
+    weight_decay: float
+    betas: List[float]
+
+
+@run.cli.factory
+@run.autoconvert
+def my_model(hidden_size: int = 256, num_layers: int = 3, activation: str = "relu") -> Model:
+    """Create a model configuration."""
+    return Model(hidden_size=hidden_size, num_layers=num_layers, activation=activation)
+
+
+@run.cli.factory
+def my_optimizer(
+    learning_rate: float = 0.001, weight_decay: float = 1e-5, betas: List[float] = [0.9, 0.999]
+) -> run.Config[Optimizer]:
+    """Create an optimizer configuration."""
+    return run.Config(
+        Optimizer, learning_rate=learning_rate, weight_decay=weight_decay, betas=betas
+    )
+
+
+def defaults() -> run.Partial["train_model"]:
+    return run.Partial(
+        train_model,
+        model=my_model(),
+        optimizer=my_optimizer(),
+        epochs=40,
+        batch_size=1024,
+    )
+
+
+@run.cli.entrypoint(default_factory=defaults)
+def train_model(
+    model: Model,
+    optimizer: Optimizer,
+    epochs: int = 10,
+    batch_size: int = 32,
+):
+    """
+    Train a model using the specified configuration.
+
+    Args:
+        model (Model): Configuration for the model.
+        optimizer (Optimizer): Configuration for the optimizer.
+        epochs (int, optional): Number of training epochs. Defaults to 10.
+        batch_size (int, optional): Batch size for training. Defaults to 32.
+    """
+    return {"model": model, "optimizer": optimizer, "epochs": epochs, "batch_size": batch_size}
+
+
 class TestEntrypointRunner:
     @pytest.fixture
     def runner(self):
@@ -459,6 +523,36 @@ class TestEntrypointRunner:
         assert isinstance(partial, run.Partial)
         assert partial.dummy.hidden == 100
         assert partial.dummy.activation == "tanh"
+
+    def test_with_defaults(self, runner, app):
+        # Test CLI execution with default factory
+        result = runner.invoke(
+            app,
+            [
+                "train_model",
+                "model.hidden_size=1024",
+                "optimizer.learning_rate=0.005",
+                "epochs=30",
+                "run.require_confirmation=False",
+            ],
+        )
+        assert result.exit_code == 0
+
+        # Parse the output to check the values
+        output = result.stdout
+        assert "Training model with the following configuration:" in output
+        assert "Model: Model(hidden_size=1024, num_layers=3, activation='relu')" in output
+        assert (
+            "Optimizer: Optimizer(learning_rate=0.005, weight_decay=1e-5, betas=[0.9, 0.999])"
+            in output
+        )
+        assert "Epochs: 30" in output
+        assert "Batch size: 1024" in output
+        assert "Training completed!" in output
+
+        # Check that all epochs were simulated
+        for i in range(1, 31):
+            assert f"Epoch {i}/30" in output
 
     def test_experiment_entrypoint(self):
         def dummy_pretrain(log_dir: str):
@@ -531,3 +625,30 @@ class TestEntrypointRunner:
     class SomeObject:
         value_1: int
         value_2: int
+
+
+class TestDefaultFactory:
+    def test_default_factory(self):
+        # Test that the default factory is applied correctly
+        partial = run.cli.resolve_factory(train_model, "default")()
+        assert isinstance(partial, run.Partial)
+
+        # Check that the default values are set correctly
+        assert partial.model.hidden_size == 256
+        assert partial.model.num_layers == 3
+        assert partial.model.activation == "relu"
+        assert partial.optimizer.learning_rate == 0.001
+        assert partial.optimizer.weight_decay == 1e-5
+        assert partial.optimizer.betas == [0.9, 0.999]
+        assert partial.epochs == 40
+        assert partial.batch_size == 1024
+
+    def test_build_from_default_factory(self):
+        # Test that we can build the configuration from the default factory
+        partial = run.cli.resolve_factory(train_model, "default")()
+        result = fdl.build(partial)()
+
+        assert isinstance(result["model"], Model)
+        assert isinstance(result["optimizer"], Optimizer)
+        assert result["epochs"] == 40
+        assert result["batch_size"] == 1024

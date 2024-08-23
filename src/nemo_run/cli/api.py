@@ -79,6 +79,7 @@ def entrypoint(
     help: Optional[str] = None,
     require_confirmation: bool = True,
     enable_executor: bool = True,
+    default_factory: Optional[Callable] = None,
     entrypoint_cls: Optional[Type["Entrypoint"]] = None,
     type: Literal["task", "experiment"] = "task",
     run_ctx_cls: Optional[Type["RunContext"]] = None,
@@ -161,12 +162,16 @@ def entrypoint(
     _entrypoint_cls = entrypoint_cls or Entrypoint
 
     def wrapper(f: F) -> F:
+        if default_factory:
+            factory(default_factory, target=f, is_target_default=True)
+
         _entrypoint = _entrypoint_cls(
             f,
             name=name,
             namespace=_namespace,
             help_str=help,
             require_confirmation=require_confirmation,
+            default_factory=default_factory,
             enable_executor=enable_executor,
             type=type,
             run_ctx_cls=run_ctx_cls or RunContext,
@@ -187,7 +192,7 @@ def entrypoint(
     return wrapper(fn)
 
 
-def main(fn: F):
+def main(fn: F, **kwargs):
     """
     Execute the main CLI entrypoint for the given function.
 
@@ -208,7 +213,7 @@ def main(fn: F):
     """
     if not isinstance(fn, EntrypointProtocol):
         # Wrap the function with the default entrypoint
-        fn = entrypoint()(fn)
+        fn = entrypoint(**kwargs)(fn)
 
     fn.cli_entrypoint.main()
 
@@ -671,6 +676,7 @@ class RunContext:
         parent: typer.Typer,
         name: str,
         fn: Callable,
+        default_factory: Optional[Callable] = None,
         type: Literal["task", "experiment"] = "task",
         command_kwargs: Dict[str, Any] = {},
     ):
@@ -721,7 +727,7 @@ class RunContext:
                 name=name,
                 direct=direct,
                 dryrun=dryrun,
-                factory=factory,
+                factory=factory or default_factory,
                 load=load,
                 repl=repl,
                 detach=detach,
@@ -883,7 +889,10 @@ class RunContext:
             Partial[T]: A Partial object representing the parsed function and arguments.
         """
         if self.factory:
-            output = parse_factory(fn, "factory", fn, self.factory)
+            if isinstance(self.factory, Callable):
+                output = self.factory()
+            else:
+                output = parse_factory(fn, "factory", fn, self.factory)
         else:
             output = self._parse_partial(fn, args, **default_kwargs)
 
@@ -1026,6 +1035,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         self,
         fn: Callable[Params, ReturnType],
         namespace: str,
+        default_factory: Optional[Callable] = None,
         env=None,
         name=None,
         help_str=None,
@@ -1060,6 +1070,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         self.enable_executor = enable_executor
         self.require_confirmation = require_confirmation
         self.type = type
+        self.default_factory = default_factory
 
     def __call__(self, *args: Params.args, **kwargs: Params.kwargs) -> ReturnType:
         return self.fn(*args, **kwargs)
@@ -1123,6 +1134,7 @@ class Entrypoint(Generic[Params, ReturnType]):
             self.name,
             self.fn,
             type=self.type,
+            default_factory=self.default_factory,
             command_kwargs=dict(
                 help=colored_help,
                 cls=CLITaskCommand,
