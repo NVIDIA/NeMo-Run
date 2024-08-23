@@ -18,6 +18,11 @@ jobs:
       - name: Rye sync
         run: rye sync
 
+      - shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+
       - name: Rye test
         run: rye test
 
