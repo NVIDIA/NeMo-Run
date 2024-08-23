@@ -354,6 +354,16 @@ class TestSlurmBatchRequest:
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --abc=def" in sbatch_script
 
+    def test_dummy_batch_job_name_prefix(
+        self,
+        dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.slurm_config.job_name_prefix = "my-custom-prefix:"
+
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --job-name=my-custom-prefix:sample_job" in sbatch_script
+
     def test_dummy_batch_repr(
         self,
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],

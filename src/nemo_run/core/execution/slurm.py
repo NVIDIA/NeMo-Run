@@ -712,7 +712,10 @@ class SlurmBatchRequest:
             )
         # add necessary parameters
         original_job_name: str = self.jobs[0]  # type: ignore
-        job_name = f"{self.slurm_config.account}-{self.slurm_config.account.split('_')[-1]}.{original_job_name}"
+        if self.slurm_config.job_name_prefix is None:
+            job_name = f"{self.slurm_config.account}-{self.slurm_config.account.split('_')[-1]}.{original_job_name}"
+        else:
+            job_name = f"{self.slurm_config.job_name_prefix}{original_job_name}"
         parameters["job_name"] = job_name
         slurm_job_dir = (
             self.slurm_config.tunnel.job_dir
