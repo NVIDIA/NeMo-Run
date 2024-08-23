@@ -230,29 +230,33 @@ from typing import List
 
 @run.cli.entrypoint(type="experiment")
 def train_models_experiment(
-    ctx: run.RunContext,
+    ctx: run.cli.RunContext,
     models: List[Model] = [my_model(), my_model(hidden_size=512)],
     optimizers: List[Optimizer] = [my_optimizer(), my_optimizer(learning_rate=0.01)],
     epochs: int = 10,
-    batch_size: int = 32
+    batch_size: int = 32,
+    sequential: bool = False,
 ):
     """
     Run an experiment to train multiple models with different configurations.
 
     Args:
-        ctx (run.RunContext): The run context for the experiment.
+        ctx (run.cli.RunContext): The run context for the experiment.
         models (List[Model]): List of model configurations to train.
         optimizers (List[Optimizer]): List of optimizer configurations to use.
         epochs (int): Number of training epochs for each model.
         batch_size (int): Batch size for training.
+        sequential (bool): Whether to run tasks sequentially or in parallel.
     """
-    ctx.sequential = False  # Set to True for sequential execution
-    for i, (model, optimizer) in enumerate(zip(models, optimizers)):
-        train = run.Partial(
-            train_model, model=model, optimizer=optimizer, epochs=epochs, batch_size=batch_size
-        )
+    with run.Experiment("train_models_experiment") as exp:
+        for i, (model, optimizer) in enumerate(zip(models, optimizers)):
+            train = run.Partial(
+                train_model, model=model, optimizer=optimizer, epochs=epochs, batch_size=batch_size
+            )
 
-        ctx.add(train, name=f"train_model_{i}", executor=ctx.executor)
+            exp.add(train, name=f"train_model_{i}", executor=ctx.executor)
+
+        ctx.launch(exp, sequential=sequential)
 
 if __name__ == "__main__":
     run.cli.main(train_models_experiment)
@@ -260,77 +264,56 @@ if __name__ == "__main__":
 
 Let's break down this experiment entrypoint:
 
-1. `@run.cli.entrypoint(type="experiment")`: This decorator specifies that this is an experiment entrypoint, which behaves differently from a regular task entrypoint.
+1. `@run.cli.entrypoint(type="experiment")`: This decorator specifies that this is an experiment entrypoint.
 
-2. `ctx: run.RunContext`: The first parameter of an experiment entrypoint must be the run context. This object allows you to add tasks to the experiment and configure its execution.
+2. `ctx: run.cli.RunContext`: The first parameter is the run context, which manages the experiment execution.
 
-3. Function arguments:
-   - `models`: A list of Model configurations, with default values using our `my_model` factory.
-   - `optimizers`: A list of Optimizer configurations, with default values using our `my_optimizer` factory.
-   - `epochs` and `batch_size`: Common parameters for all training tasks.
-   This setup allows us to run multiple training tasks with different configurations.
+3. Function arguments: Include model configurations, optimizer configurations, and training parameters.
 
-4. Docstring: As with task entrypoints, a detailed docstring is important for generating CLI help messages and providing clear documentation.
+4. `with run.Experiment("train_models_experiment") as exp:`: This context manager creates an experiment object.
 
-5. Function body: Inside the function, we iterate over the models and optimizers using `enumerate` and `zip`, adding a training task for each combination using `ctx.add()`.
+5. Inside the experiment context:
+   - We iterate over models and optimizers, creating a `run.Partial` object for each training task.
+   - `exp.add()` adds each task to the experiment, specifying a name and executor.
 
-6. `ctx.add()`: This method adds a task to the experiment. It takes the following arguments:
-   - The task function to run (in this case, our `train_model` function from the previous example)
-   - A name for the task (we're using f-strings to create unique names)
-   - Keyword arguments that will be passed to the task function
+6. `ctx.launch(exp, sequential=sequential)`: This launches the experiment, with the option to run tasks sequentially or in parallel.
 
-7. `run.cli.main(train_models_experiment)`: This sets up and runs the CLI for our experiment entrypoint.
-
-This experiment entrypoint allows us to define a set of related tasks (in this case, multiple model training runs with different configurations) that can be executed as part of a single experiment. The `RunContext` object manages the execution of these tasks, allowing for features like parallel execution or dependency management between tasks.
+7. `run.cli.main(train_models_experiment)`: Sets up and runs the CLI for our experiment entrypoint.
 
 Key benefits of this approach:
-- Flexibility: You can easily add or modify models and optimizers to be tested.
+- Flexibility: Easily add or modify models and optimizers to be tested.
 - Reusability: The `train_model` function is reused for each configuration.
 - Scalability: This structure can handle any number of model/optimizer combinations.
-- CLI Integration: All parameters can be adjusted via command-line arguments, thanks to the NeMo Run CLI system.
+- Execution Control: The `sequential` parameter allows control over parallel or sequential execution.
+- CLI Integration: All parameters can be adjusted via command-line arguments.
 
 ### Using the Experiment Entrypoint
 
-You can use this experiment entrypoint from the command line with various configurations, similar to the single task entrypoint. However, the experiment entrypoint provides additional flexibility for running multiple tasks. Here are some examples:
+You can use this experiment entrypoint from the command line with various configurations. Here are some examples:
 
-1. Print help message:
-   ```
-   python experiment.py --help
-   ```
-
-   ![experiment-help](./img/experiment-help.png)
-
-2. Run the experiment with default configurations:
+1. Run the experiment with default configurations:
    ```
    python experiment.py
    ```
 
-   ![experiment-2](./img/experiment-2.png)
-
-3. Modify configurations for specific models or optimizers:
+2. Modify configurations for specific models or optimizers:
    ```
    python experiment.py models[0].hidden_size=1024 optimizers[1].learning_rate=0.001
    ```
 
-   ![experiment-3](./img/experiment-3.png)
-
-4. Add an additional model to the experiment:
+3. Add an additional model to the experiment:
    ```
    python experiment.py "models+=[my_model(hidden_size=2048)]"
    ```
 
-   ![experiment-4](./img/experiment-4.png)
-
-5. Run the experiment with a specific executor:
+4. Run the experiment with a specific executor:
    ```
-   python experiment.py run.executor=local_executor
+   python experiment.py ctx.executor=local_executor
    ```
 
-   ![experiment-5](./img/experiment-5.png)
-
-6. Run the experiment sequentially:
+5. Run the experiment sequentially:
    ```
-   python experiment.py run.sequential=True
+   python experiment.py sequential=True
    ```
 
 These examples showcase how you can use the CLI to modify the experiment configuration, add or modify tasks, and control the execution environment. The experiment entrypoint provides a powerful way to manage complex workflows with multiple related tasks.

@@ -23,6 +23,7 @@ from functools import cache, wraps
 from typing import (
     Any,
     Callable,
+    Dict,
     Generic,
     List,
     Literal,
@@ -31,8 +32,8 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
-    Union,
     get_args,
+    get_type_hints,
     overload,
     runtime_checkable,
 )
@@ -46,19 +47,13 @@ from rich.console import Console
 from rich.logging import RichHandler
 from typer import Option, Typer, rich_utils
 from typer.core import TyperCommand, TyperGroup
+from typer.models import OptionInfo
 from typing_extensions import ParamSpec
 
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
-from nemo_run.config import (
-    NEMORUN_HOME,
-    Config,
-    Partial,
-    Script,
-    get_type_namespace,
-    get_underlying_types,
-)
+from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, get_underlying_types
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.run.experiment import Experiment
@@ -86,6 +81,7 @@ def entrypoint(
     enable_executor: bool = True,
     entrypoint_cls: Optional[Type["Entrypoint"]] = None,
     type: Literal["task", "experiment"] = "task",
+    run_ctx_cls: Optional[Type["RunContext"]] = None,
 ) -> F | Callable[[F], F]:
     """
     Decorator to register a function as a CLI entrypoint in the NeMo Run framework.
@@ -102,6 +98,7 @@ def entrypoint(
         require_confirmation (bool): If True, requires user confirmation before execution. Defaults to True.
         enable_executor (bool): If True, enables executor functionality for the entrypoint. Defaults to True.
         type (Literal["task", "experiment"]): The type of entrypoint. Defaults to "task".
+        run_ctx_cls (Type[RunContext]): The class to use for the run context. Defaults to RunContext.
 
     Returns:
         F | Callable[[F], F]: The decorated function or a decorator function.
@@ -172,6 +169,7 @@ def entrypoint(
             require_confirmation=require_confirmation,
             enable_executor=enable_executor,
             type=type,
+            run_ctx_cls=run_ctx_cls or RunContext,
         )
 
         if _namespace:
@@ -636,36 +634,147 @@ def _load_workspace():
 
 @dataclass(kw_only=True)
 class RunContext:
+    """
+    Represents the context for executing a run in the NeMo Run framework.
+
+    This class encapsulates various options and settings that control how a run
+    is executed, including execution mode, logging, and plugin configuration.
+
+    Attributes:
+        name (str): Name of the run.
+        direct (bool): If True, execute the run directly without using a scheduler.
+        dryrun (bool): If True, print the scheduler request without submitting.
+        factory (Optional[str]): Name of a predefined factory to use.
+        load (Optional[str]): Path to load a factory from a directory.
+        repl (bool): If True, enter interactive mode.
+        detach (bool): If True, detach from the run after submission.
+        require_confirmation (bool): If True, require user confirmation before execution.
+        tail_logs (bool): If True, tail logs after execution.
+        executor (Optional[Executor]): The executor to use for the run.
+        plugins (List[Plugin]): List of plugins to use for the run.
+    """
+
     name: str
     direct: bool = False
     dryrun: bool = False
     factory: Optional[str] = None
     load: Optional[str] = None
     repl: bool = False
-    sequential: bool = True
     detach: bool = False
     require_confirmation: bool = True
     tail_logs: bool = False
 
-    experiment: Experiment = field(init=False)
     executor: Optional[Executor] = field(init=False)
     plugins: List[Plugin] = field(init=False)
 
-    def add(
-        self,
-        fn_or_script: Union[Partial, Script] | list[Union[Partial, Script]],
-        executor: Executor | list[Executor] | None = None,
-        name: str = "",
-        plugins: Optional[list[Plugin]] = None,
-        tail_logs: bool = False,
+    @classmethod
+    def cli_command(
+        cls,
+        parent: typer.Typer,
+        name: str,
+        fn: Callable,
+        type: Literal["task", "experiment"] = "task",
+        command_kwargs: Dict[str, Any] = {},
     ):
-        self.experiment.add(
-            fn_or_script, executor=executor, name=name, plugins=plugins, tail_logs=tail_logs
-        )
+        """
+        Create a CLI command for the given function.
 
-    def run(
+        Args:
+            parent (typer.Typer): The parent Typer instance to add the command to.
+            name (str): The name of the command.
+            fn (Callable): The function to create a command for.
+            type (Literal["task", "experiment"]): The type of the command.
+            command_kwargs (Dict[str, Any]): Additional keyword arguments for the command.
+
+        Returns:
+            Callable: The created command function.
+        """
+
+        @parent.command(
+            name,
+            context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+            **command_kwargs,
+        )
+        def command(
+            name: str = typer.Option(None, "--name", "-n", help="Name of the run"),
+            direct: bool = typer.Option(
+                False, "--direct/--no-direct", help="Execute the run directly"
+            ),
+            dryrun: bool = typer.Option(
+                False, "--dryrun", help="Print the scheduler request without submitting"
+            ),
+            factory: Optional[str] = typer.Option(
+                None, "--factory", "-f", help="Predefined factory to use"
+            ),
+            load: Optional[str] = typer.Option(
+                None, "--load", "-l", help="Load a factory from a directory"
+            ),
+            repl: bool = typer.Option(False, "--repl", "-r", help="Enter interactive mode"),
+            detach: bool = typer.Option(False, "--detach", help="Detach from the run"),
+            require_confirmation: bool = typer.Option(
+                True, "--confirm/--no-confirm", help="Require confirmation before execution"
+            ),
+            tail_logs: bool = typer.Option(
+                False, "--tail-logs/--no-tail-logs", help="Tail logs after execution"
+            ),
+            ctx: typer.Context = typer.Context,
+        ):
+            self = cls(
+                name=name,
+                direct=direct,
+                dryrun=dryrun,
+                factory=factory,
+                load=load,
+                repl=repl,
+                detach=detach,
+                require_confirmation=require_confirmation,
+                tail_logs=tail_logs,
+            )
+            try:
+                _load_entrypoints()
+                _load_workspace()
+                self.cli_execute(fn, ctx.args, type)
+            except RunContextError as e:
+                typer.echo(f"Error: {str(e)}", err=True, color=True)
+                raise typer.Exit(code=1)
+            except Exception as e:
+                typer.echo(f"Unexpected error: {str(e)}", err=True, color=True)
+                raise typer.Exit(code=1)
+
+        return command
+
+    def launch(self, experiment: Experiment, sequential: bool = False):
+        """
+        Launch the given experiment.
+
+        Args:
+            experiment (Experiment): The experiment to launch.
+            sequential (bool): If True, run the experiment sequentially.
+        """
+        if self.dryrun:
+            experiment.dryrun()
+        else:
+            experiment.run(
+                sequential=sequential,
+                detach=self.detach,
+                direct=self.direct or self.executor is None,
+                tail_logs=self.tail_logs,
+            )
+
+    def cli_execute(
         self, fn: Callable, args: List[str], entrypoint_type: Literal["task", "experiment"] = "task"
     ):
+        """
+        Execute the given function as a CLI command.
+
+        Args:
+            fn (Callable): The function to execute.
+            args (List[str]): The command-line arguments.
+            entrypoint_type (Literal["task", "experiment"]): The type of entrypoint.
+
+        Raises:
+            ValueError: If an unknown entrypoint type is provided.
+        """
         _, run_args, filtered_args = _parse_prefixed_args(args, "run")
         self.parse_args(run_args)
 
@@ -680,6 +789,13 @@ class RunContext:
             raise ValueError(f"Unknown entrypoint type: {entrypoint_type}")
 
     def _execute_task(self, fn: Callable, task_args: List[str]):
+        """
+        Execute a task.
+
+        Args:
+            fn (Callable): The task function to execute.
+            task_args (List[str]): The arguments for the task.
+        """
         import nemo_run as run
 
         console = Console()
@@ -719,36 +835,46 @@ class RunContext:
         run_task()
 
     def _execute_experiment(self, fn: Callable, experiment_args: List[str]):
+        """
+        Execute an experiment.
+
+        Args:
+            fn (Callable): The experiment function to execute.
+            experiment_args (List[str]): The arguments for the experiment.
+        """
         import nemo_run as run
 
-        with run.Experiment(title=self.name) as exp:
-            self.experiment = exp
-            partial = self.parse_fn(fn, experiment_args, ctx=self)
+        partial = self.parse_fn(fn, experiment_args, ctx=self)
 
-            run.dryrun_fn(partial, executor=self.executor)
+        run.dryrun_fn(partial, executor=self.executor)
 
-            if self._should_continue(self.require_confirmation):
-                fdl.build(partial)()
-
-                if not exp.tasks:
-                    raise ValueError(
-                        "No tasks found in experiment, please add tasks using the `ctx.add` method."
-                    )
-
-                if self.dryrun:
-                    exp.dryrun()
-                else:
-                    exp.run(
-                        sequential=self.sequential,
-                        detach=self.detach,
-                        direct=self.direct or self.executor is None,
-                        tail_logs=self.tail_logs,
-                    )
+        if self._should_continue(self.require_confirmation):
+            fdl.build(partial)()
 
     def _should_continue(self, require_confirmation: bool) -> bool:
+        """
+        Check if the execution should continue based on user confirmation.
+
+        Args:
+            require_confirmation (bool): Whether to require user confirmation.
+
+        Returns:
+            bool: True if execution should continue, False otherwise.
+        """
         return not require_confirmation or typer.confirm("Continue?")
 
     def parse_fn(self, fn: T, args: List[str], **default_kwargs) -> Partial[T]:
+        """
+        Parse the given function and arguments into a Partial object.
+
+        Args:
+            fn (T): The function to parse.
+            args (List[str]): The arguments to parse.
+            **default_kwargs: Default keyword arguments.
+
+        Returns:
+            Partial[T]: A Partial object representing the parsed function and arguments.
+        """
         if self.factory:
             output = parse_factory(fn, "factory", fn, self.factory)
         else:
@@ -757,12 +883,29 @@ class RunContext:
         return output
 
     def _parse_partial(self, fn: Callable, args: List[str], **default_args) -> Partial[T]:
+        """
+        Parse the given function and arguments into a Partial object.
+
+        Args:
+            fn (Callable): The function to parse.
+            args (List[str]): The arguments to parse.
+            **default_args: Default arguments.
+
+        Returns:
+            Partial[T]: A Partial object representing the parsed function and arguments.
+        """
         config = parse_cli_args(fn, args, output_type=Partial)
         for key, value in default_args.items():
             setattr(config, key, value)
         return config
 
     def parse_args(self, args: List[str]):
+        """
+        Parse the given arguments and update the RunContext accordingly.
+
+        Args:
+            args (List[str]): The arguments to parse.
+        """
         executor_name, executor_args, args = _parse_prefixed_args(args, "executor")
         plugin_name, plugin_args, args = _parse_prefixed_args(args, "plugins")
 
@@ -782,6 +925,19 @@ class RunContext:
             parse_cli_args(self, args, self)
 
     def parse_executor(self, name: str, *args: str) -> Partial[Executor]:
+        """
+        Parse the executor configuration.
+
+        Args:
+            name (str): The name of the executor.
+            *args (str): Additional arguments for the executor.
+
+        Returns:
+            Partial[Executor]: A Partial object representing the parsed executor.
+
+        Raises:
+            ValueError: If the specified executor is not found.
+        """
         for cls in EXECUTOR_CLASSES:
             try:
                 executor = parse_factory(self.__class__, "executor", cls, name)
@@ -793,6 +949,19 @@ class RunContext:
         raise ValueError(f"Executor {name} not found")
 
     def parse_plugin(self, name: str, *args: str) -> Optional[Partial[Plugin]]:
+        """
+        Parse the plugin configuration.
+
+        Args:
+            name (str): The name of the plugin.
+            *args (str): Additional arguments for the plugin.
+
+        Returns:
+            Optional[Partial[Plugin]]: A Partial object representing the parsed plugin, or None.
+
+        Raises:
+            ValueError: If the specified plugin is not found.
+        """
         for cls in PLUGIN_CLASSES:
             try:
                 plugins = parse_factory(self.__class__, "plugins", cls, name)
@@ -805,16 +974,46 @@ class RunContext:
 
     def to_config(self) -> Config:
         """
-        Converts this RunContext object to a run.Config object.
+        Convert this RunContext object to a Config object.
 
         Returns:
-            Config: A Config object representing this plugin.
+            Config: A Config object representing this RunContext.
         """
         return fdl.cast(Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True))
 
+    @classmethod
+    def get_help(cls) -> str:
+        """
+        Get the help text for this class.
+
+        Returns:
+            str: The help text extracted from the class docstring.
+        """
+        return cls.__doc__ or "No help available."
+
 
 class Entrypoint(Generic[Params, ReturnType]):
-    run_ctx_cls: Type[RunContext] = RunContext
+    """
+    Represents an entrypoint for a CLI command in the NeMo Run framework.
+
+    This class encapsulates the functionality required to create and manage
+    CLI commands, including parsing arguments, executing functions, and
+    handling different types of entrypoints (tasks or experiments).
+
+    Args:
+        fn (Callable[Params, ReturnType]): The function to be executed.
+        namespace (str): The namespace for the entrypoint.
+        env (Optional[Dict]): Environment variables for the entrypoint.
+        name (Optional[str]): The name of the entrypoint.
+        help_str (Optional[str]): Help string for the entrypoint.
+        enable_executor (bool): Whether to enable executor functionality.
+        require_confirmation (bool): Whether to require user confirmation before execution.
+        type (Literal["task", "experiment"]): The type of entrypoint.
+        run_ctx_cls (Type[RunContext]): The RunContext class to use.
+
+    Raises:
+        ValueError: If the function signature is invalid for the given entrypoint type.
+    """
 
     def __init__(
         self,
@@ -826,6 +1025,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         enable_executor: bool = True,
         require_confirmation: bool = True,
         type: Literal["task", "experiment"] = "task",
+        run_ctx_cls: Type[RunContext] = RunContext,
     ):
         if type == "task":
             if "executor" in inspect.signature(fn).parameters:
@@ -843,6 +1043,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         self.env = env or {}
         self.name = name or fn.__name__
         self.help_str = self.name
+        self.run_ctx_cls = run_ctx_cls
         if help_str:
             self.help_str += f"\n{help_str}"
         elif fn.__doc__:
@@ -860,6 +1061,17 @@ class Entrypoint(Generic[Params, ReturnType]):
         self._configured_fn = Config(self.fn, **fn_kwargs)
 
     def parse_partial(self, args: List[str], **default_args) -> Partial[T]:
+        """
+        Parse the given arguments into a Partial object.
+
+        Args:
+            args (List[str]): The arguments to parse.
+            **default_args: Default arguments to include.
+
+        Returns:
+            Partial[T]: A Partial object representing the parsed arguments.
+        """
+
         config = parse_cli_args(self.fn, args, output_type=Partial)
         for key, value in default_args.items():
             setattr(config, key, value)
@@ -899,74 +1111,24 @@ class Entrypoint(Generic[Params, ReturnType]):
         class CLITaskCommand(EntrypointCommand):
             _entrypoint = self
 
-        @parent.command(
+        return self.run_ctx_cls.cli_command(
+            parent,
             self.name,
-            help=colored_help,
-            cls=CLITaskCommand,
-            context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+            self.fn,
+            type=self.type,
+            command_kwargs=dict(
+                help=colored_help,
+                cls=CLITaskCommand,
+            ),
         )
-        def cmd_task(
-            ctx: typer.Context,
-            load: Optional[str] = typer.Option(
-                None,
-                "--load",
-                "-l",
-                help="Load a factory to a directory.",
-            ),
-            factory: Optional[str] = typer.Option(
-                None,
-                "--factory",
-                "-f",
-                help="Predefined factory to use for the task.",
-            ),
-            detach: bool = typer.Option(
-                False,
-                "--detach",
-                "-d",
-                help="Detach from the run.",
-            ),
-            dryrun: bool = typer.Option(
-                False,
-                help="Does not actually submit the app, just prints the scheduler request.",
-            ),
-            run_name: Optional[str] = typer.Option(
-                None,
-                "--name",
-                "-n",
-                help="Name of the run.",
-            ),
-            direct: bool = typer.Option(
-                False,
-                "--direct",
-                "-d",
-                help="Execute the run directly.",
-            ),
-            interactive: bool = typer.Option(
-                False,
-                "--repl",
-                "-r",
-                help="Enter interactive mode in a ipython-shell to construct and visualize the run.",
-            ),
-        ):
-            console = Console()
-            run_ctx = self.run_ctx_cls(
-                name=run_name or self.name,
-                direct=direct,
-                dryrun=dryrun,
-                factory=factory,
-                load=load,
-                repl=interactive,
-                detach=detach,
-                require_confirmation=self.require_confirmation,
-            )
-            try:
-                _load_entrypoints()
-                _load_workspace()
 
-                run_ctx.run(self.fn, ctx.args, self.type)
-            except Exception as e:
-                console.print(f"[bold red]Error: {str(e)}[/bold red]")
-                sys.exit(1)
+    def _add_options_to_command(self, command: Callable):
+        """Add Typer options to the command based on RunContext annotated attributes."""
+        for attr_name, type_hint in get_type_hints(self.run_ctx_cls, include_extras=True).items():
+            if hasattr(type_hint, "__metadata__"):
+                option = type_hint.__metadata__[0]
+                if isinstance(option, OptionInfo):
+                    option(command, attr_name)
 
     def _execute_simple(self, args: List[str], console: Console):
         config = parse_cli_args(self.fn, args, Partial)
@@ -1068,6 +1230,18 @@ def _parse_prefixed_args(
         else:
             other_args.append(arg)
     return prefixed_arg_value, prefixed_args, other_args
+
+
+class RunContextError(Exception):
+    """Base exception for RunContext related errors."""
+
+
+class InvalidOptionError(RunContextError):
+    """Raised when an invalid option is provided."""
+
+
+class MissingRequiredOptionError(RunContextError):
+    """Raised when a required option is missing."""
 
 
 if __name__ == "__main__":

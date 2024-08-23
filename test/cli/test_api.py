@@ -17,7 +17,7 @@ from configparser import ConfigParser
 from dataclasses import dataclass
 from test.dummy_factory import DummyModel, dummy_entrypoint
 from typing import Optional, Union
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import fiddle as fdl
 import pytest
@@ -99,7 +99,6 @@ class TestRunContext:
         assert ctx.factory is None
         assert ctx.load is None
         assert not ctx.repl
-        assert ctx.sequential
         assert not ctx.detach
         assert ctx.require_confirmation
         assert not ctx.tail_logs
@@ -143,33 +142,15 @@ class TestRunContext:
     @patch("nemo_run.run")
     def test_run_context_execute_task(self, mock_run, mock_dryrun_fn, sample_function):
         ctx = RunContext(name="test_run", require_confirmation=False)
-        ctx.run(sample_function, ["a=10", "b=hello"])
+        ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_dryrun_fn.assert_called_once()
         mock_run.assert_called_once()
-
-    @patch("nemo_run.Experiment")
-    def test_run_context_execute_experiment(self, mock_experiment, sample_experiment):
-        ctx = RunContext(name="test_experiment", require_confirmation=False)
-        ctx.run(sample_experiment, ["a=10", "b=hello"], entrypoint_type="experiment")
-        mock_experiment.assert_called_once()
-        mock_experiment.return_value.__enter__.return_value.run.assert_called_once()
 
     def test_run_context_to_config(self):
         ctx = RunContext(name="test_run")
         config = ctx.to_config()
         assert isinstance(config, run.Config)
         assert config.name == "test_run"
-
-    def test_run_context_add(self):
-        ctx = RunContext(name="test_run")
-        ctx.experiment = MagicMock()
-        fn = MagicMock()
-        executor = MagicMock()
-        plugins = [MagicMock()]
-        ctx.add(fn, executor=executor, name="test_task", plugins=plugins, tail_logs=True)
-        ctx.experiment.add.assert_called_once_with(
-            fn, executor=executor, name="test_task", plugins=plugins, tail_logs=True
-        )
 
     def test_run_context_parse_executor(self):
         ctx = RunContext(name="test_run")
@@ -199,17 +180,9 @@ class TestRunContext:
     @patch("nemo_run.run")
     def test_run_context_execute_task_with_dryrun(self, mock_run, mock_dryrun_fn, sample_function):
         ctx = RunContext(name="test_run", dryrun=True, require_confirmation=False)
-        ctx.run(sample_function, ["a=10", "b=hello"])
+        ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_dryrun_fn.assert_called_once()
         mock_run.assert_not_called()
-
-    @patch("nemo_run.Experiment")
-    def test_run_context_execute_experiment_with_dryrun(self, mock_experiment, sample_experiment):
-        ctx = RunContext(name="test_experiment", dryrun=True, require_confirmation=False)
-        ctx.run(sample_experiment, ["a=10", "b=hello"], entrypoint_type="experiment")
-        mock_experiment.assert_called_once()
-        mock_experiment.return_value.__enter__.return_value.dryrun.assert_called_once()
-        mock_experiment.return_value.__enter__.return_value.run.assert_not_called()
 
     @patch("nemo_run.dryrun_fn")
     @patch("nemo_run.run")
@@ -218,7 +191,7 @@ class TestRunContext:
         self, mock_confirm, mock_run, mock_dryrun_fn, sample_function
     ):
         ctx = RunContext(name="test_run", require_confirmation=True)
-        ctx.run(sample_function, ["a=10", "b=hello"])
+        ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_dryrun_fn.assert_called_once()
         mock_confirm.assert_called_once()
         mock_run.assert_not_called()
@@ -226,7 +199,7 @@ class TestRunContext:
     @patch("IPython.embed")
     def test_run_context_execute_task_with_repl(self, mock_embed, sample_function):
         ctx = RunContext(name="test_run", repl=True, require_confirmation=False)
-        ctx.run(sample_function, ["a=10", "b=hello"])
+        ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_embed.assert_called_once()
 
     def test_run_context_parse_fn_with_factory(self, sample_function):
@@ -242,27 +215,27 @@ class TestRunContext:
     def test_run_context_with_invalid_entrypoint_type(self, sample_function):
         ctx = RunContext(name="test_run")
         with pytest.raises(ValueError, match="Unknown entrypoint type: invalid_type"):
-            ctx.run(sample_function, [], entrypoint_type="invalid_type")
+            ctx.cli_execute(sample_function, [], entrypoint_type="invalid_type")
 
-    @patch("nemo_run.cli.api.RunContext.run")
+    @patch("nemo_run.cli.api.RunContext.cli_execute")
     def test_run_context_run_task(self, mock_run):
         ctx = RunContext(name="test_run")
 
         def sample_function(a, b):
             return None
 
-        ctx.run(sample_function, ["a=10", "b=hello"])
+        ctx.cli_execute(sample_function, ["a=10", "b=hello"])
 
         mock_run.assert_called_once_with(sample_function, ["a=10", "b=hello"])
 
-    def test_run_context_run_with_sequential(self):
+    def test_run_context_run_with_detach(self):
         ctx = RunContext(name="test_run", require_confirmation=False)
 
         def sample_function(a, b):
             return None
 
-        ctx.run(sample_function, ["a=10", "b=hello", "run.sequential=False"])
-        assert not ctx.sequential
+        ctx.cli_execute(sample_function, ["a=10", "b=hello", "run.detach=False"])
+        assert not ctx.detach
 
 
 @dataclass
@@ -466,7 +439,15 @@ class TestEntrypointRunner:
 
     def test_dummy_entrypoint_cli(self, runner, app):
         with patch("test.dummy_factory.NestedModel") as mock_nested_model:
-            result = runner.invoke(app, ["dummy", "dummy_entrypoint", "dummy=dummy_model_config"])
+            result = runner.invoke(
+                app,
+                [
+                    "dummy",
+                    "dummy_entrypoint",
+                    "dummy=dummy_model_config",
+                    "run.require_confirmation=False",
+                ],
+            )
             assert result.exit_code == 0
             mock_nested_model.assert_called_once_with(
                 dummy=DummyModel(hidden=2000, activation="tanh")

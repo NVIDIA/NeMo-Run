@@ -79,6 +79,7 @@ def train_models_experiment(
     optimizers: List[Optimizer] = [my_optimizer(), my_optimizer(learning_rate=0.01)],
     epochs: int = 10,
     batch_size: int = 32,
+    sequential: bool = False,
 ):
     """
     Run an experiment to train multiple models with different configurations.
@@ -90,13 +91,16 @@ def train_models_experiment(
         epochs (int): Number of training epochs for each model.
         batch_size (int): Batch size for training.
     """
-    ctx.sequential = False
-    for i, (model, optimizer) in enumerate(zip(models, optimizers)):
-        train = run.Partial(
-            train_model, model=model, optimizer=optimizer, epochs=epochs, batch_size=batch_size
-        )
 
-        ctx.add(train, name=f"train_model_{i}", executor=ctx.executor)
+    with run.Experiment("train_models_experiment") as exp:
+        for i, (model, optimizer) in enumerate(zip(models, optimizers)):
+            train = run.Partial(
+                train_model, model=model, optimizer=optimizer, epochs=epochs, batch_size=batch_size
+            )
+
+            exp.add(train, name=f"train_model_{i}", executor=ctx.executor)
+
+        ctx.launch(exp, sequential=sequential)
 
 
 if __name__ == "__main__":
