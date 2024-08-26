@@ -31,9 +31,8 @@ import fiddle as fdl
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.progress import Task as RichTask
-from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState, is_terminal
 
@@ -1003,8 +1002,11 @@ nemorun experiment cancel {exp_id} 0
                 )
 
     def __del__(self):
-        deconfigure_logging()
-        self._cleanup()
+        try:
+            deconfigure_logging()
+            self._cleanup()
+        except Exception:
+            ...
 
 
 def _get_latest_dir(path) -> str:
