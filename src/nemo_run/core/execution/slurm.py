@@ -69,7 +69,8 @@ class SlurmExecutor(Executor):
                 user=os.environ["SLURM_USER"],
                 job_dir=os.environ["SLURM_JOBDIR"],
             )
-            packager = GitArchivePackager(launcher="torchrun")
+            packager = GitArchivePackager()
+            launcher = "torchrun"
             executor = SlurmExecutor(
                 account=os.environ["SLURM_ACCT"],
                 partition=os.environ["SLURM_PARTITION"],
@@ -79,6 +80,7 @@ class SlurmExecutor(Executor):
                 container_image=os.environ["BASE_IMAGE"],
                 time="00:30:00",
                 packager=packager,
+                launcher=launcher,
             )
             return executor
 
