@@ -28,16 +28,20 @@ import invoke
 from rich.console import Console
 from rich.text import Text
 
-from nemo_run.core.execution.base import (Executor, ExecutorMacros,
-                                          FaultTolerance, Launcher, Torchrun)
+from nemo_run.core.execution.base import (
+    Executor,
+    ExecutorMacros,
+    FaultTolerance,
+    Launcher,
+    Torchrun,
+)
 from nemo_run.core.execution.utils import fill_template
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.callback import Callback
-from nemo_run.core.tunnel.client import (LocalTunnel, SSHConfigFile, SSHTunnel,
-                                         Tunnel)
+from nemo_run.core.tunnel.client import LocalTunnel, SSHConfigFile, SSHTunnel, Tunnel
 from nemo_run.core.tunnel.server import TunnelMetadata, server_dir
 from nemo_run.devspace.base import DevSpace
 
