@@ -18,7 +18,6 @@ from typing import (
     Any,
     Callable,
     Concatenate,
-    List,
     Literal,
     Optional,
     ParamSpec,
@@ -56,7 +55,7 @@ def default_autoconfig_buildable(
     cls: Type[Union[Partial, Config]],
     *args: P.args,
     **kwargs: P.kwargs,
-) -> Config[T] | Partial[T] | List[Config[T]] | List[Partial[T]]:
+) -> Config[T] | Partial[T] | list[Config[T]] | list[Partial[T]]:
     def exemption_policy(cfg):
         return cfg in [Partial, Config] or getattr(cfg, "__auto_config__", False)
 
