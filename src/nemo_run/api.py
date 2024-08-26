@@ -14,22 +14,9 @@
 # limitations under the License.
 
 from functools import wraps
-from typing import (
-    Any,
-    Callable,
-    Concatenate,
-    List,
-    Literal,
-    Optional,
-    ParamSpec,
-    Protocol,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    overload,
-    runtime_checkable,
-)
+from typing import (Any, Callable, Concatenate, List, Literal, Optional,
+                    ParamSpec, Protocol, Type, TypeVar, Union, cast, overload,
+                    runtime_checkable)
 
 import fiddle as fdl
 from fiddle.experimental import auto_config as _auto_config
@@ -143,23 +130,23 @@ def autoconvert(
 
     - Directly as a decorator for a function you define:
 
-      ```python
-      @autoconvert
-      def my_func(param1: int, param2: str) -> MyType:
-          return MyType(param1=param1, param2=param2)
-      ```
+      .. code-block:: python
+
+        @autoconvert
+        def my_func(param1: int, param2: str) -> MyType:
+            return MyType(param1=param1, param2=param2)
 
       This will return `run.Config(MyType, param1=param1, param2=param2)` when called, assuming that
       `partial=False` (otherwise, it would be a run.Partial instance).
 
     - Indirectly, as a way to convert an existing function:
 
-      ```python
-      def my_func(param1: int, param2: str) -> MyType:
-          return MyType(param1=param1, param2=param2)
+      .. code-block:: python
 
-      my_new_func = autoconvert(partial=True)(my_func)
-      ```
+        def my_func(param1: int, param2: str) -> MyType:
+            return MyType(param1=param1, param2=param2)
+
+        my_new_func = autoconvert(partial=True)(my_func)
 
       Now, calling `my_new_func` will actually return `run.Partial(MyType, param1=param1, param2=param2)` rather
       than a `MyType` instance.

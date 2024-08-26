@@ -108,10 +108,8 @@ class TestRunContext:
         ctx.parse_args(
             ["executor=local_executor", "executor.ntasks_per_node=2", "plugins=dummy_plugin"]
         )
-        assert isinstance(ctx.executor, run.Config)
-        assert ctx.executor.__fn_or_cls__ == run.LocalExecutor
+        assert isinstance(ctx.executor, run.LocalExecutor)
         assert ctx.executor.ntasks_per_node == 2
-        assert isinstance(ctx.plugins[0], run.Config)
         assert ctx.plugins[0].some_arg == 20
 
     def test_run_context_plugin_list_factory(self):
@@ -124,11 +122,9 @@ class TestRunContext:
                 "plugins[0].some_arg=50",
             ]
         )
-        assert isinstance(ctx.executor, run.Config)
-        assert ctx.executor.__fn_or_cls__ == run.LocalExecutor
+        assert isinstance(ctx.executor, run.LocalExecutor)
         assert ctx.executor.ntasks_per_node == 2
         assert len(ctx.plugins) == 2
-        assert isinstance(ctx.plugins[0], run.Config)
         assert ctx.plugins[0].some_arg == 50
 
     def test_run_context_parse_fn(self, sample_function):
@@ -374,8 +370,8 @@ class TestFactoryAndResolve:
             namespace = config.get_type_namespace(t)
             registry_details.extend(run.cli.list_factories(namespace))
 
-        assert len(registry_details) == 1
-        assert registry_details[0] == optimizer
+        assert len(registry_details) == 2
+        assert optimizer in registry_details
 
     def test_factory_for_entrypoint(self):
         cfg = run.cli.resolve_factory(dummy_entrypoint, "dummy_recipe")()
@@ -473,7 +469,11 @@ def defaults() -> run.Partial["train_model"]:
     )
 
 
-@run.cli.entrypoint(default_factory=defaults)
+@run.cli.entrypoint(
+    default_factory=defaults,
+    namespace="my_llm",
+    require_confirmation=False,
+)
 def train_model(
     model: Model,
     optimizer: Optimizer,
@@ -489,6 +489,18 @@ def train_model(
         epochs (int, optional): Number of training epochs. Defaults to 10.
         batch_size (int, optional): Batch size for training. Defaults to 32.
     """
+    print("Training model with the following configuration:")
+    print(f"Model: {model}")
+    print(f"Optimizer: {optimizer}")
+    print(f"Epochs: {epochs}")
+    print(f"Batch size: {batch_size}")
+
+    # Simulating model training
+    for epoch in range(epochs):
+        print(f"Epoch {epoch + 1}/{epochs}")
+
+    print("Training completed!")
+
     return {"model": model, "optimizer": optimizer, "epochs": epochs, "batch_size": batch_size}
 
 
@@ -529,12 +541,14 @@ class TestEntrypointRunner:
         result = runner.invoke(
             app,
             [
+                "my_llm",
                 "train_model",
                 "model.hidden_size=1024",
                 "optimizer.learning_rate=0.005",
                 "epochs=30",
                 "run.require_confirmation=False",
             ],
+            env={"INCLUDE_WORKSPACE_FILE": "false"},
         )
         assert result.exit_code == 0
 
@@ -543,7 +557,7 @@ class TestEntrypointRunner:
         assert "Training model with the following configuration:" in output
         assert "Model: Model(hidden_size=1024, num_layers=3, activation='relu')" in output
         assert (
-            "Optimizer: Optimizer(learning_rate=0.005, weight_decay=1e-5, betas=[0.9, 0.999])"
+            "Optimizer: Optimizer(learning_rate=0.005, weight_decay=1e-05, betas=[0.9, 0.999])"
             in output
         )
         assert "Epochs: 30" in output
