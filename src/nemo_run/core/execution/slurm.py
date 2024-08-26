@@ -28,25 +28,16 @@ import invoke
 from rich.console import Console
 from rich.text import Text
 
-from nemo_run.core.execution.base import (
-    Executor,
-    ExecutorMacros,
-    FaultTolerance,
-    Launcher,
-    Torchrun,
-)
+from nemo_run.core.execution.base import (Executor, ExecutorMacros,
+                                          FaultTolerance, Launcher, Torchrun)
 from nemo_run.core.execution.utils import fill_template
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.callback import Callback
-from nemo_run.core.tunnel.client import (
-    LocalTunnel,
-    SSHConfigFile,
-    SSHTunnel,
-    Tunnel,
-)
+from nemo_run.core.tunnel.client import (LocalTunnel, SSHConfigFile, SSHTunnel,
+                                         Tunnel)
 from nemo_run.core.tunnel.server import TunnelMetadata, server_dir
 from nemo_run.devspace.base import DevSpace
 
@@ -514,6 +505,11 @@ class SlurmExecutor(Executor):
                     os.path.join(local_configs_path, file),
                     os.path.join(remote_config_extraction_path, file),
                 )
+
+        local_main_path = os.path.join(self.job_dir, "__main__.py")
+        if os.path.exists(local_main_path):
+            remote_main_path = os.path.join(self.tunnel.job_dir, job_name, "__main__.py")
+            self.tunnel.put(local_main_path, remote_main_path)
 
     def parse_deps(self) -> list[str]:
         """
