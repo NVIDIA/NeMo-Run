@@ -14,9 +14,22 @@
 # limitations under the License.
 
 from functools import wraps
-from typing import (Any, Callable, Concatenate, List, Literal, Optional,
-                    ParamSpec, Protocol, Type, TypeVar, Union, cast, overload,
-                    runtime_checkable)
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    List,
+    Literal,
+    Optional,
+    ParamSpec,
+    Protocol,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+    runtime_checkable,
+)
 
 import fiddle as fdl
 from fiddle.experimental import auto_config as _auto_config

@@ -308,12 +308,19 @@ class Script:
 
     """
 
+    #: Path to your script
     path: str = ""
+    #: Inline contents of the script. Either path or inline needs to be set.
     inline: str = ""
+    #: Args to pass to your scripts, only applicable when path is set.
     args: list[str] = dataclasses.field(default_factory=list)
+    #: Environment variables to set when running the script.
     env: dict[str, str] = dataclasses.field(default_factory=dict)
+    #: Shell to use, defaults to bash.
     shell: str = "bash"
+    #: Whether to use a python binary to run your script, set shell="" to activate.
     python: str = "python"
+    #: Whether to use ``python -m`` when executing via python.
     m: bool = False
 
     def __post_init__(self):
