@@ -1006,7 +1006,7 @@ nemorun experiment cancel {exp_id} 0
             deconfigure_logging()
             self._cleanup()
         except Exception:
-            ...
+            pass
 
 
 def _get_latest_dir(path) -> str:
