@@ -15,6 +15,7 @@
 
 import inspect
 import os
+import sys
 import typing
 
 import catalogue
@@ -26,7 +27,7 @@ from rich.table import Table
 from rich.text import Text
 from typer import rich_utils
 
-from nemo_run.api import ROOT_TASK_FACTORY_NAMESPACE, _load_entrypoints, _load_workspace
+from nemo_run.cli.api import _load_entrypoints, _load_workspace
 from nemo_run.config import get_type_namespace, get_underlying_types
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
@@ -46,7 +47,7 @@ def _get_rows_for_factories(
         editor = "file"
 
     for func_namespace, func in factories.items():
-        module = func.__module__
+        module = _get_module(func)
         line_no = inspect.getsourcelines(func)[1]
         docstring = func.__doc__
 
@@ -90,6 +91,7 @@ def help_for_callable(
     entity: typing.Callable,
     with_docs: bool = True,
     namespace: typing.Optional[str] = None,
+    display_executors: bool = True,
 ) -> None:
     if not callable(entity):
         CONSOLE.print(
@@ -99,38 +101,12 @@ def help_for_callable(
 
     box_style = getattr(box, BOX_STYLE, None)
 
-    if namespace:
-        task_namespace = (
-            ROOT_TASK_FACTORY_NAMESPACE,
-            *namespace.split("."),
-            entity.__name__,
-            "factory",
-        )
-
-        task_factories = catalogue._get_all(task_namespace)
-        if task_factories:
-            table = Table(
-                highlight=True,
-                show_header=False,
-                expand=True,
-                box=box_style,
-                **TABLE_STYLES,
-            )
-            table.add_column("Name", style="cyan", ratio=1)
-            table.add_column("Fn", style="bold cyan", ratio=1)
-            table.add_column("Line No", style="bold green", ratio=1)
-            rows = _get_rows_for_factories(task_factories)
-            for row in rows:
-                table.add_row(*row)
-
-            CONSOLE.print(
-                Panel(
-                    table,
-                    title="Pre-loaded task factories, run with --load",
-                    border_style=rich_utils.STYLE_OPTIONS_PANEL_BORDER,
-                    title_align=rich_utils.ALIGN_OPTIONS_PANEL,
-                )
-            )
+    help_for_type(
+        entity,
+        CONSOLE,
+        title="Pre-loaded entrypoint factories, run with --factory",
+        with_docs=with_docs,
+    )
 
     table = Table(
         highlight=True,
@@ -188,12 +164,24 @@ def help_for_callable(
             arg_name=arg_name,
         )
 
+    if display_executors:
+        from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
+        from nemo_run.core.execution.base import Executor
+
+        help_for_type(
+            typing.Union[Executor, LocalExecutor, SlurmExecutor, SkypilotExecutor],
+            CONSOLE,
+            title="Registered executors",
+            with_docs=with_docs,
+        )
+
 
 def help_for_type(
     entity: typing.Type,
     console: Console,
     with_docs: bool = True,
     arg_name: typing.Optional[str] = None,
+    title: typing.Optional[str] = None,
 ):
     _load_entrypoints()
     _load_workspace()
@@ -232,7 +220,7 @@ def help_for_type(
     console.print(
         Panel(
             table_registry,
-            title=f"Factory for {factory_name}",
+            title=title or f"Factory for {factory_name}",
             border_style=rich_utils.STYLE_OPTIONS_PANEL_BORDER,
             title_align=rich_utils.ALIGN_OPTIONS_PANEL,
         )
@@ -254,7 +242,9 @@ def class_to_str(class_obj):
     elif class_obj.__module__ == "builtins":
         return class_obj.__name__
     else:
-        full_class_name = f"{class_obj.__module__}.{class_obj.__name__}"
+        module = _get_module(class_obj)
+
+        full_class_name = f"{module}.{class_obj.__name__}"
 
         if full_class_name in (
             "lightning.pytorch.core.module.LightningModule",
@@ -287,3 +277,14 @@ def help(
     Optionally outputs docstrings as well.
     """
     return help_for_callable(entity, with_docs=with_docs, namespace=namespace)
+
+
+def _get_module(class_obj) -> str:
+    module = class_obj.__module__
+    if module == "__main__":
+        # Get the filename without extension
+        main_module = sys.modules["__main__"]
+        filename = os.path.basename(main_module.__file__)
+        module = os.path.splitext(filename)[0]
+
+    return module

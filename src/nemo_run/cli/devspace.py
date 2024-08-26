@@ -18,7 +18,6 @@ import typer
 from rich.console import Console
 
 from nemo_run import devspace
-from nemo_run.cli.dynamic_cli import CLI
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel import server
 
@@ -61,7 +60,9 @@ def connect(host: str, path: str):
 def create() -> typer.Typer:
     app = typer.Typer()
 
-    CLI(launch).cli(app)
+    from nemo_run.cli.api import Entrypoint
+
+    Entrypoint(launch, "devspace", enable_executor=False).cli(app)
     app.command(
         "sshserver",
         context_settings={"allow_extra_args": False},

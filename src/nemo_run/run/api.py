@@ -13,22 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from nemo_run.config import Config, Partial, Script, get_type_namespace
 from nemo_run.core.execution.base import Executor
 from nemo_run.run.experiment import Experiment
+from nemo_run.run.plugin import ExperimentPlugin as Plugin
 from nemo_run.run.task import direct_run_fn
 
 
 def run(
     fn_or_script: Union[Partial, Script],
     executor: Optional[Executor] = None,
+    plugins: Optional[Union[Plugin, List[Plugin]]] = None,
     name: str = "",
     dryrun: bool = False,
     direct: bool = False,
     detach: bool = False,
-    wait: bool = False,
     tail_logs: bool = True,
     log_level: str = "INFO",
 ):
@@ -64,6 +65,9 @@ def run(
         direct_run_fn(fn_or_script, dryrun=dryrun)
         return
 
+    if plugins:
+        plugins = [plugins] if not isinstance(plugins, list) else plugins
+
     default_name = (
         fn_or_script.get_name()
         if isinstance(fn_or_script, Script)
@@ -71,7 +75,7 @@ def run(
     )
     name = name or default_name
     with Experiment(title=name, executor=executor, log_level=log_level) as exp:
-        exp.add(fn_or_script, tail_logs=tail_logs)
+        exp.add(fn_or_script, tail_logs=tail_logs, plugins=plugins)
         if dryrun:
             exp.dryrun()
             return

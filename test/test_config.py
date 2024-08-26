@@ -19,17 +19,12 @@ from unittest.mock import Mock, mock_open, patch
 
 import fiddle as fdl
 import graphviz
-import nemo_run as run
 import pytest
-from nemo_run.config import (
-    OptionalDefaultConfig,
-    Script,
-    enable_overrides,
-    from_dict,
-    set_value,
-)
-from nemo_run.exceptions import SetValueError
 from typing_extensions import Annotated
+
+import nemo_run as run
+from nemo_run.config import OptionalDefaultConfig, Script, from_dict, set_value
+from nemo_run.exceptions import SetValueError
 
 
 @dataclass
@@ -385,59 +380,3 @@ class TestScript:
             "-c",
             "\"echo 'test'\"",
         ]
-
-
-class TestEnableOverrides:
-    @pytest.fixture
-    def mock_config(self):
-        @dataclass
-        class SomeObject:
-            value_1: int = 10
-            value_2: int = 20
-            value_3: int = 30
-
-        cfg = run.Config(SomeObject, value_1=10, value_2=20, value_3=30)
-        return cfg
-
-    @pytest.fixture
-    def mock_function(
-        self,
-    ):
-        def test_function(input_val):
-            return input_val
-
-        return test_function
-
-    @patch("sys.argv", ["script.py", "value_1=500", "value_2=300"])
-    def test_enable_overrides(self, mock_config, mock_function):
-        enable_overrides(mock_config)
-        assert mock_config.value_1 == 500
-        assert mock_config.value_2 == 300
-
-    @patch("sys.argv", ["script.py", "value_1=500", "prefix.value_2=300"])
-    def test_enable_overrides_with_prefix(self, mock_config, mock_function):
-        enable_overrides(mock_config, prefix="prefix")
-        assert mock_config.value_1 == 10
-        assert mock_config.value_2 == 300
-
-    @patch("sys.argv", ["script.py", "new_value=700"])
-    def test_enable_overrides_no_key(self, mock_config, mock_function):
-        enable_overrides(mock_config)
-        assert mock_config.value_1 == 10
-        assert mock_config.value_2 == 20
-        assert mock_config.value_3 == 30
-
-    @patch("sys.argv", [])
-    def test_enable_overrides_no_args(self, mock_config, mock_function):
-        enable_overrides(mock_config)
-        assert mock_config.value_1 == 10
-        assert mock_config.value_2 == 20
-        assert mock_config.value_3 == 30
-
-    @pytest.mark.xfail
-    @patch("sys.argv", ["script.py", "value_1=abc"])
-    def test_enable_overrides_invalid_value(self, mock_config, mock_function):
-        enable_overrides(mock_config)
-        assert mock_config.value_1 == 10
-        assert mock_config.value_2 == 20
-        assert mock_config.value_3 == 30

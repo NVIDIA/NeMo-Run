@@ -14,11 +14,11 @@
 # limitations under the License.
 
 import base64
-from typing import Optional
 import zlib
+from typing import Optional
 
-from fiddle._src.experimental import serialization
 from fiddle._src import config
+from fiddle._src.experimental import serialization
 
 
 class ZlibJSONSerializer:

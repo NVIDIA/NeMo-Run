@@ -12,6 +12,8 @@
 -e file:.
 absl-py==2.1.0
     # via fiddle
+appnope==0.1.4
+    # via ipykernel
 asttokens==2.4.1
     # via stack-data
 attrs==24.2.0
@@ -111,8 +113,6 @@ jupyterlab-widgets==3.0.11
     # via ipywidgets
 kubernetes==30.1.0
     # via skypilot
-lark==1.2.2
-    # via nemo-run
 libcst==1.4.0
     # via fiddle
 markdown-it-py==3.0.0

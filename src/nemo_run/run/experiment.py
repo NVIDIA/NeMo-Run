@@ -15,9 +15,12 @@
 
 import contextvars
 import copy
+import importlib.util
+import inspect
 import json
 import os
 import shutil
+import sys
 import time
 import traceback
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
@@ -28,8 +31,9 @@ import fiddle as fdl
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn
 from rich.progress import Task as RichTask
+from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState, is_terminal
 
@@ -39,11 +43,7 @@ from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
-from nemo_run.core.frontend.console.api import (
-    CONSOLE,
-    configure_logging,
-    deconfigure_logging,
-)
+from nemo_run.core.frontend.console.api import CONSOLE, configure_logging, deconfigure_logging
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.client import SSHTunnel, Tunnel
 from nemo_run.run.plugin import ExperimentPlugin
@@ -317,7 +317,13 @@ nemorun experiment cancel {exp_id} 0
         with open(os.path.join(self._exp_dir, self.__class__._TASK_FILE), "w+") as f:
             json.dump(serialized_tasks, f)
 
+        if "__main__" in sys.modules:
+            main_module = sys.modules["__main__"]
+            with open(os.path.join(self._exp_dir, "__main__.py"), "w+") as f:
+                f.write(inspect.getsource(main_module))
+
     def _load_tasks(self) -> list[ExperimentTask | ExperimentTaskGroup]:
+        maybe_load_external_main(self._exp_dir)
         with open(os.path.join(self._exp_dir, self._TASK_FILE)) as f:
             serialized_tasks = json.load(f)
 
@@ -1011,3 +1017,16 @@ def _get_sorted_dirs(path: str) -> list[str]:
     dirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
     dirs = sorted(dirs, key=lambda d: os.path.getctime(os.path.join(path, d)))
     return list(dirs)
+
+
+def maybe_load_external_main(exp_dir: str):
+    main_file = Path(exp_dir) / "__main__.py"
+    if main_file.exists():
+        spec = importlib.util.spec_from_file_location("__external_main__", main_file)
+        new_main_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(new_main_module)
+        existing_main = sys.modules["__main__"]
+
+        for attr in dir(new_main_module):
+            if not attr.startswith("__"):
+                setattr(existing_main, attr, getattr(new_main_module, attr))
