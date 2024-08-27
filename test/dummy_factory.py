@@ -57,7 +57,7 @@ def my_dummy_model(hidden=2000) -> DummyModel:
     return DummyModel(hidden=hidden, activation="tanh")
 
 
-@run.cli.entrypoint(namespace="dummy", require_confirmation=False)
+@run.cli.entrypoint(namespace="dummy", skip_confirmation=True)
 def dummy_entrypoint(dummy: DummyModel):
     NestedModel(dummy=dummy)
 

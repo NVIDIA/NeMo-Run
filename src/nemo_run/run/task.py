@@ -19,14 +19,13 @@ from dataclasses import dataclass, field
 from typing import Optional, Union, cast
 
 import fiddle as fdl
-import fiddle._src.experimental.dataclasses as fdl_dc
 from invoke.context import Context
 from rich.pretty import Pretty
 from rich.table import Table
 from torchx.specs.api import AppDef, AppState, is_terminal
 
 import nemo_run.exceptions
-from nemo_run.config import Config, Partial, Script
+from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE, CustomConfigRepr
@@ -40,14 +39,14 @@ from nemo_run.run.torchx_backend.schedulers.api import get_executor_str
 
 
 def dryrun_fn(
-    configured_fn_or_script: Union[Partial, Script],
+    configured_task: Union[Partial, Script],
     executor: Optional[Executor] = None,
     build: bool = False,
 ) -> None:
-    if not isinstance(configured_fn_or_script, (Config, Partial)):
-        raise TypeError(f"Need a run Partial for dryrun. Got {configured_fn_or_script}.")
+    if not isinstance(configured_task, (Config, Partial)):
+        raise TypeError(f"Need a run Partial for dryrun. Got {configured_task}.")
 
-    fn = configured_fn_or_script.__fn_or_cls__
+    fn = configured_task.__fn_or_cls__
     # TODO: Move this to run/frontend
     console = CONSOLE
     console.print(f"[bold cyan]Dry run for task {fn.__module__}:{fn.__name__}[/bold cyan]")
@@ -56,8 +55,8 @@ def dryrun_fn(
     table_resolved_args.add_column("Argument Name", style="dim", width=20)
     table_resolved_args.add_column("Resolved Value", width=60)
 
-    for arg_name in dir(configured_fn_or_script):
-        repr = CustomConfigRepr(getattr(configured_fn_or_script, arg_name))
+    for arg_name in dir(configured_task):
+        repr = CustomConfigRepr(getattr(configured_task, arg_name))
         table_resolved_args.add_row(arg_name, Pretty(repr))
 
     console.print("[bold green]Resolved Arguments[/bold green]")
@@ -71,38 +70,30 @@ def dryrun_fn(
         console.print(table_executor)
 
     if build:
-        fdl.build(configured_fn_or_script)
+        fdl.build(configured_task)
 
 
-def direct_run_fn(fn_or_script: Partial | Script, dryrun: bool = False):
-    if not isinstance(fn_or_script, (Partial, Script)):
-        raise TypeError(f"Need a configured run.Partial or run.Script. Got {fn_or_script}.")
+def direct_run_fn(task: Partial | Script, dryrun: bool = False):
+    if not isinstance(task, (Partial, Script)):
+        raise TypeError(f"Need a configured run.Partial or run.Script. Got {task}.")
 
     if dryrun:
-        dryrun_fn(fn_or_script, build=True)
+        dryrun_fn(task, build=True)
         return
 
-    if isinstance(fn_or_script, Script):
+    if isinstance(task, Script):
         ctx = Context()
-        ctx.run(" ".join(fn_or_script.to_command(with_entrypoint=True)))
+        ctx.run(" ".join(task.to_command(with_entrypoint=True)))
         return
 
-    built_fn = fdl.build(fn_or_script)
+    built_fn = fdl.build(task)
     built_fn()
 
 
-class _TaskMixin:
-    def to_config(self) -> Config:
-        return fdl.cast(Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True))
-
-    def _repr_svg_(self):
-        return self.to_config()._repr_svg_()
-
-
 @dataclass
-class ExperimentTask(_TaskMixin):
+class ExperimentTask(ConfigurableMixin):
     id: str
-    fn_or_script: Union[Partial, Script]
+    task: Union[Partial, Script]
     executor: Executor
     handle: str = ""
     launched: bool = False
@@ -112,10 +103,10 @@ class ExperimentTask(_TaskMixin):
 
     def serialize(self) -> tuple[str, str]:
         cfg = self.to_config()
-        fn_or_script_cfg = cfg.fn_or_script
-        cfg.fn_or_script = None
+        task_cfg = cfg.task
+        cfg.task = None
         serializer = ZlibJSONSerializer()
-        return serializer.serialize(cfg), serializer.serialize(fn_or_script_cfg)
+        return serializer.serialize(cfg), serializer.serialize(task_cfg)
 
     def status(self, runner: Runner) -> AppState:
         if not self.launched or not self.handle:
@@ -146,17 +137,15 @@ class ExperimentTask(_TaskMixin):
         dryrun: bool = False,
         direct: bool = False,
     ):
-        if not isinstance(self.fn_or_script, (Partial, Config, Script)):
-            raise TypeError(f"Need a configured Buildable or run.Script. Got {self.fn_or_script}.")
+        if not isinstance(self.task, (Partial, Config, Script)):
+            raise TypeError(f"Need a configured Buildable or run.Script. Got {self.task}.")
 
-        executable = package(
-            self.id, self.fn_or_script, executor=self.executor, serialize_to_file=True
-        )
+        executable = package(self.id, self.task, executor=self.executor, serialize_to_file=True)
 
         executor_str = get_executor_str(self.executor)
 
         if direct:
-            direct_run_fn(self.fn_or_script, dryrun=dryrun)
+            direct_run_fn(self.task, dryrun=dryrun)
             self.launched = True
             self.handle = f"{executor_str}://nemo_run/{self.id}_direct_run"
             self.state = AppState.SUCCEEDED
@@ -215,11 +204,11 @@ class ExperimentTask(_TaskMixin):
 
 
 @dataclass
-class ExperimentTaskGroup(_TaskMixin):
+class ExperimentTaskGroup(ConfigurableMixin):
     SUPPORTED_EXECUTORS = [SlurmExecutor]
 
     id: str
-    fn_or_scripts: list[Union[Partial, Script]]
+    tasks: list[Union[Partial, Script]]
     executors: Union[Executor, list[Executor]]
     handles: list[str] = field(default_factory=list)
     launched: bool = False
@@ -231,8 +220,8 @@ class ExperimentTaskGroup(_TaskMixin):
         executors = [self.executors] if isinstance(self.executors, Executor) else self.executors
         assert len(executors) in [
             1,
-            len(self.fn_or_scripts),
-        ], f"Invalid number of executors. Got {len(executors)} for {len(self.fn_or_scripts)} tasks."
+            len(self.tasks),
+        ], f"Invalid number of executors. Got {len(executors)} for {len(self.tasks)} tasks."
         executor_types = set()
         for exec in executors:
             executor_types.add(exec.__class__)
@@ -243,12 +232,12 @@ class ExperimentTaskGroup(_TaskMixin):
         if executor_type == SlurmExecutor:
             self._merge = True
             self.executors = SlurmExecutor.merge(
-                cast(list[SlurmExecutor], executors), num_tasks=len(self.fn_or_scripts)
+                cast(list[SlurmExecutor], executors), num_tasks=len(self.tasks)
             )
         else:
             self._merge = False
             if len(executors) == 1:
-                self.executors = executors * len(self.fn_or_scripts)
+                self.executors = executors * len(self.tasks)
 
     @property
     def state(self) -> AppState:
@@ -266,10 +255,10 @@ class ExperimentTaskGroup(_TaskMixin):
 
     def serialize(self) -> tuple[str, str]:
         cfg = self.to_config()
-        fn_or_scripts_cfg = cfg.fn_or_scripts
-        cfg.fn_or_scripts = None
+        tasks_cfg = cfg.tasks
+        cfg.tasks = None
         serializer = ZlibJSONSerializer()
-        return serializer.serialize(cfg), serializer.serialize(fn_or_scripts_cfg)
+        return serializer.serialize(cfg), serializer.serialize(tasks_cfg)
 
     def status(self, runner: Runner) -> AppState:
         if not self.launched or not self.handles:
@@ -307,17 +296,17 @@ class ExperimentTaskGroup(_TaskMixin):
         runner: Runner,
         dryrun: bool = False,
     ):
-        for fn_or_script in self.fn_or_scripts:
-            if not isinstance(fn_or_script, (Partial, Config, Script)):
-                raise TypeError(f"Need a configured Buildable or run.Script. Got {fn_or_script}.")
+        for task in self.tasks:
+            if not isinstance(task, (Partial, Config, Script)):
+                raise TypeError(f"Need a configured Buildable or run.Script. Got {task}.")
 
         executables: list[tuple[AppDef, Executor]] = []
-        for i, fn_or_script in enumerate(self.fn_or_scripts):
+        for i, task in enumerate(self.tasks):
             executor = self.executors if self._merge else self.executors[i]  # type: ignore
             assert isinstance(executor, Executor)
             executable = package(
                 f"{self.id}-{i}",
-                fn_or_script,
+                task,
                 executor=executor,
                 serialize_to_file=True,
             )

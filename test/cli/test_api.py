@@ -100,7 +100,7 @@ class TestRunContext:
         assert ctx.load is None
         assert not ctx.repl
         assert not ctx.detach
-        assert ctx.require_confirmation
+        assert not ctx.skip_confirmation
         assert not ctx.tail_logs
 
     def test_run_context_parse_args(self):
@@ -137,7 +137,7 @@ class TestRunContext:
     @patch("nemo_run.dryrun_fn")
     @patch("nemo_run.run")
     def test_run_context_execute_task(self, mock_run, mock_dryrun_fn, sample_function):
-        ctx = RunContext(name="test_run", require_confirmation=False)
+        ctx = RunContext(name="test_run", skip_confirmation=True)
         ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_dryrun_fn.assert_called_once()
         mock_run.assert_called_once()
@@ -175,7 +175,7 @@ class TestRunContext:
     @patch("nemo_run.dryrun_fn")
     @patch("nemo_run.run")
     def test_run_context_execute_task_with_dryrun(self, mock_run, mock_dryrun_fn, sample_function):
-        ctx = RunContext(name="test_run", dryrun=True, require_confirmation=False)
+        ctx = RunContext(name="test_run", dryrun=True, skip_confirmation=True)
         ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_dryrun_fn.assert_called_once()
         mock_run.assert_not_called()
@@ -186,7 +186,7 @@ class TestRunContext:
     def test_run_context_execute_task_with_confirmation_denied(
         self, mock_confirm, mock_run, mock_dryrun_fn, sample_function
     ):
-        ctx = RunContext(name="test_run", require_confirmation=True)
+        ctx = RunContext(name="test_run")
         ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_dryrun_fn.assert_called_once()
         mock_confirm.assert_called_once()
@@ -194,7 +194,7 @@ class TestRunContext:
 
     @patch("IPython.embed")
     def test_run_context_execute_task_with_repl(self, mock_embed, sample_function):
-        ctx = RunContext(name="test_run", repl=True, require_confirmation=False)
+        ctx = RunContext(name="test_run", repl=True, skip_confirmation=True)
         ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_embed.assert_called_once()
 
@@ -225,7 +225,7 @@ class TestRunContext:
         mock_run.assert_called_once_with(sample_function, ["a=10", "b=hello"])
 
     def test_run_context_run_with_detach(self):
-        ctx = RunContext(name="test_run", require_confirmation=False)
+        ctx = RunContext(name="test_run", skip_confirmation=True)
 
         def sample_function(a, b):
             return None
@@ -472,7 +472,7 @@ def defaults() -> run.Partial["train_model"]:
 @run.cli.entrypoint(
     default_factory=defaults,
     namespace="my_llm",
-    require_confirmation=False,
+    skip_confirmation=True,
 )
 def train_model(
     model: Model,
@@ -532,7 +532,7 @@ class TestEntrypointRunner:
                     "dummy",
                     "dummy_entrypoint",
                     "dummy=dummy_model_config",
-                    "run.require_confirmation=False",
+                    "run.skip_confirmation=True",
                 ],
             )
             assert result.exit_code == 0
@@ -577,7 +577,7 @@ class TestEntrypointRunner:
                 "model.hidden_size=1024",
                 "optimizer.learning_rate=0.005",
                 "epochs=30",
-                "run.require_confirmation=False",
+                "run.skip_confirmation=True",
             ],
             env={"INCLUDE_WORKSPACE_FILE": "false"},
         )
