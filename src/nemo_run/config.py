@@ -287,8 +287,93 @@ register_supported_cast(Config, Config)
 register_supported_cast(Partial, Partial)
 
 
+class ConfigurableMixin(_VisualizeMixin):
+    """
+    A mixin class that provides configuration and visualization functionality.
+
+    This mixin adds methods for converting objects to Config instances,
+    visualizing configurations, and comparing configurations.
+
+    For classes that are not dataclasses, the `to_config` method needs to be
+    overridden to provide custom conversion logic to Config instances.
+
+    Methods:
+        diff: Generate a visual difference between configurations.
+        to_config: Convert the current object to a Config instance.
+        _repr_svg_: Generate an SVG representation for Jupyter notebooks.
+    """
+
+    def diff(self, old: Self, trim=True, **kwargs):
+        """
+        Generate a visual difference between this configuration and an old one.
+
+        Args:
+            old (Self): The old configuration to compare against.
+            trim (bool, optional): Whether to trim unchanged parts. Defaults to True.
+            **kwargs: Additional arguments to pass to render_diff.
+
+        Returns:
+            graphviz.Digraph: A graph representing the differences between configurations.
+        """
+        return render_diff(old=old.to_config(), new=self.to_config(), trim=trim, **kwargs)
+
+    def to_config(self) -> Config[Self]:
+        """
+        Convert the current object to a Config instance.
+
+        This method automatically converts dataclasses to Config instances.
+        For classes that are not dataclasses, this method needs to be overridden
+        to provide custom conversion logic.
+
+        Returns:
+            Config: A Config representation of the current object.
+
+        Raises:
+            NotImplementedError: If the object type cannot be converted to Config
+                                 or if the method is not overridden for non-dataclass types.
+
+        Note:
+            For classes that are not dataclasses, you must override this method
+            to define how the object should be converted to a Config instance.
+        """
+        if dataclasses.is_dataclass(self):
+            try:
+                return fdl.cast(
+                    Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True)
+                )
+            except Exception as e:
+                raise NotImplementedError(
+                    f"Cannot convert type {type(self)} to Config",
+                    f"Please implement a method `to_config` on {type(self)}.",
+                ) from e
+        elif isinstance(self, (list, tuple, dict)):
+            return self  # type: ignore
+        else:
+            raise NotImplementedError(
+                f"Cannot convert type {type(self)} to Config. "
+                f"Please override the `to_config` method for {type(self)}."
+            )
+
+    def _repr_svg_(self):
+        """
+        Generate an SVG representation of the object for Jupyter notebooks.
+
+        Returns:
+            str: SVG representation of the object if it can be rendered,
+                 otherwise returns the string representation.
+        """
+        if isinstance(self, (list, tuple, dict)):
+            try:
+                return render(self).pipe(format="svg").decode("utf-8")
+            except Exception as e:
+                print(f"Graphviz rendering failed: {e}")
+                return self.__repr__()
+
+        return self.to_config()._repr_svg_()
+
+
 @dataclasses.dataclass
-class Script:
+class Script(ConfigurableMixin):
     """
     Dataclass to configure raw scripts.
 
@@ -360,91 +445,6 @@ class Script:
                 )
 
         return cmd
-
-
-class ConfigurableMixin(_VisualizeMixin):
-    """
-    A mixin class that provides configuration and visualization functionality.
-
-    This mixin adds methods for converting objects to Config instances,
-    visualizing configurations, and comparing configurations.
-
-    For classes that are not dataclasses, the `to_config` method needs to be
-    overridden to provide custom conversion logic to Config instances.
-
-    Methods:
-        diff: Generate a visual difference between configurations.
-        to_config: Convert the current object to a Config instance.
-        _repr_svg_: Generate an SVG representation for Jupyter notebooks.
-    """
-
-    def diff(self, old: Self, trim=True, **kwargs):
-        """
-        Generate a visual difference between this configuration and an old one.
-
-        Args:
-            old (Self): The old configuration to compare against.
-            trim (bool, optional): Whether to trim unchanged parts. Defaults to True.
-            **kwargs: Additional arguments to pass to render_diff.
-
-        Returns:
-            graphviz.Digraph: A graph representing the differences between configurations.
-        """
-        return render_diff(old=old.to_config(), new=self.to_config(), trim=trim, **kwargs)
-
-    def to_config(self) -> Config:
-        """
-        Convert the current object to a Config instance.
-
-        This method automatically converts dataclasses to Config instances.
-        For classes that are not dataclasses, this method needs to be overridden
-        to provide custom conversion logic.
-
-        Returns:
-            Config: A Config representation of the current object.
-
-        Raises:
-            NotImplementedError: If the object type cannot be converted to Config
-                                 or if the method is not overridden for non-dataclass types.
-
-        Note:
-            For classes that are not dataclasses, you must override this method
-            to define how the object should be converted to a Config instance.
-        """
-        if dataclasses.is_dataclass(self):
-            try:
-                return fdl.cast(
-                    Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True)
-                )
-            except Exception as e:
-                raise NotImplementedError(
-                    f"Cannot convert type {type(self)} to Config",
-                    f"Please implement a method `to_config` on {type(self)}.",
-                ) from e
-        elif isinstance(self, (list, tuple, dict)):
-            return self  # type: ignore
-        else:
-            raise NotImplementedError(
-                f"Cannot convert type {type(self)} to Config. "
-                f"Please override the `to_config` method for {type(self)}."
-            )
-
-    def _repr_svg_(self):
-        """
-        Generate an SVG representation of the object for Jupyter notebooks.
-
-        Returns:
-            str: SVG representation of the object if it can be rendered,
-                 otherwise returns the string representation.
-        """
-        if isinstance(self, (list, tuple, dict)):
-            try:
-                return render(self).pipe(format="svg").decode("utf-8")
-            except Exception as e:
-                print(f"Graphviz rendering failed: {e}")
-                return self.__repr__()
-
-        return self.to_config()._repr_svg_()
 
 
 # A type alias for an optional type that is annotated with a Config.
