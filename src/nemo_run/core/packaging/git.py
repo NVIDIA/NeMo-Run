@@ -45,12 +45,12 @@ class GitArchivePackager(Packager):
         We are working on adding an option to package uncommitted code but it is not ready yet.
     """
 
+    basepath: str = ""
     #: Relative subpath in your repo to package code from.
     #: For eg, if your repo has three folders a, b and c
     #: and you specify a as the subpath, only files inside a
     #: will be packaged. In your job, the root workdir will be
     #: a/.
-    basepath: str = ""
     subpath: str = ""
 
     #: List of pip packages to install before starting your run.
@@ -61,6 +61,10 @@ class GitArchivePackager(Packager):
     #: Can be a branch name or a commit ref like HEAD.
     ref: str = "HEAD"
 
+    #: Include extra files in the archive which matches include_pattern
+    #: This str will be included in the command as: find {include_pattern} -type f to get the list of extra files to include in the archive
+    include_pattern: str = ""
+
     def package(self, path: Path, job_dir: str, name: str) -> str:
         output_file = os.path.join(job_dir, f"{name}.tar.gz")
         if os.path.exists(output_file):
@@ -69,15 +73,20 @@ class GitArchivePackager(Packager):
         if self.basepath:
             path = Path(self.basepath)
 
-        subprocess.check_call(["cd", str(path), "&&", "git", "rev-parse"], shell=True)
+        subprocess.check_call(f"cd {str(path)} && git rev-parse", shell=True)
         output = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
+            f"cd {str(path)} && git rev-parse --show-toplevel",
             check=True,
             stdout=subprocess.PIPE,
+            shell=True,
         )
         git_base_path = Path(output.stdout.splitlines()[0].decode())
-        git_sub_path = os.path.join(path.relative_to(git_base_path), self.subpath, "")
-        cmd = f"cd {shlex.quote(str(git_base_path))} && git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
+        git_sub_path = os.path.join(self.subpath, "")
+
+        if self.include_pattern:
+            cmd = f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path}; find {self.include_pattern} -type f) | tar -czf {output_file} -T -"
+        else:
+            cmd = f"cd {shlex.quote(str(git_base_path))} && git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
         ctx = Context()
         ctx.run(cmd)
         return output_file
