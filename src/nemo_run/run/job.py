@@ -22,6 +22,35 @@ from nemo_run.run.torchx_backend.schedulers.api import get_executor_str
 
 @dataclass
 class Job(ConfigurableMixin):
+    """
+    A Job represents a single task within an Experiment, combining a task definition with its execution environment.
+
+    This class is primarily used internally by the Experiment class and is not typically instantiated directly by users.
+    It encapsulates all the information needed to run a single task, including the task itself, the executor
+    configuration, and metadata about the job's state and execution.
+
+    Attributes:
+        id (str): A unique identifier for the job within the experiment.
+        task (Union[Partial, Script]): The task to be executed, either as a Partial (configured function) or a Script.
+        executor (Executor): The executor configuration for running the task.
+        handle (str): A unique identifier for the running job, set when the job is launched.
+        launched (bool): Indicates whether the job has been launched.
+        state (AppState): The current state of the job (e.g., UNSUBMITTED, RUNNING, SUCCEEDED, FAILED).
+        plugins (Optional[list[ExperimentPlugin]]): Any plugins to be applied to this job.
+        tail_logs (bool): Whether to tail the logs of this job during execution.
+
+    The Job class is responsible for:
+    - Serializing and deserializing job configurations
+    - Launching the task on the specified executor
+    - Monitoring the job's status
+    - Retrieving logs
+    - Cancelling the job if necessary
+    - Cleaning up resources after job completion
+
+    While users typically interact with jobs through the Experiment interface, understanding the Job class
+    can be helpful for advanced usage scenarios or when developing custom plugins or executors.
+    """
+
     id: str
     task: Union[Partial, Script]
     executor: Executor
@@ -135,6 +164,44 @@ class Job(ConfigurableMixin):
 
 @dataclass
 class JobGroup(ConfigurableMixin):
+    """
+    A JobGroup represents a collection of related tasks within an Experiment that are managed together.
+
+    This class is primarily used internally by the Experiment class and is not typically instantiated directly by users.
+    It allows for the grouping of multiple tasks that share common characteristics or need to be executed
+    in a coordinated manner, such as tasks that should run on the same node or share resources.
+
+    Attributes:
+        id (str): A unique identifier for the job group within the experiment.
+        tasks (list[Union[Partial, Script]]): A list of tasks to be executed in this group.
+        executors (Union[Executor, list[Executor]]): The executor(s) for running the tasks. Can be a single
+                                                     executor shared by all tasks or a list of executors.
+        handles (list[str]): Unique identifiers for the running jobs, set when the jobs are launched.
+        launched (bool): Indicates whether the job group has been launched.
+        states (list[AppState]): The current states of the jobs in the group.
+        plugins (Optional[list[ExperimentPlugin]]): Any plugins to be applied to this job group.
+        tail_logs (bool): Whether to tail the logs of the jobs in this group during execution.
+
+    The JobGroup class is responsible for:
+    - Managing the execution of multiple related tasks
+    - Handling task dependencies within the group
+    - Serializing and deserializing job group configurations
+    - Launching tasks on specified executors
+    - Monitoring the status of all tasks in the group
+    - Retrieving logs for the entire group
+    - Cancelling all jobs in the group if necessary
+    - Cleaning up resources after all jobs in the group have completed
+
+    JobGroups are particularly useful for:
+    - Executing multiple tasks that need to share resources or run on the same node
+    - Managing sets of tasks with internal dependencies
+    - Optimizing resource allocation for related tasks
+
+    While users typically interact with job groups through the Experiment interface, understanding the JobGroup class
+    can be helpful for designing complex workflows or when developing custom plugins or executors that need to
+    handle groups of related tasks.
+    """
+
     SUPPORTED_EXECUTORS = [SlurmExecutor]
 
     id: str
