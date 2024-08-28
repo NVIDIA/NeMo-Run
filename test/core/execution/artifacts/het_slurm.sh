@@ -52,7 +52,7 @@ het_group_host_1=$(scontrol show hostnames=$SLURM_JOB_NODELIST_HET_GROUP_1 | hea
 export CUSTOM_ENV_1=some_value_1
 
 
-srun --het-group=0 --output /some/job/dir/sample_job-0/log-your_account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_1 --container-mounts /some/job/dir/sample_job-0:/sample_job-0 --container-workdir /sample_job-0/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/start_server.sh & pids[0]=$!
+srun --het-group=0 --output /some/job/dir/sample_job-0/log-your_account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_1 --container-mounts /some/job/dir/sample_job-0:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/start_server.sh & pids[0]=$!
 
 sleep 30
 
@@ -64,7 +64,7 @@ export CUSTOM_ENV_2=some_value_2
 export HOST_1=$het_group_host_0
 
 
-srun --het-group=1 --output /some/job/dir/sample_job-1/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_2 --container-mounts /some/job/dir/sample_job-1:/sample_job-1 --container-workdir /sample_job-1/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
+srun --het-group=1 --output /some/job/dir/sample_job-1/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_2 --container-mounts /some/job/dir/sample_job-1:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
 
 wait
 

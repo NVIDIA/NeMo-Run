@@ -18,6 +18,7 @@ import re
 from pathlib import Path
 
 import pytest
+
 from nemo_run.config import Script
 from nemo_run.core.execution.base import ExecutorMacros, FaultTolerance
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor
@@ -318,6 +319,27 @@ class TestSlurmBatchRequest:
             "srun --ntasks=1 --ntasks-per-node=1 --output /root/sample_job/log-account-account.sample_job_%j_${SLURM_RESTART_COUNT:-0}.out --wait=60 --kill-on-bad-exit=1 --overlap nvidia-smi"
             in sbatch_script
         )
+
+    def test_dummy_batch_request_nsys(
+        self,
+        dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.slurm_config.get_launcher().nsys_profile = True
+        launcher_prefix = dummy_slurm_request.slurm_config.get_launcher_prefix()
+        assert launcher_prefix == [
+            "profile",
+            "-s",
+            "none",
+            "-t",
+            "nvtx,cuda",
+            "-o",
+            "/nemo_run/nsys_profile/profile_%p",
+            "--force-overwrite",
+            "true",
+            "--capture-range=cudaProfilerApi",
+            "--capture-range-end=stop",
+        ]
 
     def test_dummy_batch_request_warn(
         self,

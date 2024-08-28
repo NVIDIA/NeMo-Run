@@ -33,7 +33,7 @@ head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
 # Command 1
 
-srun --output /root/sample_job/log-account-account.sample_job_%j_${SLURM_RESTART_COUNT:-0}.out --container-mounts /root/sample_job:/sample_job --container-workdir /sample_job/code --wait=60 --kill-on-bad-exit=1 cmd3 cmd4
+srun --output /root/sample_job/log-account-account.sample_job_%j_${SLURM_RESTART_COUNT:-0}.out --container-mounts /root/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 cmd3 cmd4
 
 exitcode=$?
 

@@ -48,6 +48,8 @@ from nemo_run.devspace.base import DevSpace
 logger = logging.getLogger(__name__)
 noquote: TypeAlias = str
 
+_RUNDIR_NAME = "nemo_run"
+
 
 @dataclass(kw_only=True)
 class SlurmExecutor(Executor):
@@ -457,7 +459,7 @@ class SlurmExecutor(Executor):
     def get_launcher_prefix(self) -> Optional[list[str]]:
         launcher = self.get_launcher()
         if launcher.nsys_profile:
-            return launcher.get_nsys_prefix(profile_dir=f"/{Path(self.job_dir).name}")
+            return launcher.get_nsys_prefix(profile_dir=f"/{_RUNDIR_NAME}")
 
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
         filenames = []
@@ -471,7 +473,7 @@ class SlurmExecutor(Executor):
             filenames.append(
                 os.path.join(
                     "/",
-                    Path(self.job_dir).name,
+                    _RUNDIR_NAME,
                     "configs",
                     name,
                 )
@@ -576,7 +578,7 @@ class SlurmExecutor(Executor):
             base_dir = os.path.join(self.tunnel.job_dir, Path(self.job_dir).name)
             launcher.cfg_path = os.path.join(base_dir, f"{self.job_name}_ft_cfg.yml")
             launcher.finished_flag_file = os.path.join(
-                "/", Path(self.job_dir).name, f"{self.job_name}_finished_flag"
+                "/", _RUNDIR_NAME, f"{self.job_name}_finished_flag"
             )
             launcher.job_results_file = os.path.join(base_dir, f"{self.job_name}_job_results")
 
@@ -798,13 +800,13 @@ class SlurmBatchRequest:
         )
         container_mounts = self.slurm_config.container_mounts
         container_mounts.append(
-            f"{os.path.join(slurm_job_dir, job_directory_name)}:/{job_directory_name}"
+            f"{os.path.join(slurm_job_dir, job_directory_name)}:/{_RUNDIR_NAME}"
         )
         container_mount_arg = ",".join(container_mounts)
         container_flags += ["--container-mounts", container_mount_arg]
         container_flags += [
             "--container-workdir",
-            f"/{job_directory_name}/code",
+            f"/{_RUNDIR_NAME}/code",
         ]
 
         srun_args = self.slurm_config.srun_args or []
@@ -832,7 +834,7 @@ class SlurmBatchRequest:
 
                 mounts = resource_req.container_mounts
                 mounts.append(
-                    f"{os.path.join(slurm_job_dir, self.jobs[group_ind])}:/{self.jobs[group_ind]}"
+                    f"{os.path.join(slurm_job_dir, self.jobs[group_ind])}:/{_RUNDIR_NAME}"
                 )
                 mount_arg = ",".join(mounts)
                 group_container_flags = (
@@ -843,7 +845,7 @@ class SlurmBatchRequest:
                 group_container_flags += ["--container-mounts", mount_arg]
                 group_container_flags += [
                     "--container-workdir",
-                    f"/{self.jobs[group_ind]}/code",
+                    f"/{_RUNDIR_NAME}/code",
                 ]
 
                 het_group = f"--het-group={group_ind}"
