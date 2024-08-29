@@ -20,17 +20,33 @@ import os
 import sys
 from dataclasses import dataclass, field
 from functools import cache, wraps
-from typing import (Any, Callable, Dict, Generic, List, Literal, Optional,
-                    Protocol, Tuple, Type, TypeVar, get_args, get_type_hints,
-                    overload, runtime_checkable)
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    TypeVar,
+    get_args,
+    get_type_hints,
+    overload,
+    runtime_checkable,
+)
 
 import catalogue
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
 import importlib_metadata as metadata
 import typer
+from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.table import Table
 from typer import Option, Typer, rich_utils
 from typer.core import TyperCommand, TyperGroup
 from typer.models import OptionInfo
@@ -39,11 +55,10 @@ from typing_extensions import ParamSpec
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
-from nemo_run.config import (NEMORUN_HOME, Config, Partial, get_type_namespace,
-                             get_underlying_types)
-from nemo_run.core.execution import (LocalExecutor, SkypilotExecutor,
-                                     SlurmExecutor)
+from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, get_underlying_types
+from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
@@ -1246,16 +1261,26 @@ class EntrypointCommand(TyperCommand):
         # TODO: Check if args are passed in to provide help for
         # print(sys.argv[1:])
 
-
         console = rich_utils._get_rich_console()
 
+        box_style = getattr(box, BOX_STYLE, None)
+        table = Table(
+            highlight=True,
+            show_header=False,
+            expand=True,
+            box=box_style,
+            **TABLE_STYLES,
+        )
+        table.add_column("Component", style="cyan")
+        table.add_column("Value", style="magenta")
         if self._entrypoint.default_factory:
-            console.print(f"[bold cyan]Default factory: {self._entrypoint.default_factory}[/bold cyan]")
+            table.add_row("Factory", str(self._entrypoint.default_factory))
         if self._entrypoint.default_executor:
-            console.print(f"[bold cyan]Default executor: {self._entrypoint.default_executor}[/bold cyan]")
+            table.add_row("Executor", str(self._entrypoint.default_executor))
         if self._entrypoint.default_plugins:
-            console.print(f"[bold cyan]Default plugins: {self._entrypoint.default_plugins}[/bold cyan]")
-
+            table.add_row("Plugins", str(self._entrypoint.default_plugins))
+        if table.row_count > 0:
+            console.print(table)
 
         self._entrypoint.help(console, with_docs=sys.argv[-1] in ("--docs", "-d"))
 
