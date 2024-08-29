@@ -16,7 +16,7 @@ is_job_failures_limit_reached() {
     fi
 }
 is_training_finished() {
-    test -f "$(dirname $(dirname $JOB_RESULTS_FILE))$FAULT_TOL_FINISHED_FLAG_FILE"
+    test -f "$(dirname $JOB_RESULTS_FILE)/$(basename $FAULT_TOL_FINISHED_FLAG_FILE)"
 }
 # Exit immediately if finished flag file exists and this job is a continuation
 if [ -v SLURM_RESTART_COUNT ] && [ "$SLURM_RESTART_COUNT" -gt 0 ] ; then
