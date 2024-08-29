@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from nemo_run import cli
+from nemo_run import cli, io
 from nemo_run.api import autoconvert, dryrun_fn
-from nemo_run.config import Config, Partial, Script
+from nemo_run.config import Config, Partial, Script, build
 from nemo_run.core.execution.base import Executor, ExecutorMacros, FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
@@ -31,8 +31,10 @@ from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
 __all__ = [
     "autoconvert",
+    "build",
     "cli",
     "dryrun_fn",
+    "io",
     "Config",
     "DevSpace",
     "Executor",

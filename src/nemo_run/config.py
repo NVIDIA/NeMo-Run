@@ -36,15 +36,18 @@ from fiddle.graphviz import render, render_diff
 from typing_extensions import Annotated, ParamSpec, Self
 
 import nemo_run.exceptions as run_exceptions
+from nemo_run.io.api import _IO_REGISTRY, get, register
 
 Params = ParamSpec("Params")
 ReturnType = TypeVar("ReturnType")
 
 _T = TypeVar("_T")
 _BuildableT = TypeVar("_BuildableT", bound=fdl.Buildable)
+build = fdl.build
 
 RECURSIVE_TYPES = (typing.Union, typing.Optional)
 NEMORUN_HOME = os.environ.get("NEMORUN_HOME", os.path.expanduser("~/.nemo_run"))
+USE_IO_REGISTRY: bool = True
 
 
 def get_type_namespace(typ: Type | Callable) -> str:
@@ -257,6 +260,13 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
 
+    def __build__(self, *args, **kwargs):
+        instance = super().__build__(*args, **kwargs)
+        if USE_IO_REGISTRY:
+            register(instance, copy.deepcopy(self))
+
+        return instance
+
 
 class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
     """
@@ -279,6 +289,13 @@ class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
                 new_kwargs = kwargs
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
+
+    def __build__(self, *args, **kwargs):
+        instance = super().__build__(*args, **kwargs)
+        if USE_IO_REGISTRY:
+            register(instance, copy.deepcopy(self))
+
+        return instance
 
 
 register_supported_cast(fdl.Config, Config)
@@ -415,6 +432,8 @@ def _construct_args(
                     Config,
                     fdl_dc.convert_dataclasses_to_configs(arg, allow_post_init=True),
                 )
+            elif arg in _IO_REGISTRY:
+                final_args[name] = get(arg)
             else:
                 final_args[name] = arg
         elif str(parameter.annotation).startswith("typing.Annotated"):
