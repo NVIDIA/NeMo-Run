@@ -320,6 +320,16 @@ class TestSlurmBatchRequest:
             in sbatch_script
         )
 
+    def test_dummy_batch_request_custom_file_pattern(
+        self,
+        dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.slurm_config.custom_log_file_pattern = "job"
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "--output /root/sample_job/log_job.out" in sbatch_script
+        assert "#SBATCH --output=/root/sample_job/sbatch_job.out" in sbatch_script
+
     def test_dummy_batch_request_nsys(
         self,
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],

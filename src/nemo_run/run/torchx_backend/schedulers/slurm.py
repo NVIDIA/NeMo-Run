@@ -22,10 +22,10 @@ import csv
 import json
 import logging
 import os
-from pathlib import Path
 import time
 from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Iterable, Optional, TextIO
 
 from torchx.schedulers.api import (
@@ -287,7 +287,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             iterator = TunnelLogIterator(
                 app_id,
                 local_file,
-                tunnel_cfg.job_dir,
+                os.path.join(tunnel_cfg.job_dir, Path(local_dir).name),
                 self,
                 should_tail=should_tail,
                 role_name=role_name,
@@ -336,11 +336,7 @@ class TunnelLogIterator(LogIterator):
             try:
                 for _ in range(5):
                     extension = os.path.splitext(self._log_file)[1]
-                    ls_term = (
-                        f"**/*{self._role_name}_{self._app_id}*{extension}"
-                        if self._role_name
-                        else f"*{extension}"
-                    )
+                    ls_term = f"log*{extension}"
                     ls_output = self._scheduler.tunnel.run(
                         f"ls -1 {os.path.join(self._remote_dir, ls_term)} 2> /dev/null",
                         warn=True,
