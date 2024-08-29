@@ -60,6 +60,7 @@ from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, g
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
+from nemo_run.help import class_to_str
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
@@ -1275,11 +1276,11 @@ class EntrypointCommand(TyperCommand):
         table.add_column("Component", style="cyan")
         table.add_column("Value", style="magenta")
         if self._entrypoint.default_factory:
-            table.add_row("Factory", str(self._entrypoint.default_factory))
+            table.add_row("factory", class_to_str(self._entrypoint.default_factory))
         if self._entrypoint.default_executor:
-            table.add_row("Executor", str(self._entrypoint.default_executor))
+            table.add_row("executor", class_to_str(self._entrypoint.default_executor))
         if self._entrypoint.default_plugins:
-            table.add_row("Plugins", str(self._entrypoint.default_plugins))
+            table.add_row("plugins", class_to_str(self._entrypoint.default_plugins))
         if table.row_count > 0:
             console.print(
                 Panel(
