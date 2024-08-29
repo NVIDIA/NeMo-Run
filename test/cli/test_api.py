@@ -504,6 +504,17 @@ def train_model(
     return {"model": model, "optimizer": optimizer, "epochs": epochs, "batch_size": batch_size}
 
 
+@run.cli.factory(target=train_model)
+def custom_defaults() -> run.Partial["train_model"]:
+    return run.Partial(
+        train_model,
+        model=my_model(),
+        optimizer=my_optimizer(),
+        epochs=10,
+        batch_size=1024,
+    )
+
+
 class TestEntrypointRunner:
     @pytest.fixture
     def runner(self):
@@ -535,6 +546,26 @@ class TestEntrypointRunner:
         assert isinstance(partial, run.Partial)
         assert partial.dummy.hidden == 100
         assert partial.dummy.activation == "tanh"
+
+    def test_with_factory(self, runner, app):
+        # Test CLI execution with default factory
+        result = runner.invoke(
+            app,
+            [
+                "my_llm",
+                "train_model",
+                "--factory",
+                "custom_defaults",
+                "model.hidden_size=200",
+                "run.require_confirmation=False",
+            ],
+            env={"INCLUDE_WORKSPACE_FILE": "false"},
+        )
+        assert result.exit_code == 0
+
+        output = result.stdout
+        assert "Training model with the following configuration:" in output
+        assert "Model: Model(hidden_size=200, num_layers=3, activation='relu')" in output
 
     def test_with_defaults(self, runner, app):
         # Test CLI execution with default factory
