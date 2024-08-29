@@ -51,6 +51,53 @@ noquote: TypeAlias = str
 _RUNDIR_NAME = "nemo_run"
 
 
+class JobPaths:
+    """Creates paths related to the slurm job and its submission"""
+
+    def __init__(
+        self,
+        folder: Union[Path, str],
+        job_name: str,
+    ) -> None:
+        self._folder = Path(folder).expanduser().absolute()
+        self._job_name = job_name
+
+    @property
+    def folder(self) -> Path:
+        return self._folder
+
+    @property
+    def results_folder(self) -> Path:
+        return self._folder / "results"
+
+    @property
+    def submission_file(self) -> Path:
+        return Path(self.folder / f"{self._job_name}_submission.sh")
+
+    @property
+    def config_file(self) -> Path:
+        return Path(self.folder / f"{self._job_name}_config.yaml")
+
+    @property
+    def stderr(self) -> Path:
+        return Path(self.folder / f"sbatch_{self._job_name}_%j.err")
+
+    @property
+    def stdout(self) -> Path:
+        return Path(self.folder / f"sbatch_{self._job_name}_%j.out")
+
+    @property
+    def srun_stderr(self) -> Path:
+        return Path(self.folder / f"log-{self._job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.err")
+
+    @property
+    def srun_stdout(self) -> Path:
+        return Path(self.folder / f"log-{self._job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.out")
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.folder})"
+
+
 @dataclass(kw_only=True)
 class SlurmExecutor(Executor):
     """
@@ -274,7 +321,7 @@ class SlurmExecutor(Executor):
     srun_args: Optional[list[str]] = None
     heterogeneous: bool = False
     memory_measure: bool = False
-    custom_log_file_pattern: Optional[str] = None
+    job_paths_cls: Type[JobPaths] = JobPaths
     tunnel: Union[SSHTunnel, LocalTunnel] = field(default_factory=lambda: LocalTunnel(job_dir=""))
     packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore
     #: List of TorchX app handles that will be parsed and passed to --dependency flag in sbatch.
@@ -607,67 +654,6 @@ class SlurmExecutor(Executor):
             return False
 
 
-class JobPaths:
-    """Creates paths related to the slurm job and its submission"""
-
-    def __init__(
-        self,
-        folder: Union[Path, str],
-        job_name: str,
-        custom_pattern: Optional[str] = None,
-    ) -> None:
-        self._folder = Path(folder).expanduser().absolute()
-        self._job_name = job_name
-        self._custom_pattern = custom_pattern
-
-    @property
-    def folder(self) -> Path:
-        return self._folder
-
-    @property
-    def results_folder(self) -> Path:
-        return self._folder / "results"
-
-    @property
-    def submission_file(self) -> Path:
-        return Path(self.folder / f"{self._job_name}_submission.sh")
-
-    @property
-    def config_file(self) -> Path:
-        return Path(self.folder / f"{self._job_name}_config.yaml")
-
-    @property
-    def stderr(self) -> Path:
-        if self._custom_pattern:
-            return Path(self.folder / f"sbatch_{self._custom_pattern}.err")
-
-        return Path(self.folder / f"sbatch_{self._job_name}_%j.err")
-
-    @property
-    def stdout(self) -> Path:
-        if self._custom_pattern:
-            return Path(self.folder / f"sbatch_{self._custom_pattern}.out")
-
-        return Path(self.folder / f"sbatch_{self._job_name}_%j.out")
-
-    @property
-    def srun_stderr(self) -> Path:
-        if self._custom_pattern:
-            return Path(self.folder / f"log_{self._custom_pattern}.err")
-
-        return Path(self.folder / f"log-{self._job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.err")
-
-    @property
-    def srun_stdout(self) -> Path:
-        if self._custom_pattern:
-            return Path(self.folder / f"log_{self._custom_pattern}.out")
-
-        return Path(self.folder / f"log-{self._job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.out")
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.folder})"
-
-
 def _as_sbatch_flag(key: str, value: Any) -> str:
     """Convert key value pairs to `#SBATCH --{key}={value}` flags"""
     key = key.replace("_", "-")
@@ -744,10 +730,8 @@ class SlurmBatchRequest:
         job_directory_name = (
             original_job_name if len(self.jobs) > 1 else Path(self.slurm_config.job_dir).name
         )
-        paths = JobPaths(
-            folder=os.path.join(slurm_job_dir, job_directory_name),
-            job_name=job_name,
-            custom_pattern=self.slurm_config.custom_log_file_pattern,
+        paths = self.slurm_config.job_paths_cls(
+            folder=os.path.join(slurm_job_dir, job_directory_name), job_name=job_name
         )
         stdout = str(paths.stdout)
         stderr = str(paths.stderr)
