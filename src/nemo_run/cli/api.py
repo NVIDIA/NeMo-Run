@@ -46,6 +46,7 @@ import typer
 from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.panel import Panel
 from rich.table import Table
 from typer import Option, Typer, rich_utils
 from typer.core import TyperCommand, TyperGroup
@@ -1280,7 +1281,14 @@ class EntrypointCommand(TyperCommand):
         if self._entrypoint.default_plugins:
             table.add_row("Plugins", str(self._entrypoint.default_plugins))
         if table.row_count > 0:
-            console.print(table)
+            console.print(
+                Panel(
+                    table,
+                    title="Defaults",
+                    border_style=rich_utils.STYLE_OPTIONS_PANEL_BORDER,
+                    title_align=rich_utils.ALIGN_OPTIONS_PANEL,
+                )
+            )
 
         self._entrypoint.help(console, with_docs=sys.argv[-1] in ("--docs", "-d"))
 
