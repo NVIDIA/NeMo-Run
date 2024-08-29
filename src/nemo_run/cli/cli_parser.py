@@ -1033,7 +1033,13 @@ def parse_cli_args(
                     raise ArgumentValueError(
                         f"Invalid attribute: {attr}", key, {"nested": nested}
                     ) from e
+
             signature = inspect.signature(nested.__fn_or_cls__)
+            # If nested.__fn_or_cls__ is a class and has just *args and **kwargs as parameters,
+            # Get signature of the __init__ method
+            if len(signature.parameters) == 2 and inspect.isclass(nested.__fn_or_cls__):
+                signature = inspect.signature(nested.__fn_or_cls__.__init__)
+
             arg_name = dot_split[-1]
 
         param = signature.parameters.get(arg_name)
