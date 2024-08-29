@@ -60,7 +60,6 @@ from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, g
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
-from nemo_run.help import class_to_str
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
@@ -1254,6 +1253,8 @@ class EntrypointCommand(TyperCommand):
         formatter.write_usage(ctx.command_path, " ".join(pieces))
 
     def format_help(self, ctx, formatter):
+        from nemo_run.help import class_to_str
+
         out = rich_utils.rich_format_help(
             obj=self,
             ctx=ctx,
