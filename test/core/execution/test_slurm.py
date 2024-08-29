@@ -21,7 +21,7 @@ import pytest
 
 from nemo_run.config import Script
 from nemo_run.core.execution.base import ExecutorMacros, FaultTolerance
-from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor
+from nemo_run.core.execution.slurm import JobPaths, SlurmBatchRequest, SlurmExecutor
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.run.torchx_backend.packaging import package
@@ -319,6 +319,25 @@ class TestSlurmBatchRequest:
             "srun --ntasks=1 --ntasks-per-node=1 --output /root/sample_job/log-account-account.sample_job_%j_${SLURM_RESTART_COUNT:-0}.out --wait=60 --kill-on-bad-exit=1 --overlap nvidia-smi"
             in sbatch_script
         )
+
+    def test_dummy_batch_request_custom_file_pattern(
+        self,
+        dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        class CustomJobPaths(JobPaths):
+            @property
+            def stdout(self) -> Path:
+                return Path(self.folder / "sbatch_job.out")
+
+            @property
+            def srun_stdout(self) -> Path:
+                return Path(self.folder / "log_job.out")
+
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.slurm_config.job_paths_cls = CustomJobPaths
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "--output /root/sample_job/log_job.out" in sbatch_script
+        assert "#SBATCH --output=/root/sample_job/sbatch_job.out" in sbatch_script
 
     def test_dummy_batch_request_nsys(
         self,
