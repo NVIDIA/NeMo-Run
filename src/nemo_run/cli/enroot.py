@@ -21,11 +21,11 @@ from typing import List, Optional
 from urllib.parse import urlparse
 
 import typer
-from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
 from rich.syntax import Syntax
 from rich.table import Table
+from typer import rich_utils
 from typer.core import TyperCommand
 
 from nemo_run.core.frontend.console.api import CONSOLE
@@ -356,7 +356,7 @@ def list_images(
 class EnrootCommand(TyperCommand):
     def format_help(self, ctx, formatter):
         out = super().format_help(ctx, formatter)
-        console = Console()
+        console = rich_utils._get_rich_console()
         console.print("\n[bold cyan]Enroot Usage Notes:[/bold cyan]")
         console.print(print_enroot_notes())
         return out
