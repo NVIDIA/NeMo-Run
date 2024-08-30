@@ -51,6 +51,7 @@ from typer.models import OptionInfo
 from typing_extensions import ParamSpec
 
 from nemo_run.cli import devspace as devspace_cli
+from nemo_run.cli import enroot as enroot_cli
 from nemo_run.cli import experiment as experiment_cli
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
 from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, get_underlying_types
@@ -499,6 +500,13 @@ def create_cli(
         experiment_cli.create(),
         name="experiment",
         help="[Module] Manage Experiments",
+        cls=GeneralCommand,
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    app.add_typer(
+        enroot_cli.create(),
+        name="enroot",
+        help="[Module] Manage Enroot images",
         cls=GeneralCommand,
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
     )
