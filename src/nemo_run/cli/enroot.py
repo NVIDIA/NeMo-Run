@@ -21,10 +21,12 @@ from typing import List, Optional
 from urllib.parse import urlparse
 
 import typer
+from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
 from rich.syntax import Syntax
 from rich.table import Table
+from typer.core import TyperCommand
 
 from nemo_run.core.frontend.console.api import CONSOLE
 
@@ -88,8 +90,8 @@ image fetch to finish (use '--dependency=afterok<jobid>').
 
 
 def print_enroot_notes():
-    """Print notes about Enroot usage."""
-    notes = """
+    """Return notes about Enroot usage."""
+    return """
 Note that enroot is somewhat picky about image URLs. If you are having trouble, check:
 1. You do NOT include the "https://" or "docker://" part of the URL
 2. You do NOT include the ":5005" in the address
@@ -102,7 +104,6 @@ Note that enroot is somewhat picky about image URLs. If you are having trouble, 
    machine nvcr.io login $oauthtoken password <your-ngc-token>
    machine authn.nvidia.com login $oauthtoken password <your-ngc-token>
     """
-    return notes
 
 
 def _check_dependencies():
@@ -233,8 +234,6 @@ srun --mpi=none --ntasks-per-node=1 \\
             CONSOLE.print(f"SLURM partition: {partition}")
             CONSOLE.print(f"SLURM time limit: {time}")
 
-        CONSOLE.print(Panel(print_enroot_notes(), title="Enroot Usage Notes", expand=False))
-
     except EnrootError as e:
         CONSOLE.print(Panel(str(e), title="[bold red]Error[/bold red]", expand=False))
         if verbose:
@@ -354,22 +353,17 @@ def list_images(
         raise typer.Exit(1)
 
 
-@app.callback()
-def main(ctx: typer.Context):
-    """
-    Enroot operations for NeMo.
-
-    {notes}
-    """
-    if ctx.invoked_subcommand is None:
-        CONSOLE.print(ctx.get_help())
-
-
-main.__doc__ = main.__doc__.format(notes=print_enroot_notes())
+class EnrootCommand(TyperCommand):
+    def format_help(self, ctx, formatter):
+        out = super().format_help(ctx, formatter)
+        console = Console()
+        console.print("\n[bold cyan]Enroot Usage Notes:[/bold cyan]")
+        console.print(print_enroot_notes())
+        return out
 
 
 def create() -> typer.Typer:
-    app = typer.Typer()
+    app = typer.Typer(cls=EnrootCommand)
 
     app.command(
         "import",
@@ -390,11 +384,7 @@ def create() -> typer.Typer:
     def callback():
         """
         Enroot operations for NeMo.
-
-        {notes}
         """
-
-    callback.__doc__ = callback.__doc__.format(notes=print_enroot_notes())
 
     return app
 
