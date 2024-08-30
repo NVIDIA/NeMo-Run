@@ -22,6 +22,7 @@ from typing import Optional, Protocol, Type, Union, runtime_checkable
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
 from torchx.specs import Role
+from typing_extensions import Self
 
 from nemo_run.config import Config
 from nemo_run.core.packaging.base import Packager
@@ -153,7 +154,7 @@ class Executor:
     def info(self) -> str:
         return self.__class__.__qualname__
 
-    def clone(self):
+    def clone(self) -> Self:
         return fdl.build(self.to_config())
 
     def get_launcher(self) -> Launcher:

@@ -185,6 +185,55 @@ class TestSlurmBatchRequest:
         )
 
     @pytest.fixture
+    def group_resource_req_slurm_request_with_artifact(
+        self,
+    ) -> tuple[SlurmBatchRequest, str]:
+        cmd = ["sbatch", "--parsable"]
+        command_groups = [
+            ["bash ./scripts/start_server.sh"],
+            ["bash ./scripts/echo.sh server_host=$het_group_host_0"],
+        ]
+        executor_1 = SlurmExecutor(
+            packager=GitArchivePackager(),
+            experiment_id="some_experiment_12345",
+            account="your_account",
+            partition="your_partition",
+            time="00:30:00",
+            nodes=1,
+            ntasks_per_node=8,
+            gpus_per_node=8,
+            container_image="some-image",
+            heterogeneous=False,
+            memory_measure=False,
+            job_dir="/set/by/lib",
+            tunnel=SSHTunnel(
+                job_dir="/some/job/dir",
+                host="slurm-login-host",
+                user="your-user",
+            ),
+            wait_time_for_group_job=10,
+        )
+        executor_2 = executor_1.clone()
+        executor_2.container_image = "different_container_image"
+        executor_2.srun_args = ["--mpi=pmix"]
+
+        executor = SlurmExecutor.merge([executor_1, executor_2], num_tasks=2)
+
+        max_retries = 3
+        extra_env = {"ENV_VAR": "value"}
+        return (
+            SlurmBatchRequest(
+                cmd=cmd,
+                jobs=["sample_job-0", "sample_job-1"],
+                command_groups=command_groups,
+                slurm_config=executor,
+                max_retries=max_retries,
+                extra_env=extra_env,
+            ),
+            os.path.join(ARTIFACTS_DIR, "group_resource_req_slurm.sh"),
+        )
+
+    @pytest.fixture
     def het_slurm_request_with_artifact(
         self,
     ) -> tuple[SlurmBatchRequest, str]:
@@ -498,6 +547,18 @@ class TestSlurmBatchRequest:
         group_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         group_slurm_request, artifact = group_slurm_request_with_artifact
+        executor = group_slurm_request.slurm_config
+        group_slurm_request.slurm_config = SlurmExecutor.merge([executor], num_tasks=2)
+        self.apply_macros(executor)
+        sbatch_script = group_slurm_request.materialize()
+        expected = Path(artifact).read_text()
+        assert sbatch_script.strip() == expected.strip()
+
+    def test_group_resource_req_batch_request_materialize(
+        self,
+        group_resource_req_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        group_slurm_request, artifact = group_resource_req_slurm_request_with_artifact
         executor = group_slurm_request.slurm_config
         group_slurm_request.slurm_config = SlurmExecutor.merge([executor], num_tasks=2)
         self.apply_macros(executor)

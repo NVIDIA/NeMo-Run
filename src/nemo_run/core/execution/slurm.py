@@ -292,6 +292,7 @@ class SlurmExecutor(Executor):
         gpus_per_task: Optional[int] = None
         container_mounts: list[str] = field(default_factory=list)
         env_vars: dict[str, str] = field(default_factory=dict)
+        srun_args: Optional[list[str]] = None
 
     account: str
     partition: Optional[str] = None
@@ -350,7 +351,6 @@ class SlurmExecutor(Executor):
 
         main_executor = executors[0]
         main_executor.run_as_group = True
-        main_executor.heterogeneous = True
         main_executor.resource_group = [
             cls.ResourceRequest(
                 packager=copy.deepcopy(main_executor.packager),
@@ -361,6 +361,7 @@ class SlurmExecutor(Executor):
                 env_vars=copy.deepcopy(main_executor.env_vars),
                 gpus_per_node=main_executor.gpus_per_node,
                 gpus_per_task=main_executor.gpus_per_task,
+                srun_args=main_executor.srun_args,
             )
         ]
 
@@ -375,6 +376,7 @@ class SlurmExecutor(Executor):
                     env_vars=copy.deepcopy(executor.env_vars),
                     gpus_per_node=executor.gpus_per_node,
                     gpus_per_task=executor.gpus_per_task,
+                    srun_args=executor.srun_args,
                 )
             )
 
@@ -807,9 +809,6 @@ class SlurmBatchRequest:
         # We pass --output and --error here, because the SBATCH command doesn't work as expected with a filename pattern
         stderr_flags = [] if self.slurm_config.stderr_to_stdout else ["--error", stderr]
 
-        srun_args = self.slurm_config.srun_args or []
-        srun_args += ["--wait=60", "--kill-on-bad-exit=1"]
-
         srun_commands = []
         group_env_vars = []
         srun_stdout = noquote(paths.srun_stdout)
@@ -851,6 +850,10 @@ class SlurmBatchRequest:
                 het_stderr = stderr_flags.copy()
                 if het_stderr:
                     het_stderr[-1] = het_stderr[-1].replace(original_job_name, self.jobs[group_ind])
+
+                _group_srun_args = resource_req.srun_args or []
+                _group_srun_args = copy.deepcopy(_group_srun_args)
+                _group_srun_args += ["--wait=60", "--kill-on-bad-exit=1"]
                 srun_cmd = " ".join(
                     list(
                         map(
@@ -866,7 +869,7 @@ class SlurmBatchRequest:
                                     src_job_dir=os.path.join(slurm_job_dir, self.jobs[group_ind]),
                                     container_image=resource_req.container_image,
                                 ),
-                                *srun_args,
+                                *_group_srun_args,
                             ],
                         )
                     )
@@ -886,6 +889,36 @@ class SlurmBatchRequest:
                 if cmd_stderr:
                     cmd_stderr[-1] = cmd_stderr[-1].replace(original_job_name, self.jobs[group_ind])
 
+                if self.slurm_config.run_as_group and len(self.slurm_config.resource_group) == len(
+                    self.command_groups
+                ):
+                    resource_req = self.slurm_config.resource_group[group_ind]
+                    _container_flags = get_container_flags(
+                        base_mounts=resource_req.container_mounts,
+                        src_job_dir=os.path.join(
+                            slurm_job_dir,
+                            self.jobs[group_ind],
+                        ),
+                        container_image=resource_req.container_image,
+                    )
+                    _srun_args = resource_req.srun_args or []
+                    _srun_args = copy.deepcopy(_srun_args)
+                    _srun_args += ["--wait=60", "--kill-on-bad-exit=1"]
+                else:
+                    _container_flags = get_container_flags(
+                        base_mounts=self.slurm_config.container_mounts,
+                        src_job_dir=os.path.join(
+                            slurm_job_dir,
+                            self.jobs[group_ind]
+                            if self.slurm_config.run_as_group
+                            else job_directory_name,
+                        ),
+                        container_image=self.slurm_config.container_image,
+                    )
+                    _srun_args = self.slurm_config.srun_args or []
+                    _srun_args = copy.deepcopy(_srun_args)
+                    _srun_args += ["--wait=60", "--kill-on-bad-exit=1"]
+
                 srun_cmd = " ".join(
                     list(
                         map(
@@ -895,17 +928,8 @@ class SlurmBatchRequest:
                                 "--output",
                                 cmd_stdout,
                                 *cmd_stderr,
-                                *get_container_flags(
-                                    base_mounts=self.slurm_config.container_mounts,
-                                    src_job_dir=os.path.join(
-                                        slurm_job_dir,
-                                        self.jobs[group_ind]
-                                        if self.slurm_config.run_as_group
-                                        else job_directory_name,
-                                    ),
-                                    container_image=self.slurm_config.container_image,
-                                ),
-                                *srun_args,
+                                *_container_flags,
+                                *_srun_args,
                             ],
                         )
                     )
