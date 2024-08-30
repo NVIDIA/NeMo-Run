@@ -14,9 +14,10 @@
 # limitations under the License.
 
 import inspect
+
+import yaml
 from fiddle._src import config as config_lib
 from fiddle._src import partial
-import yaml
 
 from nemo_run.config import Config, Partial
 
@@ -60,6 +61,7 @@ yaml.SafeDumper.add_representer(partial.Partial, _partial_representer)
 yaml.SafeDumper.add_representer(Config, _config_representer)
 yaml.SafeDumper.add_representer(Partial, _partial_representer)
 yaml.SafeDumper.add_representer(type(lambda: ...), _function_representer)
+yaml.SafeDumper.add_representer(type(object), _function_representer)
 
 try:
     import torch  # type: ignore
