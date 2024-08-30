@@ -26,7 +26,7 @@ from rich.progress import Progress
 from rich.syntax import Syntax
 from rich.table import Table
 from typer import rich_utils
-from typer.core import TyperCommand
+from typer.core import TyperCommand, TyperGroup
 
 from nemo_run.core.frontend.console.api import CONSOLE
 
@@ -362,22 +362,34 @@ class EnrootCommand(TyperCommand):
         return out
 
 
+class EnrootGroup(TyperGroup):
+    def format_help(self, ctx, formatter):
+        out = super().format_help(ctx, formatter)
+        console = rich_utils._get_rich_console()
+        console.print("\n[bold cyan]Enroot Usage Notes:[/bold cyan]")
+        console.print(print_enroot_notes())
+        return out
+
+
 def create() -> typer.Typer:
-    app = typer.Typer(cls=EnrootCommand)
+    app = typer.Typer(cls=EnrootGroup)
 
     app.command(
         "import",
         context_settings={"allow_extra_args": False},
+        cls=EnrootCommand,
     )(import_image)
 
     app.command(
         "squash",
         context_settings={"allow_extra_args": False},
+        cls=EnrootCommand,
     )(squash)
 
     app.command(
         "list",
         context_settings={"allow_extra_args": False},
+        cls=EnrootCommand,
     )(list_images)
 
     @app.callback()
