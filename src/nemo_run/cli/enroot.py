@@ -102,7 +102,7 @@ Note that enroot is somewhat picky about image URLs. If you are having trouble, 
    machine nvcr.io login $oauthtoken password <your-ngc-token>
    machine authn.nvidia.com login $oauthtoken password <your-ngc-token>
     """
-    CONSOLE.print(Panel(notes, title="Enroot Usage Notes", expand=False))
+    return notes
 
 
 def _check_dependencies():
@@ -233,7 +233,7 @@ srun --mpi=none --ntasks-per-node=1 \\
             CONSOLE.print(f"SLURM partition: {partition}")
             CONSOLE.print(f"SLURM time limit: {time}")
 
-        print_enroot_notes()
+        CONSOLE.print(Panel(print_enroot_notes(), title="Enroot Usage Notes", expand=False))
 
     except EnrootError as e:
         CONSOLE.print(Panel(str(e), title="[bold red]Error[/bold red]", expand=False))
@@ -358,10 +358,14 @@ def list_images(
 def main(ctx: typer.Context):
     """
     Enroot operations for NeMo.
+
+    {notes}
     """
     if ctx.invoked_subcommand is None:
         CONSOLE.print(ctx.get_help())
-        print_enroot_notes()
+
+
+main.__doc__ = main.__doc__.format(notes=print_enroot_notes())
 
 
 def create() -> typer.Typer:
@@ -384,8 +388,13 @@ def create() -> typer.Typer:
 
     @app.callback()
     def callback():
-        """Enroot operations for NeMo."""
-        print_enroot_notes()
+        """
+        Enroot operations for NeMo.
+
+        {notes}
+        """
+
+    callback.__doc__ = callback.__doc__.format(notes=print_enroot_notes())
 
     return app
 
