@@ -47,7 +47,35 @@ srun --output /some/job/dir/sample_job-1/log-your_account-account.sample_job-1_%
 wait
 
 
-exitcode=$?
+# The code below monitors the four SLURM jobs to ensure any failure forces them all to stop
+# (otherwise some jobs may remain pending until they reach the cluster time limit).
+all_done=false
+while ! $all_done; do
+    all_done=true
+    for pid in "${pids[@]}"; do
+        if ps -p "$pid" > /dev/null; then
+            # Process is still running.
+            all_done=false
+        else
+            # Process is no longer running => check its exit status.
+            wait "$pid"
+            exitcode=$?
+            echo "Process $pid exited with code $exit_code at $(date '+%Y-%m-%d %H:%M:%S')"
+            # Wait a bit (to get a clean stack trace in case there is one being generated), then kill the
+            # remaining processes if needed.
+            sleep 60
+            for other_pid in "${pids[@]}"; do
+                if ps -p "$other_pid" > /dev/null; then
+                    echo "Killing process $other_pid"
+                    kill -9 "$other_pid"
+                fi
+            done
+        fi
+    done
+
+    # Sleep for a while before checking again.
+    sleep 60
+done
 
 set -e
 

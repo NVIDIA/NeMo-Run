@@ -57,7 +57,7 @@ srun --ntasks=1 --ntasks-per-node=1 --output {{memory_measure}} --wait=60 --kill
 {{srun_command}}
 {% endfor %}
 
-{%- if heterogeneous %}
+{%- if monitor_group_job %}
 # The code below monitors the four SLURM jobs to ensure any failure forces them all to stop
 # (otherwise some jobs may remain pending until they reach the cluster time limit).
 all_done=false

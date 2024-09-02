@@ -330,6 +330,7 @@ class SlurmExecutor(Executor):
     #: Optional parameter to explicitly specify nproc_per_node for torchrun like components if the slurm cluster doesn't support granular resource allocation.
     torchrun_nproc_per_node: Optional[int] = None
     wait_time_for_group_job: int = 30
+    monitor_group_job: bool = True
 
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")
@@ -958,6 +959,8 @@ class SlurmBatchRequest:
             "srun_commands": srun_commands,
             "group_env_vars": group_env_vars,
             "heterogeneous": self.slurm_config.heterogeneous,
+            "monitor_group_job": self.slurm_config.run_as_group
+            and self.slurm_config.monitor_group_job,
             "het_group_host_var": SlurmExecutor.HET_GROUP_HOST_VAR,
             "ft_enabled": self.launcher and isinstance(self.launcher, FaultTolerance),
         }

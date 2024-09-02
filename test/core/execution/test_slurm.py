@@ -185,6 +185,17 @@ class TestSlurmBatchRequest:
         )
 
     @pytest.fixture
+    def group_no_monitor_slurm_request_with_artifact(
+        self, group_slurm_request_with_artifact
+    ) -> tuple[SlurmBatchRequest, str]:
+        req, _ = group_slurm_request_with_artifact
+        req.slurm_config.monitor_group_job = False
+        return (
+            req,
+            os.path.join(ARTIFACTS_DIR, "group_slurm_no_monitor.sh"),
+        )
+
+    @pytest.fixture
     def group_resource_req_slurm_request_with_artifact(
         self,
     ) -> tuple[SlurmBatchRequest, str]:
@@ -287,6 +298,8 @@ class TestSlurmBatchRequest:
                 },
             ),
         ]
+        slurm_config.run_as_group = True
+
         max_retries = 3
         extra_env = {"ENV_VAR": "value"}
         return (
@@ -341,6 +354,7 @@ class TestSlurmBatchRequest:
                 },
             ),
         ]
+        slurm_config.run_as_group = True
         role = package(
             name="test_ft",
             fn_or_script=Script("test_ft.py"),
@@ -547,6 +561,18 @@ class TestSlurmBatchRequest:
         group_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         group_slurm_request, artifact = group_slurm_request_with_artifact
+        executor = group_slurm_request.slurm_config
+        group_slurm_request.slurm_config = SlurmExecutor.merge([executor], num_tasks=2)
+        self.apply_macros(executor)
+        sbatch_script = group_slurm_request.materialize()
+        expected = Path(artifact).read_text()
+        assert sbatch_script.strip() == expected.strip()
+
+    def test_group_no_monitor_batch_request_materialize(
+        self,
+        group_no_monitor_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        group_slurm_request, artifact = group_no_monitor_slurm_request_with_artifact
         executor = group_slurm_request.slurm_config
         group_slurm_request.slurm_config = SlurmExecutor.merge([executor], num_tasks=2)
         self.apply_macros(executor)
