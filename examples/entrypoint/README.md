@@ -60,10 +60,10 @@ def my_model(
 def my_optimizer(
     learning_rate: float = 0.001,
     weight_decay: float = 1e-5,
-    betas: List[float] = [0.9, 0.999]
+    betas: Sequence[float] = (0.9, 0.999,)
 ) -> run.Config[Optimizer]:
     """Create an optimizer configuration."""
-    return run.Config(Optimizer, learning_rate=learning_rate, weight_decay=weight_decay, betas=betas)
+    return run.Config(Optimizer, learning_rate=learning_rate, weight_decay=weight_decay, betas=list(betas))
 ```
 
 In this example, we've created two factory functions: `my_model` and `my_optimizer`. Let's break down the two approaches:
@@ -103,15 +103,15 @@ def train_model(
     optimizer: Optimizer = my_optimizer(),
     epochs: int = 10,
     batch_size: int = 32
-):
+) -> None:
     """
     Train a model using the specified configuration.
 
     Args:
-        model (Model): Configuration for the model.
-        optimizer (Optimizer): Configuration for the optimizer.
-        epochs (int, optional): Number of training epochs. Defaults to 10.
-        batch_size (int, optional): Batch size for training. Defaults to 32.
+        model: Configuration for the model.
+        optimizer: Configuration for the optimizer.
+        epochs: Number of training epochs. Defaults to 10.
+        batch_size: Batch size for training. Defaults to 32.
     """
     print(f"Training model with the following configuration:")
     print(f"Model: {model}")
@@ -231,22 +231,22 @@ from typing import List
 @run.cli.entrypoint(type="experiment")
 def train_models_experiment(
     ctx: run.cli.RunContext,
-    models: List[Model] = [my_model(), my_model(hidden_size=512)],
-    optimizers: List[Optimizer] = [my_optimizer(), my_optimizer(learning_rate=0.01)],
+    models: Sequence[Model] = (my_model(), my_model(hidden_size=512),),
+    optimizers: Sequence[Optimizer] = (my_optimizer(), my_optimizer(learning_rate=0.01),),
     epochs: int = 10,
     batch_size: int = 32,
     sequential: bool = False,
-):
+) -> None:
     """
     Run an experiment to train multiple models with different configurations.
 
     Args:
-        ctx (run.cli.RunContext): The run context for the experiment.
-        models (List[Model]): List of model configurations to train.
-        optimizers (List[Optimizer]): List of optimizer configurations to use.
-        epochs (int): Number of training epochs for each model.
-        batch_size (int): Batch size for training.
-        sequential (bool): Whether to run tasks sequentially or in parallel.
+        ctx: The run context for the experiment.
+        models: List of model configurations to train.
+        optimizers: List of optimizer configurations to use.
+        epochs: Number of training epochs for each model.
+        batch_size: Batch size for training.
+        sequential: Whether to run tasks sequentially or in parallel.
     """
     with run.Experiment("train_models_experiment") as exp:
         for i, (model, optimizer) in enumerate(zip(models, optimizers)):
