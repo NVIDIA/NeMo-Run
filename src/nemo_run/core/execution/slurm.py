@@ -740,9 +740,7 @@ class SlurmBatchRequest:
             if self.slurm_config.tunnel
             else self.slurm_config.job_dir
         )
-        job_directory_name = (
-            original_job_name if len(self.jobs) > 1 else Path(self.slurm_config.job_dir).name
-        )
+        job_directory_name = Path(self.slurm_config.job_dir).name
         paths = self.slurm_config.job_paths_cls(
             folder=os.path.join(slurm_job_dir, job_directory_name), job_name=job_name
         )
@@ -867,7 +865,7 @@ class SlurmBatchRequest:
                                 *het_stderr,
                                 *get_container_flags(
                                     base_mounts=resource_req.container_mounts,
-                                    src_job_dir=os.path.join(slurm_job_dir, self.jobs[group_ind]),
+                                    src_job_dir=os.path.join(slurm_job_dir, job_directory_name),
                                     container_image=resource_req.container_image,
                                 ),
                                 *_group_srun_args,
@@ -898,7 +896,7 @@ class SlurmBatchRequest:
                         base_mounts=resource_req.container_mounts,
                         src_job_dir=os.path.join(
                             slurm_job_dir,
-                            self.jobs[group_ind],
+                            job_directory_name,
                         ),
                         container_image=resource_req.container_image,
                     )
@@ -910,9 +908,7 @@ class SlurmBatchRequest:
                         base_mounts=self.slurm_config.container_mounts,
                         src_job_dir=os.path.join(
                             slurm_job_dir,
-                            self.jobs[group_ind]
-                            if self.slurm_config.run_as_group
-                            else job_directory_name,
+                            job_directory_name,
                         ),
                         container_image=self.slurm_config.container_image,
                     )

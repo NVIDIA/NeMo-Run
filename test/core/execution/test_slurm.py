@@ -161,7 +161,7 @@ class TestSlurmBatchRequest:
             container_image="some-image",
             heterogeneous=False,
             memory_measure=False,
-            job_dir="/set/by/lib",
+            job_dir="/set/by/lib/sample_job",
             tunnel=SSHTunnel(
                 job_dir="/some/job/dir",
                 host="slurm-login-host",
@@ -216,7 +216,7 @@ class TestSlurmBatchRequest:
             container_image="some-image",
             heterogeneous=False,
             memory_measure=False,
-            job_dir="/set/by/lib",
+            job_dir="/set/by/lib/sample_job",
             tunnel=SSHTunnel(
                 job_dir="/some/job/dir",
                 host="slurm-login-host",
@@ -265,9 +265,9 @@ class TestSlurmBatchRequest:
             container_image="some-image",
             heterogeneous=True,
             memory_measure=False,
-            job_dir="/set/by/lib",
+            job_dir="/set/by/lib/experiment/sample_job",
             tunnel=SSHTunnel(
-                job_dir="/some/job/dir",
+                job_dir="/some/job/dir/experiment",
                 host="slurm-login-host",
                 user="your-user",
             ),
@@ -321,8 +321,8 @@ class TestSlurmBatchRequest:
         cmd = ["cmd1", "cmd2"]
         slurm_config = SlurmExecutor(
             account="account",
-            job_dir="/root/sample_job",
-            tunnel=LocalTunnel(job_dir="/root"),
+            job_dir="/root/experiment/sample_job",
+            tunnel=LocalTunnel(job_dir="/root/experiment"),
             heterogeneous=True,
         )
         slurm_config.job_name = "sample_job"

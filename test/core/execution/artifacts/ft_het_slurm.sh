@@ -10,7 +10,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
 #SBATCH --open-mode=append
-#SBATCH --output=/root/sample_job-0/sbatch_account-account.sample_job-0_%j.out
+#SBATCH --output=/root/experiment/sample_job/sbatch_account-account.sample_job-0_%j.out
 #SBATCH --time=00:10:00
 #SBATCH hetjob
 #SBATCH --account=account
@@ -18,7 +18,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --open-mode=append
-#SBATCH --output=/root/sample_job-1/sbatch_account-account.sample_job-1_%j.out
+#SBATCH --output=/root/experiment/sample_job/sbatch_account-account.sample_job-1_%j.out
 #SBATCH --time=00:10:00
 
 set -evx
@@ -43,12 +43,12 @@ het_group_host_1=$(scontrol show hostnames=$SLURM_JOB_NODELIST_HET_GROUP_1 | hea
 
 # This script uses experimental fault tolerance launcher
 # Fault tolerance related items
-export FAULT_TOL_CFG_PATH="/root/sample_job/sample_job_ft_cfg.yml"
+export FAULT_TOL_CFG_PATH="/root/experiment/sample_job/sample_job_ft_cfg.yml"
 export FAULT_TOL_FINISHED_FLAG_FILE="/nemo_run/sample_job_finished_flag"
 ANY_JOB_STEP_FAILED=0
 
 # Automatic job resubmission related items
-JOB_RESULTS_FILE="/root/sample_job/sample_job_job_results"
+JOB_RESULTS_FILE="/root/experiment/sample_job/sample_job_job_results"
 is_job_failures_limit_reached() {
     if [ $TORCHX_MAX_RETRIES -eq 0 ]; then
        true
@@ -77,7 +77,7 @@ echo "$SLURM_JOB_ID ${SLURM_RESTART_COUNT:-0} X" >> "$JOB_RESULTS_FILE"
 export CUSTOM_ENV_1=some_value_1
 
 
-srun --het-group=0 --output /root/sample_job-0/log-account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_1 --container-mounts /root/sample_job-0:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 ft_launcher --ft-param-workload_check_interval 10 --ft-param-rank_heartbeat_timeout 10 --rdzv-backend c10d --rdzv-endpoint localhost:0 --rdzv-id 1 --nnodes 1 --nproc-per-node 1 --node-rank 0 --tee 3 test_ft.py & pids[0]=$!
+srun --het-group=0 --output /root/experiment/sample_job/log-account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_1 --container-mounts /root/experiment/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 ft_launcher --ft-param-workload_check_interval 10 --ft-param-rank_heartbeat_timeout 10 --rdzv-backend c10d --rdzv-endpoint localhost:0 --rdzv-id 1 --nnodes 1 --nproc-per-node 1 --node-rank 0 --tee 3 test_ft.py & pids[0]=$!
 
 sleep 30
 
@@ -89,7 +89,7 @@ export CUSTOM_ENV_2=some_value_2
 export HOST_1=$het_group_host_0
 
 
-srun --het-group=1 --output /root/sample_job-1/log-account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_2 --container-mounts /root/sample_job-1:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
+srun --het-group=1 --output /root/experiment/sample_job/log-account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_2 --container-mounts /root/experiment/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
 
 wait
 

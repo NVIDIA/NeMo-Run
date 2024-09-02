@@ -148,15 +148,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         self.tunnel.connect()
         self.tunnel.setup()
 
-        if slurm_cfg.heterogeneous:
-            for i, resource_req in enumerate(slurm_cfg.resource_group):
-                slurm_cfg.package(packager=resource_req.packager, job_name=req.jobs[i])
-        else:
-            if slurm_cfg.run_as_group:
-                for job_name in req.jobs:
-                    slurm_cfg.package(packager=slurm_cfg.packager, job_name=job_name)
-            else:
-                slurm_cfg.package(packager=slurm_cfg.packager, job_name=Path(job_dir).name)
+        slurm_cfg.package(packager=slurm_cfg.packager, job_name=Path(job_dir).name)
 
         # Write and copy sbatch script
         sbatch_dir = slurm_cfg.experiment_dir or job_dir

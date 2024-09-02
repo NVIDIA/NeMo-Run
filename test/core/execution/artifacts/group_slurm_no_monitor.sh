@@ -11,7 +11,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
 #SBATCH --open-mode=append
-#SBATCH --output=/some/job/dir/sample_job-0/sbatch_your_account-account.sample_job-0_%j.out
+#SBATCH --output=/some/job/dir/sample_job/sbatch_your_account-account.sample_job-0_%j.out
 #SBATCH --partition=your_partition
 #SBATCH --time=00:30:00
 
@@ -35,14 +35,14 @@ head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
 # Command 1
 
-srun --output /some/job/dir/sample_job-0/log-your_account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image some-image --container-mounts /some/job/dir/sample_job-0:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/start_server.sh & pids[0]=$!
+srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image some-image --container-mounts /some/job/dir/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/start_server.sh & pids[0]=$!
 
 sleep 10
 
 
 # Command 2
 
-srun --output /some/job/dir/sample_job-1/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image some-image --container-mounts /some/job/dir/sample_job-1:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
+srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image some-image --container-mounts /some/job/dir/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
 
 wait
 
