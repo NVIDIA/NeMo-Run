@@ -149,7 +149,7 @@ def print_command_summary(sbatch_cmd: List[str], srun_script: str):
 
 def validate_image_url(url: str) -> str:
     """Validate the image URL format."""
-    parsed = urlparse(url)
+    parsed = urlparse(f"//{url}" if "://" not in url else url)
     if not parsed.netloc or not parsed.path:
         raise typer.BadParameter("Invalid image URL format. Expected: registry.com/image:tag")
     return url
