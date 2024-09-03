@@ -1365,8 +1365,3 @@ class InvalidOptionError(RunContextError):
 
 class MissingRequiredOptionError(RunContextError):
     """Raised when a required option is missing."""
-
-
-if __name__ == "__main__":
-    app = create_cli()
-    app()

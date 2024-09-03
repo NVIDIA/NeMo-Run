@@ -15,7 +15,6 @@
 
 from nemo_run.cli.api import (
     RunContext,
-    create_cli,
     entrypoint,
     factory,
     list_entrypoints,
@@ -24,9 +23,11 @@ from nemo_run.cli.api import (
     resolve_factory,
 )
 from nemo_run.cli.cli_parser import parse_cli_args, parse_config, parse_partial
+from nemo_run.cli.__main__ import main as cli_main
 
 __all__ = [
     "create_cli",
+    "cli_main",
     "main",
     "entrypoint",
     "factory",
@@ -38,8 +39,3 @@ __all__ = [
     "parse_config",
     "RunContext",
 ]
-
-
-if __name__ == "__main__":
-    app = create_cli()
-    app()
