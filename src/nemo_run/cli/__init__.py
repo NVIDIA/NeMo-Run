@@ -38,3 +38,8 @@ __all__ = [
     "parse_config",
     "RunContext",
 ]
+
+
+if __name__ == "__main__":
+    app = create_cli()
+    app()
