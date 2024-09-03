@@ -331,6 +331,7 @@ class SlurmExecutor(Executor):
     torchrun_nproc_per_node: Optional[int] = None
     wait_time_for_group_job: int = 30
     monitor_group_job: bool = True
+    monitor_group_job_wait_time: int = 60
 
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")
@@ -850,9 +851,8 @@ class SlurmBatchRequest:
                 if het_stderr:
                     het_stderr[-1] = het_stderr[-1].replace(original_job_name, self.jobs[group_ind])
 
-                _group_srun_args = resource_req.srun_args or []
-                _group_srun_args = copy.deepcopy(_group_srun_args)
-                _group_srun_args += ["--wait=60", "--kill-on-bad-exit=1"]
+                _group_srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
+                _group_srun_args.extend(resource_req.srun_args or [])
                 srun_cmd = " ".join(
                     list(
                         map(
@@ -877,9 +877,7 @@ class SlurmBatchRequest:
                 command = ";\n  ".join(command_group)
 
                 srun_command = f"{srun_cmd} {command} & pids[{group_ind}]=$!"
-                if group_ind == len(self.slurm_config.resource_group) - 1:
-                    srun_command += "\n\nwait\n"
-                else:
+                if group_ind != len(self.slurm_config.resource_group) - 1:
                     srun_command += f"\n\nsleep {self.slurm_config.wait_time_for_group_job}\n"
                 srun_commands.append(srun_command)
             else:
@@ -900,9 +898,8 @@ class SlurmBatchRequest:
                         ),
                         container_image=resource_req.container_image,
                     )
-                    _srun_args = resource_req.srun_args or []
-                    _srun_args = copy.deepcopy(_srun_args)
-                    _srun_args += ["--wait=60", "--kill-on-bad-exit=1"]
+                    _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
+                    _srun_args.extend(resource_req.srun_args or [])
                 else:
                     _container_flags = get_container_flags(
                         base_mounts=self.slurm_config.container_mounts,
@@ -912,9 +909,8 @@ class SlurmBatchRequest:
                         ),
                         container_image=self.slurm_config.container_image,
                     )
-                    _srun_args = self.slurm_config.srun_args or []
-                    _srun_args = copy.deepcopy(_srun_args)
-                    _srun_args += ["--wait=60", "--kill-on-bad-exit=1"]
+                    _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
+                    _srun_args.extend(self.slurm_config.srun_args or [])
 
                 srun_cmd = " ".join(
                     list(
@@ -935,9 +931,7 @@ class SlurmBatchRequest:
 
                 if self.slurm_config.run_as_group:
                     srun_command = f"{srun_cmd} {command} & pids[{group_ind}]=$!"
-                    if group_ind == len(self.command_groups) - 1:
-                        srun_command += "\n\nwait\n"
-                    else:
+                    if group_ind != len(self.command_groups) - 1:
                         srun_command += f"\n\nsleep {self.slurm_config.wait_time_for_group_job}\n"
                 else:
                     srun_command = f"{srun_cmd} {command}"
@@ -955,8 +949,10 @@ class SlurmBatchRequest:
             "srun_commands": srun_commands,
             "group_env_vars": group_env_vars,
             "heterogeneous": self.slurm_config.heterogeneous,
+            "run_as_group": self.slurm_config.run_as_group,
             "monitor_group_job": self.slurm_config.run_as_group
             and self.slurm_config.monitor_group_job,
+            "monitor_group_job_wait_time": self.slurm_config.monitor_group_job_wait_time,
             "het_group_host_var": SlurmExecutor.HET_GROUP_HOST_VAR,
             "ft_enabled": self.launcher and isinstance(self.launcher, FaultTolerance),
         }

@@ -46,7 +46,6 @@ srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-1_%j_
 
 wait
 
-
 exitcode=$?
 
 set -e

@@ -66,10 +66,8 @@ export HOST_1=$het_group_host_0
 
 srun --het-group=1 --output /some/job/dir/experiment/sample_job/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_2 --container-mounts /some/job/dir/experiment/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
 
-wait
 
-
-# The code below monitors the four SLURM jobs to ensure any failure forces them all to stop
+# The code below monitors all SLURM jobs to ensure any failure forces them all to stop
 # (otherwise some jobs may remain pending until they reach the cluster time limit).
 all_done=false
 while ! $all_done; do

@@ -42,12 +42,10 @@ sleep 10
 
 # Command 2
 
-srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image different_container_image --container-mounts /some/job/dir/sample_job:/nemo_run --container-workdir /nemo_run/code --mpi=pmix --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
-
-wait
+srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image different_container_image --container-mounts /some/job/dir/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 --mpi=pmix bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
 
 
-# The code below monitors the four SLURM jobs to ensure any failure forces them all to stop
+# The code below monitors all SLURM jobs to ensure any failure forces them all to stop
 # (otherwise some jobs may remain pending until they reach the cluster time limit).
 all_done=false
 while ! $all_done; do
