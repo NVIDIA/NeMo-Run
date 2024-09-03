@@ -544,6 +544,13 @@ class SlurmExecutor(Executor):
         return filenames
 
     def package(self, packager: Packager, job_name: str):
+        if job_name in self.tunnel.packaging_jobs:
+            logger.info(
+                f"Packaging for job {job_name} in tunnel {self.tunnel} already done. Skipping subsequent packagings.\n"
+                "This may cause issues if you have multiple tasks with the same name but different packagers, as only the first packager will be used."
+            )
+            return
+
         assert self.experiment_id, "Executor not assigned to an experiment."
         output = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -580,6 +587,8 @@ class SlurmExecutor(Executor):
         if os.path.exists(local_main_path):
             remote_main_path = os.path.join(self.tunnel.job_dir, job_name, "__main__.py")
             self.tunnel.put(local_main_path, remote_main_path)
+
+        self.tunnel.packaging_jobs.add(job_name)
 
     def parse_deps(self) -> list[str]:
         """

@@ -65,6 +65,11 @@ class Tunnel(ABC):
 
     def __post_init__(self):
         self._key = f"{self.user}@{self.host}"
+        self._packaging_jobs = set()
+
+    @property
+    def packaging_jobs(self):
+        return self._packaging_jobs
 
     def _set_job_dir(self, experiment_id: str): ...
 
