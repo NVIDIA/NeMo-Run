@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from pathlib import Path
 from test.dummy_factory import DummyModel
 from typing import Any, Dict, List, Literal, Optional, Type, Union
@@ -206,6 +207,73 @@ class TestFactoryFunctionParsing:
         result = parse_cli_args(func, ["model=dummy_model_config", "model.hidden=3"])
         assert isinstance(result.model, Config)
         assert result.model.hidden == 3
+        assert result.model.activation == "tanh"
+
+
+class TestFactoryLoading:
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self):
+        # Setup: Add test functions to __main__
+        def test_function():
+            return Config(DummyModel, hidden=1200, activation="tanh")
+
+        def test_function_with_args(hidden=None, activation=None):
+            return Config(DummyModel, hidden=hidden, activation=activation)
+
+        sys.modules["__main__"].test_function = test_function
+        sys.modules["__main__"].test_function_with_args = test_function_with_args
+
+        yield
+
+        # Teardown: Remove test functions from __main__
+        del sys.modules["__main__"].test_function
+        del sys.modules["__main__"].test_function_with_args
+
+    def test_simple_factory_loading(self):
+        def func(model: DummyModel):
+            pass
+
+        result = parse_cli_args(func, ["model=dummy_model_config"])
+        assert isinstance(result.model, Config)
+        assert result.model.hidden == 2000
+        assert result.model.activation == "tanh"
+
+    def test_factory_with_args(self):
+        def func(model: DummyModel):
+            pass
+
+        result = parse_cli_args(func, ["model=my_dummy_model(hidden=3000)"])
+        assert isinstance(result.model, Config)
+        assert result.model.hidden == 3000
+        assert result.model.activation == "tanh"
+
+    def test_from_main_module(self, setup_and_teardown):
+        def func(model: DummyModel):
+            pass
+
+        result = parse_cli_args(func, ["model=test_function"])
+        assert isinstance(result.model, Config)
+        assert result.model.hidden == 1200
+        assert result.model.activation == "tanh"
+
+    def test_args_from_main_module(self, setup_and_teardown):
+        def func(model: DummyModel):
+            pass
+
+        result = parse_cli_args(
+            func, ["model=test_function_with_args(hidden=10, activation='relu')"]
+        )
+        assert isinstance(result.model, Config)
+        assert result.model.hidden == 10
+        assert result.model.activation == "relu"
+
+    def test_dotted_import_factory(self):
+        def func(model: DummyModel):
+            pass
+
+        result = parse_cli_args(func, ["model=test.dummy_factory.my_dummy_model"])
+        assert isinstance(result.model, Config)
+        assert result.model.hidden == 2000
         assert result.model.activation == "tanh"
 
 

@@ -43,8 +43,11 @@ import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
 import importlib_metadata as metadata
 import typer
+from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
+from rich.panel import Panel
+from rich.table import Table
 from typer import Option, Typer, rich_utils
 from typer.core import TyperCommand, TyperGroup
 from typer.models import OptionInfo
@@ -56,6 +59,7 @@ from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
 from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, get_underlying_types
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
@@ -941,9 +945,9 @@ class RunContext:
         if self.factory:
             if isinstance(self.factory, Callable):
                 output = self.factory()
-                parse_cli_args(output, args, output)
             else:
                 output = parse_factory(fn, "factory", fn, self.factory)
+            parse_cli_args(output, args, output)
         else:
             output = self._parse_partial(fn, args, **default_kwargs)
 
@@ -1249,6 +1253,8 @@ class EntrypointCommand(TyperCommand):
         formatter.write_usage(ctx.command_path, " ".join(pieces))
 
     def format_help(self, ctx, formatter):
+        from nemo_run.help import class_to_str
+
         out = rich_utils.rich_format_help(
             obj=self,
             ctx=ctx,
@@ -1259,6 +1265,33 @@ class EntrypointCommand(TyperCommand):
         # print(sys.argv[1:])
 
         console = rich_utils._get_rich_console()
+
+        box_style = getattr(box, BOX_STYLE, None)
+        table = Table(
+            highlight=True,
+            show_header=False,
+            expand=True,
+            box=box_style,
+            **TABLE_STYLES,
+        )
+        table.add_column("Component", style="cyan")
+        table.add_column("Value", style="magenta")
+        if self._entrypoint.default_factory:
+            table.add_row("factory", class_to_str(self._entrypoint.default_factory))
+        if self._entrypoint.default_executor:
+            table.add_row("executor", class_to_str(self._entrypoint.default_executor))
+        if self._entrypoint.default_plugins:
+            table.add_row("plugins", class_to_str(self._entrypoint.default_plugins))
+        if table.row_count > 0:
+            console.print(
+                Panel(
+                    table,
+                    title="Defaults",
+                    border_style=rich_utils.STYLE_OPTIONS_PANEL_BORDER,
+                    title_align=rich_utils.ALIGN_OPTIONS_PANEL,
+                )
+            )
+
         self._entrypoint.help(console, with_docs=sys.argv[-1] in ("--docs", "-d"))
 
         return out

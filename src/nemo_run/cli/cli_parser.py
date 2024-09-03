@@ -15,10 +15,12 @@
 
 import ast
 import functools
+import importlib
 import inspect
 import logging
 import operator
 import re
+import sys
 from enum import Enum
 from functools import lru_cache
 from pathlib import Path
@@ -1031,7 +1033,13 @@ def parse_cli_args(
                     raise ArgumentValueError(
                         f"Invalid attribute: {attr}", key, {"nested": nested}
                     ) from e
+
             signature = inspect.signature(nested.__fn_or_cls__)
+            # If nested.__fn_or_cls__ is a class and has just *args and **kwargs as parameters,
+            # Get signature of the __init__ method
+            if len(signature.parameters) == 2 and inspect.isclass(nested.__fn_or_cls__):
+                signature = inspect.signature(nested.__fn_or_cls__.__init__)
+
             arg_name = dot_split[-1]
 
         param = signature.parameters.get(arg_name)
@@ -1096,13 +1104,14 @@ def parse_config(fn: Callable, *args: str) -> Config:
 def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> Any:
     """Parse a factory-style argument and instantiate the corresponding object(s).
 
-    This function handles both single factory calls and lists of factory calls.
+    This function handles single factory calls, lists of factory calls, and dotted imports.
 
     Args:
         parent (Type): The parent class or function where the argument is defined.
         arg_name (str): The name of the argument.
         arg_type (Type): The expected type of the argument.
-        value (str): The string value to parse, expected to be in factory format or a list of factory formats.
+        value (str): The string value to parse, expected to be in factory format, a list of factory formats,
+                     or a dotted import path.
 
     Returns:
         Any: The instantiated object(s) created by the factory function(s).
@@ -1115,12 +1124,16 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
         <Adam optimizer object>
         >>> parse_factory(MyClass, "layers", List[LayerType], "[Conv2D(64), MaxPool2D(), Dense(128)]")
         [<Conv2D layer>, <MaxPool2D layer>, <Dense layer>]
+        >>> parse_factory(MyClass, "custom_fn", Callable, "my_module.my_function(arg1=10)")
+        <result of my_function with arg1=10>
 
     Notes:
         - This function uses the catalogue library to look up registered factory functions.
         - It supports nested factory calls and argument passing to the factory function.
         - The function is designed to work with the NeMo Run configuration system.
-        - It now supports parsing lists of factories.
+        - It supports parsing lists of factories.
+        - It supports dotted imports with or without arguments.
+        - It checks sys.modules["__main__"] if the factory is not found in the registry.
     """
     import catalogue
 
@@ -1138,7 +1151,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 
     def parse_single_factory(factory_str):
         # Extract factory name and arguments
-        match = re.match(r"^(\w+)(?:\((.*)\))?$", factory_str.strip())
+        match = re.match(r"^([\w\.]+)(?:\((.*)\))?$", factory_str.strip())
         if not match:
             raise ValueError(f"Invalid factory format: {factory_str}")
 
@@ -1147,16 +1160,34 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 
         # Find the factory function
         factory_fn = None
-        try:
-            factory_fn = _get_from_registry(factory_name, parent, name=arg_name)
-        except catalogue.RegistryError:
-            types = get_underlying_types(arg_type)
-            for t in types:
-                try:
-                    factory_fn = _get_from_registry(factory_name, t, name=factory_name)
-                    break
-                except catalogue.RegistryError:
-                    continue
+
+        # Check if it's a dotted import
+        if "." in factory_name:
+            try:
+                module_name, function_name = factory_name.rsplit(".", 1)
+                module = importlib.import_module(module_name)
+                factory_fn = getattr(module, function_name)
+            except (ImportError, AttributeError):
+                pass  # If import fails, continue with other parsing methods
+
+        # If not found as dotted import, try registry
+        if not factory_fn:
+            try:
+                factory_fn = _get_from_registry(factory_name, parent, name=arg_name)
+            except catalogue.RegistryError:
+                types = get_underlying_types(arg_type)
+                for t in types:
+                    try:
+                        factory_fn = _get_from_registry(factory_name, t, name=factory_name)
+                        break
+                    except catalogue.RegistryError:
+                        continue
+
+        # If not found in registry, check sys.modules["__main__"]
+        if not factory_fn:
+            main_module = sys.modules.get("__main__")
+            if main_module and hasattr(main_module, factory_name):
+                factory_fn = getattr(main_module, factory_name)
 
         if not factory_fn:
             raise ValueError(f"No matching factory found for: {factory_str}")
