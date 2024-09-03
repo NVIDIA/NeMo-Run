@@ -557,7 +557,7 @@ class TestEntrypointRunner:
                 "--factory",
                 "custom_defaults",
                 "model.hidden_size=200",
-                "run.require_confirmation=False",
+                "--yes",
             ],
             env={"INCLUDE_WORKSPACE_FILE": "false"},
         )
