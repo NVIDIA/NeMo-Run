@@ -399,13 +399,16 @@ nemorun experiment cancel {exp_id} 0
         tail_logs: bool = False,
     ):
         if any(map(lambda task: task.id == name, self.tasks)):
-            name = f"{name}_{len(self.tasks)}"
+            task_id = f"{name}_{len(self.tasks)}"
+        else:
+            task_id = name
+
         executors = executor if isinstance(executor, list) else [executor]
         cloned_executors = []
         for executor in executors:
             new_executor = executor.clone()
             cloned_executors.append(new_executor)
-            new_executor.assign(self._id, self._exp_dir, name, task_dir=name)
+            new_executor.assign(self._id, self._exp_dir, task_id, task_dir=name)
 
         cloned_fn_or_scripts = []
         for fn_or_script in fn_or_scripts:

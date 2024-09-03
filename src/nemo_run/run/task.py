@@ -319,7 +319,7 @@ class ExperimentTaskGroup(_TaskMixin):
                 f"{self.id}-{i}",
                 fn_or_script,
                 executor=executor,
-                serialize_to_file=False,
+                serialize_to_file=True,
             )
             executables.append((executable, executor))
 

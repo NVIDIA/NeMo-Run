@@ -57,8 +57,9 @@ srun --ntasks=1 --ntasks-per-node=1 --output {{memory_measure}} --wait=60 --kill
 {{srun_command}}
 {% endfor %}
 
-{%- if heterogeneous %}
-# The code below monitors the four SLURM jobs to ensure any failure forces them all to stop
+{%- if monitor_group_job %}
+
+# The code below monitors all SLURM jobs to ensure any failure forces them all to stop
 # (otherwise some jobs may remain pending until they reach the cluster time limit).
 all_done=false
 while ! $all_done; do
@@ -74,7 +75,7 @@ while ! $all_done; do
             echo "Process $pid exited with code $exit_code at $(date '+%Y-%m-%d %H:%M:%S')"
             # Wait a bit (to get a clean stack trace in case there is one being generated), then kill the
             # remaining processes if needed.
-            sleep 60
+            sleep {{monitor_group_job_wait_time}}
             for other_pid in "${pids[@]}"; do
                 if ps -p "$other_pid" > /dev/null; then
                     echo "Killing process $other_pid"
@@ -85,8 +86,12 @@ while ! $all_done; do
     done
 
     # Sleep for a while before checking again.
-    sleep 60
+    sleep {{monitor_group_job_wait_time}}
 done
+{% elif run_as_group %}
+wait
+
+exitcode=$?
 {% else %}
 exitcode=$?
 {% endif %}

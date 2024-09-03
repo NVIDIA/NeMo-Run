@@ -292,6 +292,7 @@ class SlurmExecutor(Executor):
         gpus_per_task: Optional[int] = None
         container_mounts: list[str] = field(default_factory=list)
         env_vars: dict[str, str] = field(default_factory=dict)
+        srun_args: Optional[list[str]] = None
 
     account: str
     partition: Optional[str] = None
@@ -328,22 +329,30 @@ class SlurmExecutor(Executor):
     dependencies: list[str] = field(default_factory=list)
     #: Optional parameter to explicitly specify nproc_per_node for torchrun like components if the slurm cluster doesn't support granular resource allocation.
     torchrun_nproc_per_node: Optional[int] = None
+    wait_time_for_group_job: int = 30
+    monitor_group_job: bool = True
+    monitor_group_job_wait_time: int = 60
 
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")
     stderr_to_stdout: bool = field(init=False, default=True)
     resource_group: list[ResourceRequest] = field(init=False, default_factory=list)
+    run_as_group: bool = field(init=False, default=False)
 
     @classmethod
     def merge(
         cls: Type["SlurmExecutor"], executors: list["SlurmExecutor"], num_tasks: int
     ) -> "SlurmExecutor":
         assert len(executors) in [1, num_tasks]
+        if len(executors) == 1 and not executors[0].heterogeneous:
+            executors[0].run_as_group = True
+            return executors[0]
+
         if len(executors) == 1:
             executors = executors * num_tasks
 
         main_executor = executors[0]
-        main_executor.heterogeneous = True
+        main_executor.run_as_group = True
         main_executor.resource_group = [
             cls.ResourceRequest(
                 packager=copy.deepcopy(main_executor.packager),
@@ -354,6 +363,7 @@ class SlurmExecutor(Executor):
                 env_vars=copy.deepcopy(main_executor.env_vars),
                 gpus_per_node=main_executor.gpus_per_node,
                 gpus_per_task=main_executor.gpus_per_task,
+                srun_args=main_executor.srun_args,
             )
         ]
 
@@ -368,6 +378,7 @@ class SlurmExecutor(Executor):
                     env_vars=copy.deepcopy(executor.env_vars),
                     gpus_per_node=executor.gpus_per_node,
                     gpus_per_task=executor.gpus_per_task,
+                    srun_args=executor.srun_args,
                 )
             )
 
@@ -379,6 +390,9 @@ class SlurmExecutor(Executor):
         assert isinstance(
             self.packager, GitArchivePackager
         ), "Only GitArchivePackager is currently supported for SlurmExecutor."
+
+        if self.wait_time_for_group_job < 0:
+            self.wait_time_for_group_job = 0
 
     def info(self) -> str:
         return f"{self.__class__.__qualname__} on {self.tunnel._key}"
@@ -530,6 +544,13 @@ class SlurmExecutor(Executor):
         return filenames
 
     def package(self, packager: Packager, job_name: str):
+        if job_name in self.tunnel.packaging_jobs:
+            logger.info(
+                f"Packaging for job {job_name} in tunnel {self.tunnel} already done. Skipping subsequent packagings.\n"
+                "This may cause issues if you have multiple tasks with the same name but different packagers, as only the first packager will be used."
+            )
+            return
+
         assert self.experiment_id, "Executor not assigned to an experiment."
         output = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -566,6 +587,8 @@ class SlurmExecutor(Executor):
         if os.path.exists(local_main_path):
             remote_main_path = os.path.join(self.tunnel.job_dir, job_name, "__main__.py")
             self.tunnel.put(local_main_path, remote_main_path)
+
+        self.tunnel.packaging_jobs.add(job_name)
 
     def parse_deps(self) -> list[str]:
         """
@@ -727,9 +750,7 @@ class SlurmBatchRequest:
             if self.slurm_config.tunnel
             else self.slurm_config.job_dir
         )
-        job_directory_name = (
-            original_job_name if len(self.jobs) > 1 else Path(self.slurm_config.job_dir).name
-        )
+        job_directory_name = Path(self.slurm_config.job_dir).name
         paths = self.slurm_config.job_paths_cls(
             folder=os.path.join(slurm_job_dir, job_directory_name), job_name=job_name
         )
@@ -796,24 +817,6 @@ class SlurmBatchRequest:
         # commandline (this will run the function and args specified in the file provided as argument)
         # We pass --output and --error here, because the SBATCH command doesn't work as expected with a filename pattern
         stderr_flags = [] if self.slurm_config.stderr_to_stdout else ["--error", stderr]
-        container_flags = (
-            ["--container-image", self.slurm_config.container_image]
-            if self.slurm_config.container_image
-            else []
-        )
-        container_mounts = self.slurm_config.container_mounts
-        container_mounts.append(
-            f"{os.path.join(slurm_job_dir, job_directory_name)}:/{_RUNDIR_NAME}"
-        )
-        container_mount_arg = ",".join(container_mounts)
-        container_flags += ["--container-mounts", container_mount_arg]
-        container_flags += [
-            "--container-workdir",
-            f"/{_RUNDIR_NAME}/code",
-        ]
-
-        srun_args = self.slurm_config.srun_args or []
-        srun_args += ["--wait=60", "--kill-on-bad-exit=1"]
 
         srun_commands = []
         group_env_vars = []
@@ -825,6 +828,22 @@ class SlurmBatchRequest:
         if self.slurm_config.memory_measure:
             memory_measure = srun_stdout
 
+        def get_container_flags(
+            base_mounts: list[str], src_job_dir: str, container_image: Optional[str]
+        ) -> list[str]:
+            _container_flags = ["--container-image", container_image] if container_image else []
+
+            new_mounts = copy.deepcopy(base_mounts)
+            new_mounts.append(f"{src_job_dir}:/{_RUNDIR_NAME}")
+            _mount_arg = ",".join(new_mounts)
+            _container_flags += ["--container-mounts", _mount_arg]
+            _container_flags += [
+                "--container-workdir",
+                f"/{_RUNDIR_NAME}/code",
+            ]
+
+            return _container_flags
+
         for group_ind, command_group in enumerate(self.command_groups):
             if self.slurm_config.heterogeneous:
                 resource_req = self.slurm_config.resource_group[group_ind]
@@ -835,27 +854,14 @@ class SlurmBatchRequest:
 
                 group_env_vars.append(current_env_vars)
 
-                mounts = resource_req.container_mounts
-                mounts.append(
-                    f"{os.path.join(slurm_job_dir, self.jobs[group_ind])}:/{_RUNDIR_NAME}"
-                )
-                mount_arg = ",".join(mounts)
-                group_container_flags = (
-                    ["--container-image", resource_req.container_image]
-                    if resource_req.container_image
-                    else []
-                )
-                group_container_flags += ["--container-mounts", mount_arg]
-                group_container_flags += [
-                    "--container-workdir",
-                    f"/{_RUNDIR_NAME}/code",
-                ]
-
                 het_group = f"--het-group={group_ind}"
                 het_stdout = srun_stdout.replace(original_job_name, self.jobs[group_ind])
                 het_stderr = stderr_flags.copy()
                 if het_stderr:
                     het_stderr[-1] = het_stderr[-1].replace(original_job_name, self.jobs[group_ind])
+
+                _group_srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
+                _group_srun_args.extend(resource_req.srun_args or [])
                 srun_cmd = " ".join(
                     list(
                         map(
@@ -866,8 +872,12 @@ class SlurmBatchRequest:
                                 "--output",
                                 het_stdout,
                                 *het_stderr,
-                                *group_container_flags,
-                                *srun_args,
+                                *get_container_flags(
+                                    base_mounts=resource_req.container_mounts,
+                                    src_job_dir=os.path.join(slurm_job_dir, job_directory_name),
+                                    container_image=resource_req.container_image,
+                                ),
+                                *_group_srun_args,
                             ],
                         )
                     )
@@ -876,12 +886,41 @@ class SlurmBatchRequest:
                 command = ";\n  ".join(command_group)
 
                 srun_command = f"{srun_cmd} {command} & pids[{group_ind}]=$!"
-                if group_ind == len(self.slurm_config.resource_group) - 1:
-                    srun_command += "\n\nwait\n"
-                else:
-                    srun_command += "\n\nsleep 30\n"
+                if group_ind != len(self.slurm_config.resource_group) - 1:
+                    srun_command += f"\n\nsleep {self.slurm_config.wait_time_for_group_job}\n"
                 srun_commands.append(srun_command)
             else:
+                cmd_stdout = srun_stdout.replace(original_job_name, self.jobs[group_ind])
+                cmd_stderr = stderr_flags.copy()
+                if cmd_stderr:
+                    cmd_stderr[-1] = cmd_stderr[-1].replace(original_job_name, self.jobs[group_ind])
+
+                if self.slurm_config.run_as_group and len(self.slurm_config.resource_group) == len(
+                    self.command_groups
+                ):
+                    resource_req = self.slurm_config.resource_group[group_ind]
+                    _container_flags = get_container_flags(
+                        base_mounts=resource_req.container_mounts,
+                        src_job_dir=os.path.join(
+                            slurm_job_dir,
+                            job_directory_name,
+                        ),
+                        container_image=resource_req.container_image,
+                    )
+                    _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
+                    _srun_args.extend(resource_req.srun_args or [])
+                else:
+                    _container_flags = get_container_flags(
+                        base_mounts=self.slurm_config.container_mounts,
+                        src_job_dir=os.path.join(
+                            slurm_job_dir,
+                            job_directory_name,
+                        ),
+                        container_image=self.slurm_config.container_image,
+                    )
+                    _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
+                    _srun_args.extend(self.slurm_config.srun_args or [])
+
                 srun_cmd = " ".join(
                     list(
                         map(
@@ -889,16 +928,24 @@ class SlurmBatchRequest:
                             [
                                 "srun",
                                 "--output",
-                                srun_stdout,
-                                *stderr_flags,
-                                *container_flags,
-                                *srun_args,
+                                cmd_stdout,
+                                *cmd_stderr,
+                                *_container_flags,
+                                *_srun_args,
                             ],
                         )
                     )
                 )
                 command = " ".join(command_group)
-                srun_commands.append(f"{srun_cmd} {command}")
+
+                if self.slurm_config.run_as_group:
+                    srun_command = f"{srun_cmd} {command} & pids[{group_ind}]=$!"
+                    if group_ind != len(self.command_groups) - 1:
+                        srun_command += f"\n\nsleep {self.slurm_config.wait_time_for_group_job}\n"
+                else:
+                    srun_command = f"{srun_cmd} {command}"
+
+                srun_commands.append(srun_command)
 
         vars_to_fill = {
             "sbatch_command": sbatch_cmd,
@@ -911,6 +958,10 @@ class SlurmBatchRequest:
             "srun_commands": srun_commands,
             "group_env_vars": group_env_vars,
             "heterogeneous": self.slurm_config.heterogeneous,
+            "run_as_group": self.slurm_config.run_as_group,
+            "monitor_group_job": self.slurm_config.run_as_group
+            and self.slurm_config.monitor_group_job,
+            "monitor_group_job_wait_time": self.slurm_config.monitor_group_job_wait_time,
             "het_group_host_var": SlurmExecutor.HET_GROUP_HOST_VAR,
             "ft_enabled": self.launcher and isinstance(self.launcher, FaultTolerance),
         }

@@ -17,6 +17,7 @@ import logging
 from typing import Iterator, Optional, Type, Union
 
 import fiddle as fdl
+import fiddle._src.experimental.dataclasses as fdl_dc
 from torchx import specs
 
 from nemo_run.config import Partial, Script
@@ -96,6 +97,24 @@ def package(
         script = None
         entrypoint = "python"
     else:
+        try:
+            yaml_cfgs = [
+                (
+                    f"{name}_executor.yaml",
+                    _serialize(executor.to_config(), serializer_cls=YamlSerializer),
+                ),
+                (
+                    f"{name}_config.yaml",
+                    _serialize(
+                        fdl_dc.convert_dataclasses_to_configs(fn_or_script, allow_post_init=True),
+                        serializer_cls=YamlSerializer,
+                    ),
+                ),
+            ]
+            executor.package_configs(*yaml_cfgs)
+        except Exception as e:
+            log.warning(f"Failed saving yaml configs due to: {e}")
+
         args = fn_or_script.args
         role_args = fn_or_script.to_command()
         m = fn_or_script.path if fn_or_script.m else None

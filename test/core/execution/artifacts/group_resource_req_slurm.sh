@@ -11,17 +11,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
 #SBATCH --open-mode=append
-#SBATCH --output=/some/job/dir/experiment/sample_job/sbatch_your_account-account.sample_job-0_%j.out
-#SBATCH --partition=your_partition
-#SBATCH --time=00:30:00
-#SBATCH hetjob
-#SBATCH --account=your_account
-#SBATCH --gpus-per-node=0
-#SBATCH --job-name=your_account-account.sample_job-1
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --open-mode=append
-#SBATCH --output=/some/job/dir/experiment/sample_job/sbatch_your_account-account.sample_job-1_%j.out
+#SBATCH --output=/some/job/dir/sample_job/sbatch_your_account-account.sample_job-0_%j.out
 #SBATCH --partition=your_partition
 #SBATCH --time=00:30:00
 
@@ -42,29 +32,17 @@ head_node=${nodes_array[0]}
 head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
 
-het_group_host_0=$(scontrol show hostnames=$SLURM_JOB_NODELIST_HET_GROUP_0 | head -n1)
-het_group_host_1=$(scontrol show hostnames=$SLURM_JOB_NODELIST_HET_GROUP_1 | head -n1)
-
-
 
 # Command 1
 
-export CUSTOM_ENV_1=some_value_1
+srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image some-image --container-mounts /some/job/dir/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/start_server.sh & pids[0]=$!
 
-
-srun --het-group=0 --output /some/job/dir/experiment/sample_job/log-your_account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_1 --container-mounts /some/job/dir/experiment/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/start_server.sh & pids[0]=$!
-
-sleep 30
+sleep 10
 
 
 # Command 2
 
-export CUSTOM_ENV_2=some_value_2
-
-export HOST_1=$het_group_host_0
-
-
-srun --het-group=1 --output /some/job/dir/experiment/sample_job/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_2 --container-mounts /some/job/dir/experiment/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
+srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image different_container_image --container-mounts /some/job/dir/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 --mpi=pmix bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
 
 
 # The code below monitors all SLURM jobs to ensure any failure forces them all to stop
