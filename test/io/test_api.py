@@ -1,4 +1,5 @@
 import dataclasses
+from pathlib import Path
 
 import pytest
 
@@ -12,7 +13,7 @@ class TestCapture:
             self.value = value
 
     def test_capture_as_decorator(self):
-        @run.io.capture
+        @run.io.capture()
         def create_object():
             return self.DummyClass(42)
 
@@ -48,6 +49,189 @@ class TestCapture:
         with pytest.raises(ObjectNotFoundError):
             run.io.get(obj2)
 
+    def test_capture_as_decorator_with_cls_to_ignore(self):
+        class IgnoredClass:
+            def __init__(self, value):
+                self.value = value
+
+        @run.io.capture(cls_to_ignore={IgnoredClass})
+        def create_objects():
+            obj1 = self.DummyClass(1)
+            obj2 = IgnoredClass(2)
+            return obj1, obj2
+
+        obj1, obj2 = create_objects()
+
+        assert isinstance(run.io.get(obj1), run.Config)
+        with pytest.raises(ObjectNotFoundError):
+            run.io.get(obj2)
+
+    def test_nested_capture(self):
+        with run.io.capture():
+            obj1 = self.DummyClass(1)
+            with run.io.capture():
+                obj2 = self.DummyClass(2)
+
+        assert isinstance(run.io.get(obj1), run.Config)
+        assert isinstance(run.io.get(obj2), run.Config)
+        assert run.io.get(obj1).value == 1
+        assert run.io.get(obj2).value == 2
+
+    def test_capture_exception_handling(self):
+        class TestException(Exception):
+            pass
+
+        with pytest.raises(TestException):
+            with run.io.capture():
+                obj = self.DummyClass(42)
+                raise TestException("Test exception")
+
+        # The object should still be captured despite the exception
+        assert isinstance(run.io.get(obj), run.Config)
+        assert run.io.get(obj).value == 42
+
+    def test_capture_nested_objects(self):
+        class NestedClass:
+            def __init__(self, value):
+                self.value = value
+
+        class OuterClass:
+            def __init__(self, nested):
+                self.nested = nested
+
+        with run.io.capture():
+            nested = NestedClass(42)
+            outer = OuterClass(nested)
+
+        assert isinstance(run.io.get(outer), run.Config)
+        assert isinstance(run.io.get(outer).nested, run.Config)
+        assert run.io.get(outer).nested.value == 42
+
+    def test_capture_complex_arguments(self):
+        class ComplexClass:
+            def __init__(self, list_arg, dict_arg):
+                self.list_arg = list_arg
+                self.dict_arg = dict_arg
+
+        with run.io.capture():
+            obj = ComplexClass([1, 2, 3], {"a": 1, "b": 2})
+
+        cfg = run.io.get(obj)
+        assert isinstance(cfg, run.Config)
+        assert cfg.list_arg == [1, 2, 3]
+        assert cfg.dict_arg == {"a": 1, "b": 2}
+
+    def test_capture_callable_arguments(self):
+        def dummy_func():
+            pass
+
+        class CallableClass:
+            def __init__(self, func):
+                self.func = func
+
+        with run.io.capture():
+            obj = CallableClass(dummy_func)
+
+        cfg = run.io.get(obj)
+        assert isinstance(cfg, run.Config)
+        assert cfg.func == dummy_func
+
+    # TODO: Fix this test
+    # def test_capture_path_arguments(self):
+    #     class PathClass:
+    #         def __init__(self, path):
+    #             self.path = path
+
+    #     with run.io.capture():
+    #         obj = PathClass(Path("/tmp/test"))
+
+    #     cfg = run.io.get(obj)
+    #     assert isinstance(cfg, run.Config)
+    #     assert isinstance(cfg.path, run.Config)
+    #     assert cfg.path.args[0] == "/tmp/test"
+
+    def test_capture_multiple_objects(self):
+        class ClassA:
+            def __init__(self, value):
+                self.value = value
+
+        class ClassB:
+            def __init__(self, value):
+                self.value = value
+
+        with run.io.capture():
+            obj_a = ClassA(1)
+            obj_b = ClassB("test")
+
+        assert isinstance(run.io.get(obj_a), run.Config)
+        assert isinstance(run.io.get(obj_b), run.Config)
+        assert run.io.get(obj_a).value == 1
+        assert run.io.get(obj_b).value == "test"
+
+    def test_capture_unsupported_type(self):
+        class UnsupportedClass:
+            def __init__(self):
+                pass
+
+        class TestClass:
+            def __init__(self, unsupported):
+                self.unsupported = unsupported
+
+        unsupported = UnsupportedClass()
+
+        with pytest.raises(ValueError, match="Unable to convert object of type"):
+            with run.io.capture():
+                TestClass(unsupported)
+
+    # TODO: fix
+    # def test_capture_with_inheritance(self):
+    #     class BaseClass:
+    #         def __init__(self, base_value):
+    #             self.base_value = base_value
+
+    #     class DerivedClass(BaseClass):
+    #         def __init__(self, base_value, derived_value):
+    #             super().__init__(base_value)
+    #             self.derived_value = derived_value
+
+    #     with run.io.capture():
+    #         obj = DerivedClass(1, "test")
+
+    #     cfg = run.io.get(obj)
+    #     assert isinstance(cfg, run.Config)
+    #     assert cfg.base_value == 1
+    #     assert cfg.derived_value == "test"
+
+    def test_capture_with_default_arguments(self):
+        class DefaultArgClass:
+            def __init__(self, arg1, arg2="default"):
+                self.arg1 = arg1
+                self.arg2 = arg2
+
+        with run.io.capture():
+            obj1 = DefaultArgClass(1)
+            obj2 = DefaultArgClass(2, "custom")
+
+        cfg1 = run.io.get(obj1)
+        cfg2 = run.io.get(obj2)
+
+        assert cfg1.arg1 == 1
+        assert cfg1.arg2 == "default"
+        assert cfg2.arg1 == 2
+        assert cfg2.arg2 == "custom"
+
+    def test_capture_exception_handling(self):
+        class TestException(Exception):
+            pass
+
+        with pytest.raises(TestException):
+            with run.io.capture():
+                obj = self.DummyClass(42)
+                raise TestException("Test exception")
+
+        # The object should still be captured despite the exception
+        assert isinstance(run.io.get(obj), run.Config)
+        assert run.io.get(obj).value == 42
 
 class TestReinit:
     def test_simple(self):

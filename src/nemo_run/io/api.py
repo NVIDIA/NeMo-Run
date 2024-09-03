@@ -1,7 +1,7 @@
 import dataclasses as dc
-from contextlib import contextmanager
 from functools import wraps
-from typing import TYPE_CHECKING, Callable, Optional, Set, Type, TypeVar, Union, overload
+from typing import (TYPE_CHECKING, Any, Callable, Optional, Set, Type, TypeVar,
+                    Union, overload)
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -16,75 +16,40 @@ _T = TypeVar("_T")
 _IO_REGISTRY = _ConfigRegistry()
 
 
-@overload
-def capture(func: Callable[..., _T]) -> Callable[..., _T]: ...
+class capture:
+    def __init__(self, cls_to_ignore: Optional[Set[Type]] = None):
+        self.cls_to_ignore = cls_to_ignore
+        self._context: Optional[_CaptureContext] = None
 
+    @overload
+    def __call__(self, func: Callable[..., _T]) -> Callable[..., _T]:
+        ...
 
-@overload
-def capture(*, cls_to_ignore: Optional[Set[Type]] = None) -> contextmanager: ...
+    @overload
+    def __call__(self) -> "capture":
+        ...
 
-
-def capture(
-    func: Optional[Callable[..., _T]] = None, *, cls_to_ignore: Optional[Set[Type]] = None
-) -> Union[Callable[..., _T], contextmanager]:
-    """
-    A decorator and context manager for capturing run.Config objects for instantiated objects.
-
-    This function can be used in three ways:
-    1. As a decorator on a function to capture configurations for objects instantiated within that function.
-    2. As a context manager to capture configurations for objects instantiated within a specific block of code.
-    3. As a decorator or context manager with a set of classes to ignore during capture.
-
-    Args:
-        func: The function to be decorated (optional).
-        cls_to_ignore: A set of classes to ignore during capture (optional).
-
-    Returns:
-        Union[Callable[..., _T], contextmanager]: When used as a decorator, returns a wrapped function.
-                                                  When used as a context manager, returns a context manager.
-
-    Example:
-        .. code-block:: python
-
-            import nemo_run as run
-
-            # Usage as a decorator
-            @run.io.capture
-            def create_objects():
-                obj1 = SomeClass(param1=1, param2="test")
-                return obj1
-
-            # Usage as a context manager
-            with run.io.capture():
-                obj2 = AnotherClass(value=3.14)
-
-            # Usage as a decorator with classes to ignore
-            @run.io.capture(cls_to_ignore={ClassToIgnore})
-            def create_more_objects():
-                obj3 = YetAnotherClass(value=2.71)
-                obj4 = ClassToIgnore()  # This instantiation will not be captured
-                return obj3, obj4
-
-            # Usage as a context manager with classes to ignore
-            with run.io.capture(cls_to_ignore={ClassToIgnore}):
-                obj5 = YetAnotherClass(value=1.41)
-                obj6 = ClassToIgnore()  # This instantiation will not be captured
-    """
-    if func is not None:
+    def __call__(self, func: Optional[Callable[..., _T]] = None) -> Union[Callable[..., _T], "capture"]:
+        if func is None:
+            return self
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
-            with _CaptureContext(get, register, cls_to_ignore):
+        def wrapper(*args: Any, **kwargs: Any) -> _T:
+            with self:
                 return func(*args, **kwargs)
 
         return wrapper
 
-    @contextmanager
-    def capture_context():
-        with _CaptureContext(get, register, cls_to_ignore):
-            yield
+    def __enter__(self) -> None:
+        self._context = _CaptureContext(get, register, self.cls_to_ignore)
+        return self._context.__enter__()
 
-    return capture_context()
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                 exc_value: Optional[BaseException],
+                 traceback: Optional[Any]) -> Optional[bool]:
+        if self._context:
+            return self._context.__exit__(exc_type, exc_value, traceback)
+        return None
 
 
 def register(instance: _T, cfg: "Config[_T]") -> None:

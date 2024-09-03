@@ -2,7 +2,7 @@ import inspect
 import sys
 from pathlib import Path
 from types import FrameType
-from typing import Any, Callable, Dict, Optional, Set, Type
+from typing import Any, Callable, Dict, List, Optional, Set, Type
 
 
 def process_args(
@@ -13,57 +13,79 @@ def process_args(
 ) -> Dict[str, Any]:
     from nemo_run.config import Config
 
-    arg_names = inspect.getfullargspec(func).args
-    if inspect.ismethod(func) or arg_names[0] == "self":
-        arg_names = arg_names[1:]  # Remove 'self' for methods and class __init__
-        args = args[1:]  # Remove 'self' from args as well
+    # Process positional arguments
+    processed_args = [process_single_arg(arg, get_fn) for arg in args]
 
-    processed_args = dict(zip(arg_names, args))
-    processed_args.update(kwargs)
+    # Process keyword arguments
+    processed_kwargs = {k: process_single_arg(v, get_fn) for k, v in kwargs.items()}
 
-    for k, v in list(processed_args.items()):
-        if isinstance(v, (str, int, float, bool, type(None))):
-            continue
-        elif isinstance(v, Path):
-            processed_args[k] = Config(Path, str(v))
-        elif isinstance(v, (list, tuple)):
-            processed_args[k] = [
-                process_args((), {"item": item}, lambda item: None, get_fn)["item"] for item in v
-            ]
-        elif isinstance(v, dict):
-            processed_args[k] = {
-                key: process_args((), {"value": value}, lambda value: None, get_fn)["value"]
-                for key, value in v.items()
-            }
-        elif (
-            callable(v)
-            or isinstance(v, type)
-            or (isinstance(v, set) and all(isinstance(item, type) for item in v))
-        ):
-            continue
-        else:
-            try:
-                processed_args[k] = get_fn(v)
-            except Exception as e:
-                raise ValueError(
-                    f"Unable to convert object of type {type(v)} for argument '{k}'. "
-                    f"Consider using the @capture decorator or capture() context manager "
-                    f"to capture the instantiation of this object. Error: {str(e)}"
-                ) from e
+    # Combine processed positional and keyword arguments
+    result = dict(enumerate(processed_args))
+    result.update(processed_kwargs)
+    return result
 
-    return processed_args
+def process_single_arg(v: Any, get_fn: Callable[[Any], Any]) -> Any:
+    from nemo_run.config import Config
 
+    if isinstance(v, (str, int, float, bool, type(None))):
+        return v
+    elif isinstance(v, Path):
+        return Config(Path, str(v))
+    elif isinstance(v, (list, tuple)):
+        return [process_single_arg(item, get_fn) for item in v]
+    elif isinstance(v, dict):
+        return {key: process_single_arg(value, get_fn) for key, value in v.items()}
+    elif callable(v) or isinstance(v, type) or (isinstance(v, set) and all(isinstance(item, type) for item in v)):
+        return v
+    else:
+        try:
+            return get_fn(v)
+        except Exception:
+            return v  # If we can't process it, return the original value
+
+def get_full_signature(cls: Type) -> inspect.Signature:
+    """Get the full signature of a class, including inherited parameters."""
+    mro = inspect.getmro(cls)
+    parameters: Dict[str, inspect.Parameter] = {}
+    for c in reversed(mro):
+        if hasattr(c, '__init__'):
+            sig = inspect.signature(c.__init__)
+            for name, param in sig.parameters.items():
+                if name != 'self':
+                    parameters[name] = param
+
+    # Sort parameters based on their kind
+    sorted_parameters = sorted(
+        parameters.values(),
+        key=lambda p: (
+            p.kind == inspect.Parameter.POSITIONAL_ONLY,
+            p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            p.kind == inspect.Parameter.VAR_POSITIONAL,
+            p.kind == inspect.Parameter.KEYWORD_ONLY,
+            p.kind == inspect.Parameter.VAR_KEYWORD
+        )
+    )
+
+    return inspect.Signature(sorted_parameters)
 
 def wrap_init(frame: FrameType, get_fn: Callable, register_fn: Callable, cls_to_ignore: Set[Type]):
     cls = frame.f_locals.get("self").__class__
     if cls not in cls_to_ignore:
+        full_signature = get_full_signature(cls)
         args = inspect.getargvalues(frame)
-        processed_args = process_args(
-            args.args[1:],
-            {k: v for k, v in args.locals.items() if k != "self"},
-            cls.__init__,
-            get_fn,
-        )
+
+        # Get all arguments passed to the constructor
+        all_args = args.args[1:]  # Exclude 'self'
+        all_kwargs = {k: v for k, v in args.locals.items() if k not in ('self', '__class__')}
+
+        # Process all arguments
+        processed_args = {}
+        for name, param in full_signature.parameters.items():
+            if name in all_kwargs:
+                processed_args[name] = process_single_arg(all_kwargs[name], get_fn)
+            elif param.default is not param.empty:
+                processed_args[name] = param.default
+
         from nemo_run.config import Config
 
         cfg = Config(cls, **processed_args)

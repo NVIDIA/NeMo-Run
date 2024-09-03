@@ -14,9 +14,9 @@
 # limitations under the License.
 
 import pytest
-from nemo_run.config import Config
 
-from src.nemo_run.core.packaging.base import Packager
+from nemo_run.config import Config
+from nemo_run.core.packaging.base import Packager
 
 
 @pytest.fixture
