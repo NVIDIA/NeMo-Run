@@ -218,7 +218,7 @@ nemorun experiment cancel {exp_id} 0
         cfg._reconstruct = True
 
         exp: "Experiment" = fdl.build(cfg)
-        exp._jobs = exp._load_values()
+        exp._jobs = exp._load_jobs()
 
         return exp
 
@@ -323,7 +323,7 @@ nemorun experiment cancel {exp_id} 0
         with open(os.path.join(self._exp_dir, self.__class__._VERSION_FILE), "w+") as f:
             f.write(f"{run.__version__}\n")
 
-    def _save_values(self):
+    def _save_jobs(self):
         serialized_jobs = list(map(lambda job: job.serialize(), self.jobs))
         with open(os.path.join(self._exp_dir, self.__class__._TASK_FILE), "w+") as f:
             json.dump(serialized_jobs, f)
@@ -336,7 +336,7 @@ nemorun experiment cancel {exp_id} 0
             except TypeError:
                 ...
 
-    def _load_values(self) -> list[Job | JobGroup]:
+    def _load_jobs(self) -> list[Job | JobGroup]:
         if "__external_main__" not in sys.modules:
             maybe_load_external_main(self._exp_dir)
         with open(os.path.join(self._exp_dir, self._TASK_FILE)) as f:
@@ -469,7 +469,7 @@ nemorun experiment cancel {exp_id} 0
             assert name, "name is required for task group."
             self._add_task_group(task, executor, name, plugins=plugins, tail_logs=tail_logs)
 
-        self._save_values()
+        self._save_jobs()
 
     def dryrun(self):
         """
@@ -544,7 +544,7 @@ nemorun experiment cancel {exp_id} 0
                     os.path.join(job.executor.job_dir, f"log_{job.id}_direct_run.out")
                 ):
                     job.launch(wait=True, direct=True, runner=self._runner)
-                self._save_values()
+                self._save_jobs()
 
             self._launched = any(map(lambda job: job.launched, self.jobs))
             self._direct = True
@@ -619,7 +619,7 @@ nemorun experiment cancel {exp_id} 0
                 if wait:
                     self._update_progress(job, job.state)
 
-                self._save_values()
+                self._save_jobs()
             except Exception as e:
                 self.console.log(f"Error running task {job.id}: {e}")
                 self.console.log(*traceback.format_exception(e))
@@ -701,6 +701,69 @@ nemorun experiment cancel {exp_id} 0
                 _current_experiment.reset(self._current_experiment_token)
                 self._current_experiment_token = None
 
+    def cancel(self, job_id: str):
+        """
+        Cancels an existing job if still running.
+        """
+        _set_current_experiment = False
+        if not self._current_experiment_token:
+            _current_experiment.set(self)
+            _set_current_experiment = True
+
+        self.console.log(f"[bold cyan]Cancelling {job_id} if still running")
+        try:
+            job = next(filter(lambda x: x.id == job_id, self.jobs))
+            job.cancel(runner=self._runner)
+        except StopIteration:
+            self.console.log(f"[bold red]Job {job_id} not found")
+        except Exception as e:
+            self.console.log(f"[bold red]Failed to cancel {job_id}\nError: {e}\n")
+            self.console.log(*traceback.format_exception(e))
+        finally:
+            if _set_current_experiment and self._current_experiment_token:
+                _current_experiment.reset(self._current_experiment_token)
+                self._current_experiment_token = None
+
+    def logs(self, job_id: str, regex: str | None = None):
+        """
+        Prints the logs of the specified job_id, optionally filtered by regex.
+        """
+        _set_current_experiment = False
+        if not self._current_experiment_token:
+            _current_experiment.set(self)
+            _set_current_experiment = True
+
+        self.console.log(f"[bold cyan]Fetching logs for {job_id}")
+        try:
+            job = next(filter(lambda x: x.id == job_id, self.jobs))
+            if isinstance(job, Job) and job.handle.endswith("direct_run"):
+                self.console.log("This job was run with direct=True.")
+                self.console.log(
+                    f"Logs may be present in task directory at:\n[bold]{job.executor.job_dir}."
+                )
+                return
+
+            try:
+                job.logs(runner=self._runner, regex=regex)
+            except Exception as e:
+                self.console.log(f"[bold red]Failed to get logs for {job_id}\nError: {e}\n")
+                job_executor = (
+                    job.executor
+                    if isinstance(job, Job)
+                    else (
+                        job.executors if isinstance(job.executors, Executor) else job.executors[0]
+                    )
+                )
+                self.console.log(
+                    f"Logs may be present in job directory at:\n[bold]{job_executor.job_dir}."
+                )
+        except StopIteration:
+            self.console.log(f"[bold red]Job {job_id} not found")
+        finally:
+            if _set_current_experiment and self._current_experiment_token:
+                _current_experiment.reset(self._current_experiment_token)
+                self._current_experiment_token = None
+
     def reset(self) -> "Experiment":
         """
         Resets an experiment to make it ready for a relaunch.
@@ -774,7 +837,7 @@ nemorun experiment cancel {exp_id} 0
             self._id = old_id
             self._exp_dir = old_exp_dir
             self._launched = old_launched
-            self._jobs = self._load_values()
+            self._jobs = self._load_jobs()
         finally:
             if _set_current_experiment and self._current_experiment_token:
                 _current_experiment.reset(self._current_experiment_token)
@@ -967,7 +1030,7 @@ nemorun experiment cancel {exp_id} 0
 
     @property
     def jobs(self) -> list[Job | JobGroup]:
-        return Values(self._jobs)
+        return Jobs(self._jobs)
 
     @jobs.setter
     def jobs(self, jobs: list[Job | JobGroup]):
@@ -975,13 +1038,13 @@ nemorun experiment cancel {exp_id} 0
 
     @property
     def tasks(self) -> list[Config]:
-        return Tasks(job.task for job in self.jobs)
+        return Tasks(job.task for job in self._jobs)
 
 
 class Tasks(list, ConfigurableMixin): ...
 
 
-class Values(list, ConfigurableMixin): ...
+class Jobs(list, ConfigurableMixin): ...
 
 
 def _get_latest_dir(path) -> str:
