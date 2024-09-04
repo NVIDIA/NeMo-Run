@@ -1,8 +1,9 @@
-import inspect
 import sys
 from pathlib import Path
 from types import FrameType
-from typing import Any, Callable, Dict, List, Optional, Set, Type
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type
+
+from fiddle._src.config import ordered_arguments
 
 
 def process_args(
@@ -11,8 +12,21 @@ def process_args(
     func: Callable,
     get_fn: Callable[[Any], Any],
 ) -> Dict[str, Any]:
-    from nemo_run.config import Config
+    """
+    Process both positional and keyword arguments for a given function.
 
+    This function handles the processing of all arguments passed to a function,
+    ensuring that each argument is properly processed using the provided get_fn.
+
+    Args:
+        args (tuple[Any, ...]): Positional arguments.
+        kwargs (dict[str, Any]): Keyword arguments.
+        func (Callable): The function for which arguments are being processed.
+        get_fn (Callable[[Any], Any]): Function to process individual arguments.
+
+    Returns:
+        Dict[str, Any]: A dictionary containing all processed arguments.
+    """
     # Process positional arguments
     processed_args = [process_single_arg(arg, get_fn) for arg in args]
 
@@ -24,7 +38,21 @@ def process_args(
     result.update(processed_kwargs)
     return result
 
+
 def process_single_arg(v: Any, get_fn: Callable[[Any], Any]) -> Any:
+    """
+    Process a single argument, handling various data types.
+
+    This function recursively processes complex data structures and applies
+    special handling for certain types like Path objects and callables.
+
+    Args:
+        v (Any): The argument to process.
+        get_fn (Callable[[Any], Any]): Function to process non-primitive types.
+
+    Returns:
+        Any: The processed argument.
+    """
     from nemo_run.config import Config
 
     if isinstance(v, (str, int, float, bool, type(None))):
@@ -35,7 +63,11 @@ def process_single_arg(v: Any, get_fn: Callable[[Any], Any]) -> Any:
         return [process_single_arg(item, get_fn) for item in v]
     elif isinstance(v, dict):
         return {key: process_single_arg(value, get_fn) for key, value in v.items()}
-    elif callable(v) or isinstance(v, type) or (isinstance(v, set) and all(isinstance(item, type) for item in v)):
+    elif (
+        callable(v)
+        or isinstance(v, type)
+        or (isinstance(v, set) and all(isinstance(item, type) for item in v))
+    ):
         return v
     else:
         try:
@@ -43,73 +75,118 @@ def process_single_arg(v: Any, get_fn: Callable[[Any], Any]) -> Any:
         except Exception:
             return v  # If we can't process it, return the original value
 
-def get_full_signature(cls: Type) -> inspect.Signature:
-    """Get the full signature of a class, including inherited parameters."""
-    mro = inspect.getmro(cls)
-    parameters: Dict[str, inspect.Parameter] = {}
-    for c in reversed(mro):
-        if hasattr(c, '__init__'):
-            sig = inspect.signature(c.__init__)
-            for name, param in sig.parameters.items():
-                if name != 'self':
-                    parameters[name] = param
 
-    # Sort parameters based on their kind
-    sorted_parameters = sorted(
-        parameters.values(),
-        key=lambda p: (
-            p.kind == inspect.Parameter.POSITIONAL_ONLY,
-            p.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            p.kind == inspect.Parameter.VAR_POSITIONAL,
-            p.kind == inspect.Parameter.KEYWORD_ONLY,
-            p.kind == inspect.Parameter.VAR_KEYWORD
-        )
-    )
+def wrap_init(frame: FrameType, capture_context: "_CaptureContext"):
+    """
+    Wrap the __init__ method of a class to capture its arguments.
 
-    return inspect.Signature(sorted_parameters)
+    This function is called when an object is instantiated within a capture context.
+    It processes the arguments passed to the __init__ method and creates a Config
+    object representing the instantiated class.
 
-def wrap_init(frame: FrameType, get_fn: Callable, register_fn: Callable, cls_to_ignore: Set[Type]):
+    Args:
+        frame (FrameType): The current stack frame.
+        capture_context (_CaptureContext): The current capture context.
+    """
     cls = frame.f_locals.get("self").__class__
-    if cls not in cls_to_ignore:
-        full_signature = get_full_signature(cls)
-        args = inspect.getargvalues(frame)
+    if cls not in capture_context.cls_to_ignore:
+        # Capture arguments for the current class
+        args = frame.f_locals.copy()
+        del args["self"]
+        if "__class__" in args:
+            del args["__class__"]  # Remove __class__ attribute
+        capture_context.arg_stack.append((cls, args))
 
-        # Get all arguments passed to the constructor
-        all_args = args.args[1:]  # Exclude 'self'
-        all_kwargs = {k: v for k, v in args.locals.items() if k not in ('self', '__class__')}
+        # If we've reached the top of the inheritance chain, create the Config
+        if len(capture_context.arg_stack) == len(cls.__mro__) - 1:  # -1 to exclude 'object'
+            from nemo_run.config import Config
 
-        # Process all arguments
-        processed_args = {}
-        for name, param in full_signature.parameters.items():
-            if name in all_kwargs:
-                processed_args[name] = process_single_arg(all_kwargs[name], get_fn)
-            elif param.default is not param.empty:
-                processed_args[name] = param.default
+            combined_args = {}
+            for captured_cls, captured_args in reversed(capture_context.arg_stack):
+                combined_args.update(captured_args)
 
-        from nemo_run.config import Config
+            # Use ordered_arguments to get all arguments, including defaults
+            cfg = Config(cls)
+            all_args = ordered_arguments(cfg, include_defaults=True)
 
-        cfg = Config(cls, **processed_args)
-        if register_fn:
-            register_fn(frame.f_locals.get("self"), cfg)
+            # Update all_args with the actually provided arguments
+            all_args.update(combined_args)
+
+            # Process all arguments before creating the final Config
+            processed_args = {
+                name: process_single_arg(value, capture_context.get)
+                for name, value in all_args.items()
+            }
+
+            # Create the Config with all processed arguments
+            cfg = Config(cls, **processed_args)
+
+            if capture_context.register:
+                capture_context.register(frame.f_locals.get("self"), cfg)
+
+            capture_context.arg_stack.clear()
 
 
 class _CaptureContext:
+    """
+    A context manager for capturing object configurations during instantiation.
+
+    This class sets up a profiling function to intercept object instantiations
+    and capture their configurations. It's used internally by the `capture` decorator.
+
+    Attributes:
+        get (Callable): Function to retrieve configurations.
+        register (Callable): Function to register captured configurations.
+        cls_to_ignore (Set[Type]): Set of classes to ignore during capture.
+        old_profile (Optional[Callable]): The previous profiling function.
+        arg_stack (List[Tuple[Type, Dict[str, Any]]]): Stack to store captured arguments.
+    """
+
     def __init__(
         self, get_fn: Callable, register_fn: Callable, cls_to_ignore: Optional[Set[Type]] = None
     ):
+        """
+        Initialize the _CaptureContext.
+
+        Args:
+            get_fn (Callable): Function to retrieve configurations.
+            register_fn (Callable): Function to register captured configurations.
+            cls_to_ignore (Optional[Set[Type]]): Set of classes to ignore during capture.
+        """
         self.get = get_fn
         self.register = register_fn
         self.cls_to_ignore = cls_to_ignore or set()
         self.old_profile = None
+        self.arg_stack: List[Tuple[Type, Dict[str, Any]]] = []
 
     def __enter__(self):
+        """
+        Enter the capture context, setting up the profiling function.
+        """
         self.old_profile = sys.getprofile()
         sys.setprofile(self._profile_func)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Exit the capture context, restoring the previous profiling function.
+        """
         sys.setprofile(self.old_profile)
 
     def _profile_func(self, frame: FrameType, event: str, arg: Any):
+        """
+        Profiling function that intercepts object instantiations.
+
+        This function is called for every function call while the context is active.
+        It specifically looks for __init__ calls to capture object configurations.
+
+        Args:
+            frame (FrameType): The current stack frame.
+            event (str): The type of event (e.g., 'call', 'return').
+            arg (Any): Event-specific argument.
+
+        Returns:
+            Optional[Callable]: The previous profiling function, if any.
+        """
         if event == "call" and frame.f_code.co_name == "__init__":
-            wrap_init(frame, self.get, self.register, self.cls_to_ignore)
+            wrap_init(frame, self)
         return self.old_profile

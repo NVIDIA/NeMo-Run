@@ -1,6 +1,5 @@
 import weakref
-from typing import TYPE_CHECKING, Dict, TypeVar
-
+from typing import TYPE_CHECKING, Any, Dict, TypeVar
 
 if TYPE_CHECKING:
     from nemo_run.config import Config
@@ -24,6 +23,7 @@ class _ConfigRegistry:
         """Initializes the ConfigRegistry with empty dictionaries."""
         self._objects: Dict[int, "Config[_T]"] = {}
         self._ref_map = weakref.WeakKeyDictionary()
+        self._strong_ref_map: Dict[Any, int] = {}  # New dictionary for non-weakref objects
 
     def register(self, instance: _T, cfg: "Config[_T]") -> None:
         """
@@ -44,7 +44,17 @@ class _ConfigRegistry:
         """
         obj_id = id(instance)
         self._objects[obj_id] = cfg
-        self._ref_map[instance] = obj_id
+        if self._is_weakref_able(instance):
+            self._ref_map[instance] = obj_id
+        else:
+            self._strong_ref_map[instance] = obj_id
+
+    def _is_weakref_able(self, obj: Any) -> bool:
+        try:
+            weakref.ref(obj)
+            return True
+        except TypeError:
+            return False
 
     def get(self, obj: _T) -> "Config[_T]":
         """
@@ -143,7 +153,7 @@ class _ConfigRegistry:
             >>> registry = ConfigRegistry()
             >>> registry.cleanup()
         """
-        active_ids = set(self._ref_map.values())
+        active_ids = set(self._ref_map.values()) | set(self._strong_ref_map.values())
         to_remove = set(self._objects.keys()) - active_ids
         for obj_id in to_remove:
             del self._objects[obj_id]

@@ -1,6 +1,7 @@
 import dataclasses
 from pathlib import Path
 
+import fiddle as fdl
 import pytest
 
 import nemo_run as run
@@ -136,19 +137,18 @@ class TestCapture:
         assert isinstance(cfg, run.Config)
         assert cfg.func == dummy_func
 
-    # TODO: Fix this test
-    # def test_capture_path_arguments(self):
-    #     class PathClass:
-    #         def __init__(self, path):
-    #             self.path = path
+    def test_capture_path_arguments(self):
+        class PathClass:
+            def __init__(self, path):
+                self.path = path
 
-    #     with run.io.capture():
-    #         obj = PathClass(Path("/tmp/test"))
+        with run.io.capture():
+            obj = PathClass(Path("/tmp/test"))
 
-    #     cfg = run.io.get(obj)
-    #     assert isinstance(cfg, run.Config)
-    #     assert isinstance(cfg.path, run.Config)
-    #     assert cfg.path.args[0] == "/tmp/test"
+        cfg = run.io.get(obj)
+        assert isinstance(cfg, run.Config)
+        assert isinstance(cfg.path, run.Config)
+        assert str(fdl.build(cfg).path) == "/tmp/test"
 
     def test_capture_multiple_objects(self):
         class ClassA:
@@ -168,39 +168,23 @@ class TestCapture:
         assert run.io.get(obj_a).value == 1
         assert run.io.get(obj_b).value == "test"
 
-    def test_capture_unsupported_type(self):
-        class UnsupportedClass:
-            def __init__(self):
-                pass
+    def test_capture_with_inheritance(self):
+        class BaseClass:
+            def __init__(self, base_value):
+                self.base_value = base_value
 
-        class TestClass:
-            def __init__(self, unsupported):
-                self.unsupported = unsupported
+        class DerivedClass(BaseClass):
+            def __init__(self, base_value, derived_value):
+                super().__init__(base_value)
+                self.derived_value = derived_value
 
-        unsupported = UnsupportedClass()
+        with run.io.capture():
+            obj = DerivedClass(1, "test")
 
-        with pytest.raises(ValueError, match="Unable to convert object of type"):
-            with run.io.capture():
-                TestClass(unsupported)
-
-    # TODO: fix
-    # def test_capture_with_inheritance(self):
-    #     class BaseClass:
-    #         def __init__(self, base_value):
-    #             self.base_value = base_value
-
-    #     class DerivedClass(BaseClass):
-    #         def __init__(self, base_value, derived_value):
-    #             super().__init__(base_value)
-    #             self.derived_value = derived_value
-
-    #     with run.io.capture():
-    #         obj = DerivedClass(1, "test")
-
-    #     cfg = run.io.get(obj)
-    #     assert isinstance(cfg, run.Config)
-    #     assert cfg.base_value == 1
-    #     assert cfg.derived_value == "test"
+        cfg = run.io.get(obj)
+        assert isinstance(cfg, run.Config)
+        assert cfg.base_value == 1
+        assert cfg.derived_value == "test"
 
     def test_capture_with_default_arguments(self):
         class DefaultArgClass:
@@ -220,7 +204,7 @@ class TestCapture:
         assert cfg2.arg1 == 2
         assert cfg2.arg2 == "custom"
 
-    def test_capture_exception_handling(self):
+    def test_capture_exception_handling_with_object_persistence(self):
         class TestException(Exception):
             pass
 
@@ -232,6 +216,7 @@ class TestCapture:
         # The object should still be captured despite the exception
         assert isinstance(run.io.get(obj), run.Config)
         assert run.io.get(obj).value == 42
+
 
 class TestReinit:
     def test_simple(self):
