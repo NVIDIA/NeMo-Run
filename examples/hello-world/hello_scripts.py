@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from simple.add import SomeObject, add_object, commonly_used_object
+
 import nemo_run as run
-from simple.add import SomeObject, add_object
 
 # This script defines an experiment that invokes three tasks in parallel, two scripts and a run.Partial.
 # The example demonstrates how you can use scripts and run.Partial.
@@ -29,7 +30,7 @@ echo "Hello 2"
     )
     fn = run.Partial(
         add_object,
-        obj_1="commonly_used_object",
+        obj_1=commonly_used_object(),
         obj_2=run.Config(SomeObject, value_1=10, value_2=20, value_3=30),
     )
     executor = run.LocalExecutor()
