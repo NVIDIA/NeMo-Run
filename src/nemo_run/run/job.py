@@ -8,6 +8,7 @@ from torchx.specs.api import AppDef, AppState, is_terminal
 import nemo_run.exceptions
 from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
@@ -202,7 +203,7 @@ class JobGroup(ConfigurableMixin):
     handle groups of related tasks.
     """
 
-    SUPPORTED_EXECUTORS = [SlurmExecutor]
+    SUPPORTED_EXECUTORS = [SlurmExecutor, DockerExecutor]
 
     id: str
     tasks: list[Union[Partial, Script]]
@@ -230,6 +231,11 @@ class JobGroup(ConfigurableMixin):
             self._merge = True
             self.executors = SlurmExecutor.merge(
                 cast(list[SlurmExecutor], executors), num_tasks=len(self.tasks)
+            )
+        elif executor_type == DockerExecutor:
+            self._merge = True
+            self.executors = DockerExecutor.merge(
+                cast(list[DockerExecutor], executors), num_tasks=len(self.tasks)
             )
         else:
             self._merge = False

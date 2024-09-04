@@ -226,3 +226,6 @@ class Executor(ConfigurableMixin):
         return filenames
 
     def cleanup(self, handle: str): ...
+
+
+_RUNDIR_NAME = "nemo_run"

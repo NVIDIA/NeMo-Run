@@ -29,6 +29,7 @@ from rich.console import Console
 from rich.text import Text
 
 from nemo_run.core.execution.base import (
+    _RUNDIR_NAME,
     Executor,
     ExecutorMacros,
     FaultTolerance,
@@ -47,8 +48,6 @@ from nemo_run.devspace.base import DevSpace
 
 logger = logging.getLogger(__name__)
 noquote: TypeAlias = str
-
-_RUNDIR_NAME = "nemo_run"
 
 
 class JobPaths:

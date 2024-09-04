@@ -14,7 +14,10 @@
 # limitations under the License.
 
 import pytest
+from torchx.specs import AppDef, AppDryRunInfo, Role
+
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
@@ -22,7 +25,6 @@ from nemo_run.run.torchx_backend.schedulers.api import (
     SchedulerMixin,
     get_executor_str,
 )
-from torchx.specs import AppDef, AppDryRunInfo, Role
 
 
 class MockExecutor(Executor):
@@ -61,6 +63,7 @@ def mock_app_def():
         (SlurmExecutor(account=""), "slurm_tunnel"),
         (SkypilotExecutor(job_dir=""), "skypilot"),
         (LocalExecutor(), "local_persistent"),
+        (DockerExecutor(container_image=""), "docker_persistent"),
     ],
 )
 def test_get_executor_str(executor, expected_str):
