@@ -176,9 +176,9 @@ experiment.cancel("{tasks[0]}") # Cancels the provided task if still running
 
     GOODBYE_MESSAGE_BASH = """
 # You can inspect this experiment at a later point in time using the CLI as well:
-nemorun experiment status {exp_id}
-nemorun experiment logs {exp_id} 0
-nemorun experiment cancel {exp_id} 0
+nemo experiment status {exp_id}
+nemo experiment logs {exp_id} 0
+nemo experiment cancel {exp_id} 0
 """
     _PARALLEL_SUPPORTED_EXECUTORS = (SlurmExecutor, LocalExecutor, SkypilotExecutor)
     _DETACH_SUPPORTED_EXECUTORS = (SlurmExecutor, SkypilotExecutor)
