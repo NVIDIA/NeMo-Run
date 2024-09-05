@@ -36,15 +36,18 @@ from fiddle.graphviz import render, render_diff
 from typing_extensions import Annotated, ParamSpec, Self
 
 import nemo_run.exceptions as run_exceptions
+from nemo_run.io.api import _IO_REGISTRY, get, register
 
 Params = ParamSpec("Params")
 ReturnType = TypeVar("ReturnType")
 
 _T = TypeVar("_T")
 _BuildableT = TypeVar("_BuildableT", bound=fdl.Buildable)
+build = fdl.build
 
 RECURSIVE_TYPES = (typing.Union, typing.Optional)
 NEMORUN_HOME = os.environ.get("NEMORUN_HOME", os.path.expanduser("~/.nemo_run"))
+USE_IO_REGISTRY: bool = True
 
 
 def get_type_namespace(typ: Type | Callable) -> str:
@@ -235,10 +238,29 @@ class _VisualizeMixin:
             return self.__repr__()
 
 
+# List of classes that require direct initialization
+DIRECT_INIT_CLASSES = [Path]
+
+
 class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
     """
     Wrapper around fdl.Config with nemo_run specific functionality.
     See `fdl.Config <https://fiddle.readthedocs.io/en/latest/api_reference/core.html#config>`_ for more.
+
+    This class extends fdl.Config to provide special handling for certain types of objects,
+    particularly those that require direct initialization (e.g., pathlib.Path).
+
+    The DIRECT_INIT_CLASSES list contains classes that should be instantiated directly,
+    bypassing Fiddle's normal build process. By default, this includes pathlib.Path.
+
+    To add more classes for direct initialization, simply append them to DIRECT_INIT_CLASSES.
+
+    Example:
+        >>> from pathlib import Path
+        >>> path_config = Config(Path, "/tmp/test")
+        >>> path_instance = build(path_config)
+        >>> isinstance(path_instance, Path)
+        True
     """
 
     def __init__(
@@ -256,6 +278,34 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
                 new_kwargs = kwargs
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
+
+    def __build__(self, *args, **kwargs):
+        """
+        Build the instance, with special handling for classes in DIRECT_INIT_CLASSES.
+
+        This method checks if the class to be instantiated is in DIRECT_INIT_CLASSES.
+        If so, it directly instantiates the class instead of using Fiddle's build process.
+        This is particularly useful for classes like pathlib.Path that rely on __new__
+        for instantiation.
+
+        Args:
+            *args: Positional arguments for instantiation.
+            **kwargs: Keyword arguments for instantiation.
+
+        Returns:
+            The instantiated object.
+        """
+        cls = self.__fn_or_cls__
+        if cls in DIRECT_INIT_CLASSES:
+            # Direct initialization for classes in the list
+            instance = cls(*args, **kwargs)
+        else:
+            instance = super().__build__(*args, **kwargs)
+
+        if USE_IO_REGISTRY:
+            register(instance, copy.deepcopy(self))
+
+        return instance
 
 
 class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
@@ -279,6 +329,13 @@ class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
                 new_kwargs = kwargs
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
+
+    def __build__(self, *args, **kwargs):
+        instance = super().__build__(*args, **kwargs)
+        if USE_IO_REGISTRY:
+            register(instance, copy.deepcopy(self))
+
+        return instance
 
 
 register_supported_cast(fdl.Config, Config)
@@ -415,6 +472,8 @@ def _construct_args(
                     Config,
                     fdl_dc.convert_dataclasses_to_configs(arg, allow_post_init=True),
                 )
+            elif arg in _IO_REGISTRY:
+                final_args[name] = get(arg)
             else:
                 final_args[name] = arg
         elif str(parameter.annotation).startswith("typing.Annotated"):
