@@ -318,8 +318,11 @@ nemorun experiment cancel {exp_id} 0
 
         if "__main__" in sys.modules:
             main_module = sys.modules["__main__"]
-            with open(os.path.join(self._exp_dir, "__main__.py"), "w+") as f:
-                f.write(inspect.getsource(main_module))
+            try:
+                with open(os.path.join(self._exp_dir, "__main__.py"), "w+") as f:
+                    f.write(inspect.getsource(main_module))
+            except TypeError:
+                ...
 
     def _load_tasks(self) -> list[ExperimentTask | ExperimentTaskGroup]:
         maybe_load_external_main(self._exp_dir)

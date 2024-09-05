@@ -28,3 +28,10 @@ jobs:
 
       - name: Rye coverage
         run: rye run cov
+
+      - name: Run example notebooks
+        run: rye run jupyter execute examples/**/*.ipynb
+
+      - name: Run example scripts
+        run: |
+          cd examples/hello-world && rye run python hello_scripts.py

@@ -63,6 +63,7 @@ dev-dependencies = [
     "pytest-mock>=3.14.0",
     "ipykernel>=6.29.4",
     "ipywidgets>=8.1.2",
+    "jupyter>=1.1.1"
 ]
 
 [tool.rye.scripts]
