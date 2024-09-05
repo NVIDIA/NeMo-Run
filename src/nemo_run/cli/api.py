@@ -83,7 +83,7 @@ def entrypoint(
     name: Optional[str] = None,
     namespace: Optional[str] = None,
     help: Optional[str] = None,
-    require_confirmation: bool = True,
+    skip_confirmation: bool = False,
     enable_executor: bool = True,
     default_factory: Optional[Callable] = None,
     default_executor: Optional[Config[Executor]] = None,
@@ -104,7 +104,7 @@ def entrypoint(
         name (Optional[str]): Custom name for the entrypoint. Defaults to the function name.
         namespace (Optional[str]): Custom namespace for the entrypoint. Defaults to the module name.
         help (Optional[str]): Help text for the entrypoint, displayed in CLI help messages.
-        require_confirmation (bool): If True, requires user confirmation before execution. Defaults to True.
+        skip_confirmation (bool): If True, skips user confirmation before execution. Defaults to False.
         enable_executor (bool): If True, enables executor functionality for the entrypoint. Defaults to True.
         default_factory (Optional[Callable]): A custom default factory to use for this entrypoint.
         default_executor (Optional[Config[Executor]]): A custom default executor to use for this entrypoint.
@@ -182,7 +182,7 @@ def entrypoint(
             name=name,
             namespace=_namespace,
             help_str=help,
-            require_confirmation=require_confirmation,
+            skip_confirmation=skip_confirmation,
             default_factory=default_factory,
             default_executor=default_executor,
             default_plugins=default_plugins,
@@ -696,7 +696,7 @@ class RunContext:
         load (Optional[str]): Path to load a factory from a directory.
         repl (bool): If True, enter interactive mode.
         detach (bool): If True, detach from the run after submission.
-        require_confirmation (bool): If True, require user confirmation before execution.
+        skip_confirmation (bool): If True, skip user confirmation before execution.
         tail_logs (bool): If True, tail logs after execution.
         executor (Optional[Executor]): The executor to use for the run.
         plugins (List[Plugin]): List of plugins to use for the run.
@@ -709,7 +709,7 @@ class RunContext:
     load: Optional[str] = None
     repl: bool = False
     detach: bool = False
-    require_confirmation: bool = True
+    skip_confirmation: bool = False
     tail_logs: bool = False
 
     executor: Optional[Executor] = field(init=False)
@@ -762,8 +762,8 @@ class RunContext:
             ),
             repl: bool = typer.Option(False, "--repl", "-r", help="Enter interactive mode"),
             detach: bool = typer.Option(False, "--detach", help="Detach from the run"),
-            require_confirmation: bool = typer.Option(
-                True, "--confirm/--no-confirm", help="Require confirmation before execution"
+            skip_confirmation: bool = typer.Option(
+                False, "--yes", "-y", "--no-confirm", help="Skip confirmation before execution"
             ),
             tail_logs: bool = typer.Option(
                 False, "--tail-logs/--no-tail-logs", help="Tail logs after execution"
@@ -778,7 +778,7 @@ class RunContext:
                 load=load,
                 repl=repl,
                 detach=detach,
-                require_confirmation=require_confirmation,
+                skip_confirmation=skip_confirmation,
                 tail_logs=tail_logs,
             )
 
@@ -876,7 +876,7 @@ class RunContext:
                 console.print(f"[bold cyan]Dry run for {self.name}:[/bold cyan]")
                 return
 
-            if self._should_continue(self.require_confirmation):
+            if self._should_continue(self.skip_confirmation):
                 console.print(f"[bold cyan]Launching {self.name}...[/bold cyan]")
                 run.run(
                     fn_or_script=task,
@@ -915,20 +915,20 @@ class RunContext:
 
         run.dryrun_fn(partial, executor=self.executor)
 
-        if self._should_continue(self.require_confirmation):
+        if self._should_continue(self.skip_confirmation):
             fdl.build(partial)()
 
-    def _should_continue(self, require_confirmation: bool) -> bool:
+    def _should_continue(self, skip_confirmation: bool) -> bool:
         """
         Check if the execution should continue based on user confirmation.
 
         Args:
-            require_confirmation (bool): Whether to require user confirmation.
+            skip_confirmation (bool): Whether to skip user confirmation.
 
         Returns:
             bool: True if execution should continue, False otherwise.
         """
-        return not require_confirmation or typer.confirm("Continue?")
+        return skip_confirmation or typer.confirm("Continue?")
 
     def parse_fn(self, fn: T, args: List[str], **default_kwargs) -> Partial[T]:
         """
@@ -1092,7 +1092,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         name (Optional[str]): The name of the entrypoint.
         help_str (Optional[str]): Help string for the entrypoint.
         enable_executor (bool): Whether to enable executor functionality.
-        require_confirmation (bool): Whether to require user confirmation before execution.
+        skip_confirmation (bool): Whether to skip user confirmation before execution.
         type (Literal["task", "experiment"]): The type of entrypoint.
         run_ctx_cls (Type[RunContext]): The RunContext class to use.
 
@@ -1111,7 +1111,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         name=None,
         help_str=None,
         enable_executor: bool = True,
-        require_confirmation: bool = True,
+        skip_confirmation: bool = False,
         type: Literal["task", "experiment"] = "task",
         run_ctx_cls: Type[RunContext] = RunContext,
     ):
@@ -1139,7 +1139,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         self.namespace = namespace
         self._configured_fn = None
         self.enable_executor = enable_executor
-        self.require_confirmation = require_confirmation
+        self.skip_confirmation = skip_confirmation
         self.type = type
         self.default_factory = default_factory
         self.default_plugins = default_plugins

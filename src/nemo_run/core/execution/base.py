@@ -20,16 +20,15 @@ from string import Template
 from typing import Optional, Protocol, Type, Union, runtime_checkable
 
 import fiddle as fdl
-import fiddle._src.experimental.dataclasses as fdl_dc
 from torchx.specs import Role
 from typing_extensions import Self
 
-from nemo_run.config import Config
+from nemo_run.config import ConfigurableMixin
 from nemo_run.core.packaging.base import Packager
 
 
 @dataclass(kw_only=True)
-class Launcher:
+class Launcher(ConfigurableMixin):
     nsys_profile: bool = False
     nsys_folder: str = "nsys_profile"
     nsys_trace: list[str] = field(default_factory=lambda: ["nvtx", "cuda"])
@@ -79,7 +78,7 @@ LAUNCHER_MAP: dict[str, Type[Launcher]] = {"torchrun": Torchrun, "ft": FaultTole
 
 
 @dataclass(kw_only=True)
-class ExecutorMacros:
+class ExecutorMacros(ConfigurableMixin):
     """
     Defines macros.
     """
@@ -126,7 +125,7 @@ class LogSupportedExecutor(Protocol):
 
 
 @dataclass(kw_only=True)
-class Executor:
+class Executor(ConfigurableMixin):
     """
     Base dataclass for configuration of an executor.
     This cannot be used independently but
@@ -148,9 +147,6 @@ class Executor:
     experiment_dir: str = field(init=False, default="")
     _launcher_setup: bool = field(init=False, default=False)
 
-    def to_config(self) -> Config:
-        return fdl.cast(Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True))
-
     def info(self) -> str:
         return self.__class__.__qualname__
 
@@ -169,9 +165,6 @@ class Executor:
             self.launcher = Launcher()
 
         return self.launcher
-
-    def _repr_svg_(self):
-        return self.to_config()._repr_svg_()
 
     def assign(
         self,

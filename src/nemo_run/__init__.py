@@ -15,7 +15,7 @@
 
 from nemo_run import cli
 from nemo_run.api import autoconvert, dryrun_fn
-from nemo_run.config import Config, Partial, Script
+from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor, ExecutorMacros, FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
@@ -34,6 +34,7 @@ __all__ = [
     "cli",
     "dryrun_fn",
     "Config",
+    "ConfigurableMixin",
     "DevSpace",
     "Executor",
     "ExecutorMacros",

@@ -31,13 +31,21 @@ import fiddle as fdl
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn
 from rich.progress import Task as RichTask
+from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState, is_terminal
 
 import nemo_run as run
-from nemo_run.config import NEMORUN_HOME, Config, Partial, Script, get_type_namespace
+from nemo_run.config import (
+    NEMORUN_HOME,
+    Config,
+    ConfigurableMixin,
+    Partial,
+    Script,
+    get_type_namespace,
+)
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
@@ -45,8 +53,8 @@ from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE, configure_logging, deconfigure_logging
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.client import SSHTunnel, Tunnel
+from nemo_run.run.job import Job, JobGroup
 from nemo_run.run.plugin import ExperimentPlugin
-from nemo_run.run.task import ExperimentTask, ExperimentTaskGroup
 from nemo_run.run.torchx_backend.runner import get_runner
 from nemo_run.run.utils import TeeStdoutStderr
 
@@ -57,7 +65,7 @@ _current_experiment: contextvars.ContextVar["Experiment"] = contextvars.ContextV
 _SUPPORTED_EXECUTORS = (SlurmExecutor, LocalExecutor, SkypilotExecutor)
 
 
-class Experiment:
+class Experiment(ConfigurableMixin):
     """
     A context manager to launch and manage multiple runs, all using pure Python.
 
@@ -199,6 +207,9 @@ nemorun experiment cancel {exp_id} 0
         with open(os.path.join(exp_dir, cls._CONFIG_FILE), "r") as f:
             config = f.read()
 
+        if not config:
+            raise ValueError(f"Experiment {id} not found.")
+
         serializer = ZlibJSONSerializer()
         cfg: Config["Experiment"] = fdl.cast(Config, serializer.deserialize(config))
         if "id" not in cfg.__arguments__:
@@ -207,7 +218,7 @@ nemorun experiment cancel {exp_id} 0
         cfg._reconstruct = True
 
         exp: "Experiment" = fdl.build(cfg)
-        exp.tasks = exp._load_tasks()
+        exp._jobs = exp._load_jobs()
 
         return exp
 
@@ -251,6 +262,7 @@ nemorun experiment cancel {exp_id} 0
         id: str | None = None,
         log_level: str = "INFO",
         _reconstruct: bool = False,
+        jobs: list[Job | JobGroup] | None = None,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -288,14 +300,14 @@ nemorun experiment cancel {exp_id} 0
             assert isinstance(executor, Executor)
             self.executor = executor
 
-        self.tasks: list[ExperimentTask | ExperimentTaskGroup] = []
+        self._jobs: list[Job | JobGroup] = jobs or []
         self.tunnels: dict[str, Tunnel] = {}
         self.console = CONSOLE
         self._launched = False
         self._live_progress = None
         self._current_experiment_token = None
 
-    def _to_config(self) -> Config:
+    def to_config(self) -> Config:
         return Config(
             self.__class__,
             title=self._title,
@@ -306,15 +318,15 @@ nemorun experiment cancel {exp_id} 0
 
     def _save_config(self):
         with open(os.path.join(self._exp_dir, self.__class__._CONFIG_FILE), "w+") as f:
-            f.write(ZlibJSONSerializer().serialize(self._to_config()))
+            f.write(ZlibJSONSerializer().serialize(self.to_config()))
 
         with open(os.path.join(self._exp_dir, self.__class__._VERSION_FILE), "w+") as f:
             f.write(f"{run.__version__}\n")
 
-    def _save_tasks(self):
-        serialized_tasks = list(map(lambda task: task.serialize(), self.tasks))
+    def _save_jobs(self):
+        serialized_jobs = list(map(lambda job: job.serialize(), self.jobs))
         with open(os.path.join(self._exp_dir, self.__class__._TASK_FILE), "w+") as f:
-            json.dump(serialized_tasks, f)
+            json.dump(serialized_jobs, f)
 
         if "__main__" in sys.modules:
             main_module = sys.modules["__main__"]
@@ -324,45 +336,49 @@ nemorun experiment cancel {exp_id} 0
             except TypeError:
                 ...
 
-    def _load_tasks(self) -> list[ExperimentTask | ExperimentTaskGroup]:
-        maybe_load_external_main(self._exp_dir)
+    def _load_jobs(self) -> list[Job | JobGroup]:
+        if "__external_main__" not in sys.modules:
+            maybe_load_external_main(self._exp_dir)
         with open(os.path.join(self._exp_dir, self._TASK_FILE)) as f:
-            serialized_tasks = json.load(f)
+            serialized_jobs = json.load(f)
 
         serializer = ZlibJSONSerializer()
-        tasks = []
-        for task_cfg, fn_or_script_cfg in serialized_tasks:
-            task_cfg = serializer.deserialize(task_cfg)
+        jobs = []
+        for job_cfg, task_cfg in serialized_jobs:
+            job_cfg = serializer.deserialize(job_cfg)
 
-            built_task: ExperimentTask | ExperimentTaskGroup = fdl.build(task_cfg)
-            if isinstance(built_task, ExperimentTask):
-                built_task.fn_or_script = fn_or_script_cfg  # type: ignore
-            elif isinstance(built_task, ExperimentTaskGroup):
-                built_task.fn_or_scripts = fn_or_script_cfg  # type: ignore
+            if isinstance(task_cfg, str):
+                task_cfg = serializer.deserialize(task_cfg)
+
+            job: Job | JobGroup = fdl.build(job_cfg)
+            if isinstance(job, Job):
+                job.task = task_cfg  # type: ignore
+            elif isinstance(job, JobGroup):
+                job.tasks = task_cfg  # type: ignore
             else:
                 raise ValueError(f"Unknown task type: {task_cfg.__fn_or_cls__}")
 
-            tasks.append(built_task)
+            jobs.append(job)
 
-        return tasks
+        return jobs
 
     def _add_single_task(
         self,
-        fn_or_script: Union[Partial, Script],
+        task: Union[Partial, Script],
         executor: Executor,
         name: str = "",
         plugins: Optional[list[ExperimentPlugin]] = None,
         tail_logs: bool = False,
     ):
-        if isinstance(fn_or_script, Script):
-            default_name = fn_or_script.get_name()
+        if isinstance(task, Script):
+            default_name = task.get_name()
         else:
-            default_name = get_type_namespace(fn_or_script.__fn_or_cls__)
+            default_name = get_type_namespace(task.__fn_or_cls__)
 
         reuse_job_dir = True if name else False
         name = name or default_name
-        if any(map(lambda task: task.id == name, self.tasks)):
-            task_id = f"{name}_{len(self.tasks)}"
+        if any(map(lambda job: job.id == name, self.jobs)):
+            task_id = f"{name}_{len(self.jobs)}"
         else:
             task_id = name
 
@@ -374,14 +390,10 @@ nemorun experiment cancel {exp_id} 0
             task_dir=name if reuse_job_dir else task_id,
         )
 
-        fn_or_script = (
-            copy.deepcopy(fn_or_script)
-            if isinstance(fn_or_script, Script)
-            else fn_or_script.clone()
-        )
-        task = ExperimentTask(
+        cloned = copy.deepcopy(task) if isinstance(task, Script) else task.clone()
+        job = Job(
             id=task_id,
-            fn_or_script=fn_or_script,
+            task=cloned,
             executor=executor,
             plugins=plugins,
             tail_logs=tail_logs,
@@ -389,20 +401,20 @@ nemorun experiment cancel {exp_id} 0
         plugins = plugins or []
         for plugin in plugins:
             plugin.assign(self._id)
-            plugin.setup(fn_or_script, executor)
+            plugin.setup(task, executor)
 
-        self.tasks.append(task)
+        self._jobs.append(job)
 
     def _add_task_group(
         self,
-        fn_or_scripts: list[Partial | Script],
+        tasks: list[Partial | Script],
         executor: list[Executor] | Executor,
         name: str,
         plugins: Optional[list[ExperimentPlugin]] = None,
         tail_logs: bool = False,
     ):
-        if any(map(lambda task: task.id == name, self.tasks)):
-            task_id = f"{name}_{len(self.tasks)}"
+        if any(map(lambda task: task.id == name, self.jobs)):
+            task_id = f"{name}_{len(self.jobs)}"
         else:
             task_id = name
 
@@ -413,34 +425,30 @@ nemorun experiment cancel {exp_id} 0
             cloned_executors.append(new_executor)
             new_executor.assign(self._id, self._exp_dir, task_id, task_dir=name)
 
-        cloned_fn_or_scripts = []
-        for fn_or_script in fn_or_scripts:
-            cloned_fn_or_script = (
-                copy.deepcopy(fn_or_script)
-                if isinstance(fn_or_script, Script)
-                else fn_or_script.clone()
-            )
-            cloned_fn_or_scripts.append(cloned_fn_or_script)
+        cloned_tasks = []
+        for task in tasks:
+            cloned_task = copy.deepcopy(task) if isinstance(task, Script) else task.clone()
+            cloned_tasks.append(cloned_task)
 
-        task_group = ExperimentTaskGroup(
+        task_group = JobGroup(
             id=name,
-            fn_or_scripts=cloned_fn_or_scripts,
+            tasks=cloned_tasks,
             executors=cloned_executors,
             plugins=plugins,
             tail_logs=tail_logs,
         )
         plugins = plugins or []
         for plugin in plugins:
-            for i, _fn_or_script in enumerate(cloned_fn_or_scripts):
+            for i, task in enumerate(cloned_tasks):
                 _executor = task_group.executors if task_group._merge else task_group.executors[i]  # type: ignore
                 assert isinstance(_executor, Executor)
-                plugin.setup(_fn_or_script, _executor)
+                plugin.setup(task, _executor)
 
-        self.tasks.append(task_group)
+        self._jobs.append(task_group)
 
     def add(
         self,
-        fn_or_script: Union[Partial, Script] | list[Union[Partial, Script]],
+        task: Union[Partial, Script] | list[Union[Partial, Script]],
         executor: Executor | list[Executor] | None = None,
         name: str = "",
         plugins: Optional[list[ExperimentPlugin]] = None,
@@ -454,28 +462,26 @@ nemorun experiment cancel {exp_id} 0
         ), "Using Experiment without it's context manager is not permitted."
 
         executor = executor or self.executor
-        if not isinstance(fn_or_script, list):
+        if not isinstance(task, list):
             assert executor and isinstance(executor, Executor)
-            self._add_single_task(
-                fn_or_script, executor, name, plugins=plugins, tail_logs=tail_logs
-            )
+            self._add_single_task(task, executor, name, plugins=plugins, tail_logs=tail_logs)
         else:
             assert name, "name is required for task group."
-            self._add_task_group(fn_or_script, executor, name, plugins=plugins, tail_logs=tail_logs)
+            self._add_task_group(task, executor, name, plugins=plugins, tail_logs=tail_logs)
 
-        self._save_tasks()
+        self._save_jobs()
 
     def dryrun(self):
         """
         Logs the raw scripts that will be executed for each task.
         """
         self.console.log(f"[bold magenta]Experiment {self._id} dryrun...")
-        for task in self.tasks:
-            if isinstance(task, ExperimentTask):
-                self.console.log(f"[bold magenta]Task {task.id}\n")
-            elif isinstance(task, ExperimentTaskGroup):
-                self.console.log(f"[bold magenta]Task Group {task.id}\n")
-            task.launch(wait=False, runner=self._runner, dryrun=True)
+        for job in self.jobs:
+            if isinstance(job, Job):
+                self.console.log(f"[bold magenta]Task {job.id}\n")
+            elif isinstance(job, JobGroup):
+                self.console.log(f"[bold magenta]Task Group {job.id}\n")
+            job.launch(wait=False, runner=self._runner, dryrun=True)
 
     def run(
         self,
@@ -522,34 +528,38 @@ nemorun experiment cancel {exp_id} 0
 
         if direct:
             self.console.log(
-                "[bold magenta]Running the experiment with direct=True"
+                "[bold magenta]Running the experiment with direct=True. "
                 "This will launch all tasks sequentially in the same process."
             )
-            assert all(
-                map(lambda task: isinstance(task, ExperimentTask), self.tasks)
-            ), "Tasks in this experiment contain ExperimentTaskGroup which cannot be run directly for now."
-            for task in self.tasks:
-                assert isinstance(task, ExperimentTask)
-                with TeeStdoutStderr(
-                    os.path.join(task.executor.job_dir, f"log_{task.id}_direct_run.out")
-                ):
-                    task.launch(wait=True, direct=True, runner=self._runner)
-                self._save_tasks()
+            if not self.jobs:
+                self.console.log("[bold red]No tasks to run in this experiment.")
+                return
 
-            self._launched = any(map(lambda task: task.launched, self.tasks))
+            assert all(
+                map(lambda job: isinstance(job, Job), self.jobs)
+            ), "Tasks in this experiment contain JobGroup which cannot be run directly for now."
+            for job in self.jobs:
+                assert isinstance(job, Job)
+                with TeeStdoutStderr(
+                    os.path.join(job.executor.job_dir, f"log_{job.id}_direct_run.out")
+                ):
+                    job.launch(wait=True, direct=True, runner=self._runner)
+                self._save_jobs()
+
+            self._launched = any(map(lambda job: job.launched, self.jobs))
             self._direct = True
             return
 
         executors = set()
-        for task in self.tasks:
-            if isinstance(task, ExperimentTask):
-                executors.add(task.executor.__class__)
-            elif isinstance(task, ExperimentTaskGroup):
-                if isinstance(task.executors, list):
-                    for executor in task.executors:
+        for job in self.jobs:
+            if isinstance(job, Job):
+                executors.add(job.executor.__class__)
+            elif isinstance(job, JobGroup):
+                if isinstance(job.executors, list):
+                    for executor in job.executors:
                         executors.add(executor.__class__)
                 else:
-                    executors.add(task.executors.__class__)
+                    executors.add(job.executors.__class__)
 
         if detach and any(map(lambda x: x not in self._DETACH_SUPPORTED_EXECUTORS, executors)):
             self.console.log(
@@ -558,22 +568,22 @@ nemorun experiment cancel {exp_id} 0
             detach = False
 
         add_deps = False
-        task_deps: list[list[ExperimentTask | ExperimentTaskGroup]] = [[]]
+        task_deps: list[list[Job | JobGroup]] = [[]]
         if sequential:
             if all(map(lambda x: x in self._DEPENDENCY_SUPPORTED_EXECUTORS, executors)):
                 wait = False
                 add_deps = True
-                if len(self.tasks) > 1:
+                if len(self.jobs) > 1:
                     self.console.log(
                         "[bold cyan]Tasks will be scheduled all at once but executed sequentially."
                     )
-                    for i in range(1, len(self.tasks)):
-                        task_deps.append([self.tasks[i - 1]])
+                    for i in range(1, len(self.jobs)):
+                        task_deps.append([self.jobs[i - 1]])
 
                 self.detach = detach
             else:
                 wait = True
-                if len(self.tasks) > 1:
+                if len(self.jobs) > 1:
                     self.console.log(
                         f"[bold cyan]Dependencies not supported for atleast one of {executors}."
                         "Tasks will be run one after the other, please keep the process alive."
@@ -589,37 +599,37 @@ nemorun experiment cancel {exp_id} 0
             wait = False
             self.detach = detach
 
-        for i, task in enumerate(self.tasks):
-            self.console.log(f"[bold cyan]Launching task {task.id} for experiment {self._title}")
+        for i, job in enumerate(self.jobs):
+            self.console.log(f"[bold cyan]Launching task {job.id} for experiment {self._title}")
             if tail_logs:
-                task.tail_logs = True
+                job.tail_logs = True
 
             try:
                 if add_deps:
                     deps = []
                     for dep in task_deps[i]:
-                        handle = dep.handle if isinstance(dep, ExperimentTask) else dep.handles[0]
+                        handle = dep.handle if isinstance(dep, Job) else dep.handles[0]
                         assert (
                             dep.launched and handle
-                        ), f"Dependency {dep.id} for {task.id} not yet launched."
+                        ), f"Dependency {dep.id} for {job.id} not yet launched."
                         deps.append(handle)
 
-                    task.executor.dependencies = deps  # type: ignore
-                task.launch(wait=wait, runner=self._runner)
+                    job.executor.dependencies = deps  # type: ignore
+                job.launch(wait=wait, runner=self._runner)
                 if wait:
-                    self._update_progress(task, task.state)
+                    self._update_progress(job, job.state)
 
-                self._save_tasks()
+                self._save_jobs()
             except Exception as e:
-                self.console.log(f"Error running task {task.id}: {e}")
+                self.console.log(f"Error running task {job.id}: {e}")
                 self.console.log(*traceback.format_exception(e))
 
                 self._update_progress(
-                    task,
+                    job,
                     AppState.FAILED,
                 )
 
-        self._launched = any(map(lambda task: task.launched, self.tasks))
+        self._launched = any(map(lambda job: job.launched, self.jobs))
 
     def status(self):
         """
@@ -636,129 +646,125 @@ nemorun experiment cancel {exp_id} 0
             _set_current_experiment = True
 
         try:
-            task_infos = []
-            for i, task in enumerate(self.tasks):
-                task_info = []
-                task_info.append(f"[bold green]Task {i}[/bold green]: [bold orange1]{task.id}")
-                task_info.append(
-                    f"- [bold green]Status[/bold green]: {str(task.status(runner=self._runner))}"
+            job_infos = []
+            for i, job in enumerate(self.jobs):
+                job_info = []
+                job_info.append(f"[bold green]Task {i}[/bold green]: [bold orange1]{job.id}")
+                job_info.append(
+                    f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}"
                 )
-                task_executor = (
-                    task.executor
-                    if isinstance(task, ExperimentTask)
+                job_executor = (
+                    job.executor
+                    if isinstance(job, Job)
                     else (
-                        task.executors
-                        if isinstance(task.executors, Executor)
-                        else task.executors[0]
+                        job.executors if isinstance(job.executors, Executor) else job.executors[0]
                     )
                 )
-                task_info.append(f"- [bold green]Executor[/bold green]: {task_executor.info()}")
+                job_info.append(f"- [bold green]Executor[/bold green]: {job_executor.info()}")
 
                 try:
-                    _, _, path_str = task.handle.partition("://")
+                    _, _, path_str = job.handle.partition("://")
                     path = path_str.split("/")
                     app_id = path[1]
                 except Exception:
                     app_id = ""
 
-                task_info.append(f"- [bold green]Job id[/bold green]: {app_id}")
+                job_info.append(f"- [bold green]Job id[/bold green]: {app_id}")
                 directory_info = [
-                    "- [bold green]Local Directory[/bold green]: " + task_executor.job_dir,
+                    "- [bold green]Local Directory[/bold green]: " + job_executor.job_dir,
                 ]
-                if isinstance(task_executor, SlurmExecutor) and isinstance(
-                    task_executor.tunnel, SSHTunnel
+                if isinstance(job_executor, SlurmExecutor) and isinstance(
+                    job_executor.tunnel, SSHTunnel
                 ):
                     directory_info.extend(
                         [
                             "- [bold green]Remote Directory[/bold green]: "
                             + os.path.join(
-                                task_executor.tunnel.job_dir,
-                                Path(task_executor.job_dir).name,
+                                job_executor.tunnel.job_dir,
+                                Path(job_executor.job_dir).name,
                             ),
                         ]
                     )
-                task_info.extend(directory_info)
-                task_infos.append(Group(*task_info))
+                job_info.extend(directory_info)
+                job_infos.append(Group(*job_info))
 
             self.console.print()
             self.console.print(
                 f"[bold green]Experiment Status for[/bold green] [bold orange1]{self._id}",
                 new_line_start=True,
             )
-            for task_info in task_infos:
-                self.console.print(task_info, soft_wrap=True, new_line_start=True, highlight=False)
+            for job_info in job_infos:
+                self.console.print(job_info, soft_wrap=True, new_line_start=True, highlight=False)
             self.console.print()
         finally:
             if _set_current_experiment and self._current_experiment_token:
                 _current_experiment.reset(self._current_experiment_token)
                 self._current_experiment_token = None
 
-    def cancel(self, task_id: str):
+    def cancel(self, job_id: str):
         """
-        Cancels an existing task if still running.
+        Cancels an existing job if still running.
         """
         _set_current_experiment = False
         if not self._current_experiment_token:
             _current_experiment.set(self)
             _set_current_experiment = True
 
-        self.console.log(f"[bold cyan]Cancelling {task_id} if still running")
+        self.console.log(f"[bold cyan]Cancelling {job_id} if still running")
         try:
-            task = next(filter(lambda x: x.id == task_id, self.tasks))
-            task.cancel(runner=self._runner)
+            job = next(filter(lambda x: x.id == job_id, self.jobs))
+            job.cancel(runner=self._runner)
         except StopIteration:
-            self.console.log(f"[bold red]Task {task_id} not found")
+            self.console.log(f"[bold red]Job {job_id} not found")
         except Exception as e:
-            self.console.log(f"[bold red]Failed to cancel {task_id}\nError: {e}\n")
+            self.console.log(f"[bold red]Failed to cancel {job_id}\nError: {e}\n")
             self.console.log(*traceback.format_exception(e))
         finally:
             if _set_current_experiment and self._current_experiment_token:
                 _current_experiment.reset(self._current_experiment_token)
                 self._current_experiment_token = None
 
-    def logs(self, task_id: str, regex: str | None = None):
+    def logs(self, job_id: str, regex: str | None = None):
         """
-        Prints the logs of the specified task_id, optionally filtered by regex.
+        Prints the logs of the specified job_id, optionally filtered by regex.
         """
         _set_current_experiment = False
         if not self._current_experiment_token:
             _current_experiment.set(self)
             _set_current_experiment = True
 
-        self.console.log(f"[bold cyan]Fetching logs for {task_id}")
+        self.console.log(f"[bold cyan]Fetching logs for {job_id}")
         try:
-            task = next(filter(lambda x: x.id == task_id, self.tasks))
-            if isinstance(task, ExperimentTask) and task.handle.endswith("direct_run"):
-                self.console.log("This task was run with direct=True.")
+            job = next(filter(lambda x: x.id == job_id, self.jobs))
+            if isinstance(job, Job) and job.handle.endswith("direct_run"):
+                self.console.log("This job was run with direct=True.")
                 self.console.log(
-                    f"Logs may be present in task directory at:\n[bold]{task.executor.job_dir}."
+                    f"Logs may be present in task directory at:\n[bold]{job.executor.job_dir}."
                 )
                 return
 
             try:
-                task.logs(runner=self._runner, regex=regex)
+                job.logs(runner=self._runner, regex=regex)
             except Exception as e:
-                self.console.log(f"[bold red]Failed to get logs for {task_id}\nError: {e}\n")
-                task_executor = (
-                    task.executor
-                    if isinstance(task, ExperimentTask)
+                self.console.log(f"[bold red]Failed to get logs for {job_id}\nError: {e}\n")
+                job_executor = (
+                    job.executor
+                    if isinstance(job, Job)
                     else (
-                        task.executors
-                        if isinstance(task.executors, Executor)
-                        else task.executors[0]
+                        job.executors if isinstance(job.executors, Executor) else job.executors[0]
                     )
                 )
                 self.console.log(
-                    f"Logs may be present in task directory at:\n[bold]{task_executor.job_dir}."
+                    f"Logs may be present in job directory at:\n[bold]{job_executor.job_dir}."
                 )
         except StopIteration:
-            self.console.log(f"[bold red]Task {task_id} not found")
+            self.console.log(f"[bold red]Job {job_id} not found")
         finally:
             if _set_current_experiment and self._current_experiment_token:
                 _current_experiment.reset(self._current_experiment_token)
                 self._current_experiment_token = None
 
-    def reset(self):
+    def reset(self) -> "Experiment":
         """
         Resets an experiment to make it ready for a relaunch.
         Only works if the current experiment run has already been launched.
@@ -778,45 +784,46 @@ nemorun experiment cancel {exp_id} 0
         self._launched = False
         self._live_progress = None
 
-        tasks = self.tasks
-        self.tasks = []
+        jobs = self._jobs
+        self._jobs = []
         serializer = ZlibJSONSerializer()
         _set_current_experiment = False
         if not self._current_experiment_token:
             _current_experiment.set(self)
             _set_current_experiment = True
 
+        if "__main__.py" in os.listdir(old_exp_dir):
+            shutil.copy(os.path.join(old_exp_dir, "__main__.py"), self._exp_dir)
+
         try:
-            for task in tasks:
-                if isinstance(task, ExperimentTask):
-                    if isinstance(task.fn_or_script, str):
-                        fn_or_script = serializer.deserialize(task.fn_or_script)
-                        if fn_or_script.__fn_or_cls__ == Script:
-                            task.fn_or_script = fdl.build(fn_or_script)
+            for job in jobs:
+                if isinstance(job, Job):
+                    if isinstance(job.task, str):
+                        _task = serializer.deserialize(job.task)
+                        if _task.__fn_or_cls__ == Script:
+                            job.task = fdl.build(_task)
                         else:
-                            task.fn_or_script = fn_or_script  # type: ignore
+                            job.task = _task  # type: ignore
 
                     self.add(
-                        task.fn_or_script,
-                        task.executor,
-                        name=task.id,
-                        tail_logs=task.tail_logs,
+                        job.task,
+                        job.executor,
+                        name=job.id,
+                        tail_logs=job.tail_logs,
                     )
                 else:
-                    if isinstance(task.fn_or_scripts, str):
-                        fn_or_scripts = serializer.deserialize(task.fn_or_scripts)
-                        task.fn_or_scripts = [
-                            fdl.build(fn_or_script)
-                            if fn_or_script.__fn_or_cls__ == Script
-                            else fn_or_script
-                            for fn_or_script in fn_or_scripts
+                    if isinstance(job.tasks, str):
+                        tasks = serializer.deserialize(job.tasks)
+                        job.tasks = [
+                            fdl.build(task) if task.__fn_or_cls__ == Script else task
+                            for task in tasks
                         ]
 
                     self.add(
-                        task.fn_or_scripts,
-                        task.executors,
-                        name=task.id,
-                        tail_logs=task.tail_logs,
+                        job.tasks,
+                        job.executors,
+                        name=job.id,
+                        tail_logs=job.tail_logs,
                     )
         except Exception as e:
             self.console.log(
@@ -830,7 +837,7 @@ nemorun experiment cancel {exp_id} 0
             self._id = old_id
             self._exp_dir = old_exp_dir
             self._launched = old_launched
-            self.tasks = self._load_tasks()
+            self._jobs = self._load_jobs()
         finally:
             if _set_current_experiment and self._current_experiment_token:
                 _current_experiment.reset(self._current_experiment_token)
@@ -839,11 +846,13 @@ nemorun experiment cancel {exp_id} 0
         self._reconstruct = False
         self._save_config()
 
+        return self
+
     def _initialize_live_progress(self):
         if not self._live_progress:
             # Disable live progress if we are tailing logs for any task
             # as tty output consistency can not be guaranteed as of now
-            if any(map(lambda task: task.tail_logs, self.tasks)):
+            if any(map(lambda job: job.tail_logs, self.jobs)):
                 return
 
             self._progress = Progress(
@@ -861,20 +870,20 @@ nemorun experiment cancel {exp_id} 0
             self._live_progress = Live(self._exp_panel, console=self.console, refresh_per_second=10)
             self._live_progress.start(refresh=True)
 
-    def _add_progress(self, task: ExperimentTask | ExperimentTaskGroup):
+    def _add_progress(self, job: Job | JobGroup):
         if self._live_progress:
-            self._task_progress[task.id] = self._progress.add_task(
-                f"[bold green]{task.id}", total=None
+            self._task_progress[job.id] = self._progress.add_task(
+                f"[bold green]{job.id}", total=None
             )
 
-    def _update_progress(self, task: ExperimentTask | ExperimentTaskGroup, state: AppState):
+    def _update_progress(self, job: Job | JobGroup, state: AppState):
         if self._live_progress:
             color = "[bold green]" if state == AppState.SUCCEEDED else "[bold red]"
-            task_progress_id = self._task_progress[task.id]
+            task_progress_id = self._task_progress[job.id]
             self._progress.stop_task(task_progress_id)
             self._progress.update(
                 task_progress_id,
-                description=f"{color}{task.id} {state}",
+                description=f"{color}{job.id} {state}",
             )
             progress_task: RichTask = self._progress._tasks[task_progress_id]
             progress_task.finished_time = progress_task.elapsed
@@ -940,47 +949,47 @@ nemorun experiment cancel {exp_id} 0
 
                 context = contextvars.copy_context()
                 with ThreadPoolExecutor(initializer=set_context, initargs=(context,)) as executor:
-                    futures: dict[Future, ExperimentTask | ExperimentTaskGroup] = {}
-                    for task in self.tasks:
-                        if isinstance(task, ExperimentTask):
-                            handle_exists = task.handle
+                    futures: dict[Future, Job | JobGroup] = {}
+                    for job in self.jobs:
+                        if isinstance(job, Job):
+                            handle_exists = job.handle
                         else:
-                            handle_exists = len(task.handles) > 0 and all(task.handles)
+                            handle_exists = len(job.handles) > 0 and all(job.handles)
 
-                        if task.launched and handle_exists and not is_terminal(task.state):
+                        if job.launched and handle_exists and not is_terminal(job.state):
                             self._initialize_live_progress()
-                            self._add_progress(task=task)
-                            task_executor = (
-                                task.executor
-                                if isinstance(task, ExperimentTask)
+                            self._add_progress(job=job)
+                            job_executor = (
+                                job.executor
+                                if isinstance(job, Job)
                                 else (
-                                    task.executors[0]
-                                    if isinstance(task.executors, list)
-                                    else task.executors
+                                    job.executors[0]
+                                    if isinstance(job.executors, list)
+                                    else job.executors
                                 )
                             )
                             future = executor.submit(
-                                task.wait,
+                                job.wait,
                                 runner=self._runner
                                 if isinstance(
-                                    task_executor,
+                                    job_executor,
                                     self._RUNNER_DEPENDNET_EXECUTORS,
                                 )
                                 else get_runner(),
                             )
-                            futures[future] = task
+                            futures[future] = job
 
                     for future in as_completed(futures.keys()):
-                        task = futures[future]
+                        job = futures[future]
                         try:
                             future.result()
-                            self._update_progress(task, task.state)
+                            self._update_progress(job, job.state)
                         except Exception as e:
-                            self.console.log(f"Exception while waiting for Task {task.id}: {e}")
+                            self.console.log(f"Exception while waiting for Task {job.id}: {e}")
                             self.console.log(*traceback.format_exception(e))
-                            self._update_progress(task, AppState.UNKNOWN)
+                            self._update_progress(job, AppState.UNKNOWN)
                         finally:
-                            task.cleanup()
+                            job.cleanup()
         finally:
             if self._live_progress:
                 self._live_progress.stop()
@@ -992,20 +1001,25 @@ nemorun experiment cancel {exp_id} 0
                     Syntax(
                         self.GOODBYE_MESSAGE_PYTHON.format(
                             exp_id=self._id,
-                            tasks=list(map(lambda task: task.id, self.tasks)),
+                            tasks=list(map(lambda job: job.id, self.jobs)),
                         ),
                         "python",
+                        theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
                     )
                 )
                 self.console.print(
                     Syntax(
                         self.GOODBYE_MESSAGE_BASH.format(
                             exp_id=self._id,
-                            tasks=list(map(lambda task: task.id, self.tasks)),
+                            tasks=list(map(lambda job: job.id, self.jobs)),
                         ),
                         "shell",
+                        theme=os.environ.get("NEMO_RUN_CODE_THEME", "monokai"),
                     )
                 )
+
+    def _repr_svg_(self):
+        return self.to_config()._repr_svg_()
 
     def __del__(self):
         try:
@@ -1013,6 +1027,24 @@ nemorun experiment cancel {exp_id} 0
             self._cleanup()
         except Exception:
             pass
+
+    @property
+    def jobs(self) -> list[Job | JobGroup]:
+        return Jobs(self._jobs)
+
+    @jobs.setter
+    def jobs(self, jobs: list[Job | JobGroup]):
+        self._jobs = jobs
+
+    @property
+    def tasks(self) -> list[Config]:
+        return Tasks(job.task for job in self._jobs)
+
+
+class Tasks(list, ConfigurableMixin): ...
+
+
+class Jobs(list, ConfigurableMixin): ...
 
 
 def _get_latest_dir(path) -> str:
@@ -1027,14 +1059,27 @@ def _get_sorted_dirs(path: str) -> list[str]:
     return list(dirs)
 
 
+_LOADED_MAINS = set()
+
+
 def maybe_load_external_main(exp_dir: str):
     main_file = Path(exp_dir) / "__main__.py"
-    if main_file.exists():
+    if main_file.exists() and main_file not in _LOADED_MAINS:
+        _LOADED_MAINS.add(main_file)
+
         spec = importlib.util.spec_from_file_location("__external_main__", main_file)
         new_main_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(new_main_module)
-        existing_main = sys.modules["__main__"]
 
+        if "__external_main__" not in sys.modules:
+            sys.modules["__external_main__"] = new_main_module
+        else:
+            external = sys.modules["__external_main__"]
+            for attr in dir(new_main_module):
+                if not attr.startswith("__"):
+                    setattr(external, attr, getattr(new_main_module, attr))
+
+        existing_main = sys.modules["__main__"]
         for attr in dir(new_main_module):
             if not attr.startswith("__"):
                 setattr(existing_main, attr, getattr(new_main_module, attr))

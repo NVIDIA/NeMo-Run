@@ -15,15 +15,13 @@
 
 from dataclasses import dataclass, field
 
-import fiddle as fdl
-import fiddle._src.experimental.dataclasses as fdl_dc
 
-from nemo_run.config import Config, Partial, Script
+from nemo_run.config import ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor
 
 
 @dataclass(kw_only=True)
-class ExperimentPlugin:
+class ExperimentPlugin(ConfigurableMixin):
     """
     A base class for plugins that can be used to modify experiments, tasks, and executors.
     """
@@ -32,15 +30,6 @@ class ExperimentPlugin:
 
     def assign(self, experiment_id: str):
         self.experiment_id = experiment_id
-
-    def to_config(self) -> Config:
-        """
-        Converts this plugin object to a run.Config object. This is used internally for serializing the plugin.
-
-        Returns:
-            Config: A Config object representing this plugin.
-        """
-        return fdl.cast(Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True))
 
     def setup(self, task: Partial | Script, executor: Executor):
         """

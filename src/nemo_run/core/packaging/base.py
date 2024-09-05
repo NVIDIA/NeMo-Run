@@ -17,16 +17,14 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-import fiddle as fdl
-import fiddle._src.experimental.dataclasses as fdl_dc
 
-from nemo_run.config import Config
+from nemo_run.config import ConfigurableMixin
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)
-class Packager:
+class Packager(ConfigurableMixin):
     """
     Base class for packaging your code.
 
@@ -46,12 +44,6 @@ class Packager:
 
     #: Uses component or executor specific debug flags if set to True.
     debug: bool = False
-
-    def to_config(self) -> Config:
-        return fdl.cast(Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True))
-
-    def _repr_svg_(self):
-        return self.to_config()._repr_svg_()
 
     def package(self, path: Path, job_dir: str, name: str) -> str: ...
 
