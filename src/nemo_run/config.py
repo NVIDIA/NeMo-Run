@@ -422,7 +422,7 @@ class Script(ConfigurableMixin):
     def to_command(self, with_entrypoint: bool = False) -> list[str]:
         if self.inline:
             inline = self.inline.replace('"', '\\"')
-            cmd = ["-c", f'"{{{inline}}}"']
+            cmd = ["-c", f'"{inline}"']
             if with_entrypoint:
                 cmd = [self.shell] + cmd
 
