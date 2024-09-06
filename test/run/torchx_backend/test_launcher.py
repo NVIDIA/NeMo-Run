@@ -19,12 +19,13 @@ import threading
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from torchx.schedulers.api import Stream
+from torchx.specs import AppDef, AppStatus
+
 from nemo_run.core.execution.base import Executor
 from nemo_run.exceptions import UnknownStatusError
 from nemo_run.run.logs import get_logs
 from nemo_run.run.torchx_backend.launcher import ContextThread, launch, wait_and_exit
-from torchx.schedulers.api import Stream
-from torchx.specs import AppDef, AppHandle, AppStatus
 
 
 @pytest.fixture
@@ -65,7 +66,7 @@ def test_launch_dryrun(mock_runner, mock_executor, mock_executable):
 
 
 def test_launch_non_dryrun(mock_runner, mock_executor, mock_executable):
-    mock_app_handle = Mock(spec=AppHandle)
+    mock_app_handle = "dummy://nemo_run/my-test-run"
     mock_runner.run.return_value = mock_app_handle
 
     result = launch(
@@ -83,7 +84,7 @@ def test_launch_non_dryrun(mock_runner, mock_executor, mock_executable):
 
 
 def test_launch_wait(mock_runner, mock_executor, mock_executable):
-    mock_app_handle = Mock(spec=AppHandle)
+    mock_app_handle = "dummy://nemo_run/my-test-run"
     mock_runner.run.return_value = mock_app_handle
     mock_runner.status.return_value = MagicMock(spec=AppStatus, state="RUNNING")
     mock_runner.wait.return_value = MagicMock(spec=AppStatus, state="SUCCEEDED")
@@ -102,7 +103,7 @@ def test_launch_wait(mock_runner, mock_executor, mock_executable):
 
 
 def test_wait_and_exit_success(mock_runner):
-    mock_app_handle = Mock(spec=AppHandle)
+    mock_app_handle = "dummy://nemo_run/my-test-run"
     mock_runner.wait.return_value = MagicMock(spec=AppStatus, state="SUCCEEDED")
 
     result = wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
@@ -112,7 +113,7 @@ def test_wait_and_exit_success(mock_runner):
 
 
 def test_wait_and_exit_timeout(mock_runner):
-    mock_app_handle = Mock(spec=AppHandle)
+    mock_app_handle = "dummy://nemo_run/my-test-run"
     mock_runner.wait.return_value = None
 
     with pytest.raises(UnknownStatusError):
@@ -121,7 +122,7 @@ def test_wait_and_exit_timeout(mock_runner):
 
 @patch("nemo_run.run.torchx_backend.launcher.ContextThread")
 def test_wait_and_exit_log_thread_started(mock_thread, mock_runner):
-    mock_app_handle = Mock(spec=AppHandle)
+    mock_app_handle = "dummy://nemo_run/my-test-run"
     mock_runner.wait.return_value = MagicMock(spec=AppStatus, state="SUCCEEDED")
 
     wait_and_exit(app_handle=mock_app_handle, log=True, runner=mock_runner)
@@ -141,7 +142,7 @@ def test_wait_and_exit_log_thread_started(mock_thread, mock_runner):
 
 @patch("nemo_run.run.torchx_backend.launcher.ContextThread")
 def test_wait_and_exit_log_thread_not_started(mock_thread, mock_runner):
-    mock_app_handle = Mock(spec=AppHandle)
+    mock_app_handle = "dummy://nemo_run/my-test-run"
     mock_runner.wait.return_value = MagicMock(spec=AppStatus, state="SUCCEEDED")
     wait_and_exit(app_handle=mock_app_handle, log=False, runner=mock_runner)
     mock_thread.assert_not_called()
