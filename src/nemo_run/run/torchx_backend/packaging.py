@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import logging
+import os
 from typing import Iterator, Optional, Type, Union
 
 import fiddle as fdl
@@ -116,7 +117,7 @@ def package(
             log.warning(f"Failed saving yaml configs due to: {e}")
 
         args = fn_or_script.args
-        role_args = fn_or_script.to_command()
+        role_args = fn_or_script.to_command(filename=os.path.join(executor.job_dir, f"{name}.sh"))
         m = fn_or_script.path if fn_or_script.m else None
         script = fn_or_script.path if not fn_or_script.m else None
         env = env | fn_or_script.env

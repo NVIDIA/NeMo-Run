@@ -259,7 +259,7 @@ class JobGroup(ConfigurableMixin):
     def serialize(self) -> tuple[str, str]:
         cfg = self.to_config()
         tasks_cfg = cfg.tasks
-        cfg.tasks = None
+        cfg.tasks = [None for _ in range(len(tasks_cfg))]
         serializer = ZlibJSONSerializer()
         return serializer.serialize(cfg), serializer.serialize(tasks_cfg)
 

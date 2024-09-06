@@ -24,7 +24,8 @@ from typing import TYPE_CHECKING, Any, Optional, Type
 import fiddle._src.experimental.dataclasses as fdl_dc
 from invoke.context import Context
 
-from nemo_run.core.execution.base import _RUNDIR_NAME, Executor
+from nemo_run.config import RUNDIR_NAME
+from nemo_run.core.execution.base import Executor
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.serialization.yaml import YamlSerializer
@@ -145,7 +146,7 @@ class DockerExecutor(Executor):
             filenames.append(
                 os.path.join(
                     "/",
-                    _RUNDIR_NAME,
+                    RUNDIR_NAME,
                     "configs",
                     name,
                 )
@@ -227,12 +228,9 @@ class DockerContainer:
 
         container_kwargs.update(self.executor.additional_kwargs)
         assert self.executor.experiment_id
-        tee_cmd = f" 2>&1 | tee -a /{_RUNDIR_NAME}/log_{self.name}.out"
+        tee_cmd = f" 2>&1 | tee -a /{RUNDIR_NAME}/log_{self.name}.out"
         command = " ".join(self.command)
-        if command.startswith("bash -c") and command.endswith('"'):
-            command = command[:-1] + tee_cmd + '"'
-        else:
-            command = f'bash -c "{command}{tee_cmd}"'
+        command = f'bash -c "{command}{tee_cmd}"'
 
         return client.containers.run(
             self.executor.container_image,
@@ -242,7 +240,7 @@ class DockerContainer:
             name=self.name,
             hostname=self.name,
             network=NETWORK,
-            working_dir=f"/{_RUNDIR_NAME}/code",
+            working_dir=f"/{RUNDIR_NAME}/code",
             labels={
                 LABEL_EXPERIMENT_ID: self.executor.experiment_id,
                 LABEL_NAME: self.name,

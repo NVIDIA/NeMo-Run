@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import glob
 import json
 import os
 import shutil
@@ -28,9 +29,13 @@ from torchx.schedulers.api import (
     Stream,
     filter_regex,
     split_lines,
+    split_lines_iterator,
 )
 from torchx.schedulers.docker_scheduler import DockerScheduler, _to_str
 from torchx.schedulers.ids import make_unique
+from torchx.schedulers.local_scheduler import (
+    LogIterator,
+)
 from torchx.specs.api import (
     AppDef,
     AppState,
@@ -40,8 +45,8 @@ from torchx.specs.api import (
     is_terminal,
 )
 
-from nemo_run.config import NEMORUN_HOME
-from nemo_run.core.execution.base import _RUNDIR_NAME, Executor
+from nemo_run.config import NEMORUN_HOME, RUNDIR_NAME
+from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.docker import (
     DockerContainer,
     DockerExecutor,
@@ -110,7 +115,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         req.executor.package(packager=req.executor.packager, job_name=basename)
 
         for container in req.containers:
-            container.executor.volumes.append(f"{req.executor.job_dir}:/{_RUNDIR_NAME}")
+            container.executor.volumes.append(f"{req.executor.job_dir}:/{RUNDIR_NAME}")
 
         req.run(client=client)
         _save_req(app_id=req.id, req=req)
@@ -185,11 +190,30 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             return [""]
 
         try:
-            c = next(filter(lambda c: c.name == role_name, req.containers)).get_container(
-                client=self._docker_client, id=app_id
-            )
-            if not c:
+            container = next(filter(lambda c: c.name == role_name, req.containers))
+            if not container:
                 return [""]
+
+            c = container.get_container(client=self._docker_client, id=app_id)
+            if not c:
+                existing_log_files = glob.glob(
+                    os.path.join(container.executor.job_dir, f"*{role_name}*.out")
+                )
+                if not existing_log_files:
+                    return [""]
+
+                log_file = existing_log_files[0]
+                if not os.path.isfile(log_file):
+                    raise RuntimeError(
+                        f"app: {app_id} was not configured to log into a file."
+                        f" Did you run it with log_dir set in Dict[str, CfgVal]?"
+                    )
+                iterator = LogIterator(app_id, log_file, self)
+                # sometimes there's multiple lines per logged line
+                iterator = split_lines_iterator(iterator)
+                if regex:
+                    iterator = filter_regex(regex, iterator)
+                return iterator
         except StopIteration:
             return [""]
 

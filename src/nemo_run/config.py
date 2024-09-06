@@ -45,6 +45,7 @@ _BuildableT = TypeVar("_BuildableT", bound=fdl.Buildable)
 
 RECURSIVE_TYPES = (typing.Union, typing.Optional)
 NEMORUN_HOME = os.environ.get("NEMORUN_HOME", os.path.expanduser("~/.nemo_run"))
+RUNDIR_NAME = "nemo_run"
 
 
 def get_type_namespace(typ: Type | Callable) -> str:
@@ -419,8 +420,20 @@ class Script(ConfigurableMixin):
         else:
             return os.path.basename(self.path)
 
-    def to_command(self, with_entrypoint: bool = False) -> list[str]:
+    def to_command(
+        self, with_entrypoint: bool = False, filename: Optional[str] = None
+    ) -> list[str]:
         if self.inline:
+            if filename:
+                with open(filename, "w") as f:
+                    f.write("#!/usr/bin/bash\n" + self.inline)
+
+                cmd = [os.path.join(f"/{RUNDIR_NAME}", Path(filename).name)]
+                if with_entrypoint:
+                    cmd = [self.shell] + cmd
+
+                return cmd
+
             inline = self.inline.replace('"', '\\"')
             cmd = ["-c", f'"{inline}"']
             if with_entrypoint:

@@ -158,6 +158,14 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         with open(path, "w") as f:
             f.write(script)
 
+        for job in req.jobs:
+            local_script = os.path.join(job_dir, f"{job}.sh")
+            if os.path.isfile(local_script):
+                self.tunnel.put(
+                    local_script,
+                    os.path.join(self.tunnel.job_dir, Path(job_dir).name, Path(local_script).name),
+                )
+
         dst_path = os.path.join(self.tunnel.job_dir, f"{slurm_cfg.job_name}_sbatch.sh")
         self.tunnel.put(local_path=path, remote_path=dst_path)
 
