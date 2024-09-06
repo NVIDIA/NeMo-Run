@@ -43,10 +43,13 @@ LABEL_NAME: str = "nemo-run/name"
 LABEL_ID: str = "nemo-run/id"
 
 
-def ensure_network(client: Optional["DockerClient"] = None) -> None:
+def ensure_network(client: Optional["DockerClient"] = None, network: Optional[str] = None) -> None:
     """
     This creates the torchx docker network. Multi-process safe.
     """
+    if network == "host":
+        return
+
     import filelock
     from docker.errors import APIError
 
@@ -61,7 +64,7 @@ def ensure_network(client: Optional["DockerClient"] = None) -> None:
     # to do client side locking to ensure only one network is created.
     with filelock.FileLock(lock_path, timeout=10):
         try:
-            client.networks.create(name=NETWORK, driver="bridge", check_duplicate=True)
+            client.networks.create(name=network or NETWORK, driver="bridge", check_duplicate=True)
         except APIError as e:
             if "already exists" not in str(e):
                 raise
@@ -93,6 +96,7 @@ class DockerExecutor(Executor):
     #: Refer to https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.ContainerCollection.run for healthcheck format.
     healthcheck: dict[str, Any] = field(default_factory=dict)
     privileged: bool = False
+    network: str = NETWORK
     additional_kwargs: dict[str, Any] = field(default_factory=dict)
     volumes: list[str] = field(default_factory=list)
     packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
@@ -232,6 +236,7 @@ class DockerContainer:
         command = " ".join(self.command)
         command = f'bash -c "{command}{tee_cmd}"'
 
+        ensure_network(client=client, network=self.executor.network)
         return client.containers.run(
             self.executor.container_image,
             command,
@@ -239,7 +244,7 @@ class DockerContainer:
             remove=True,
             name=self.name,
             hostname=self.name,
-            network=NETWORK,
+            network=self.executor.network,
             working_dir=f"/{RUNDIR_NAME}/code",
             labels={
                 LABEL_EXPERIMENT_ID: self.executor.experiment_id,
@@ -281,8 +286,6 @@ class DockerJobRequest:
         return str(self)
 
     def run(self, client: "DockerClient") -> list["Container"]:
-        ensure_network(client)
-
         container_details = []
         for container in self.containers:
             container_details.append(container.run(client=client, id=self.id))
