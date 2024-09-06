@@ -13,9 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import sys
+import threading
 import time
-import traceback
 from queue import Queue
 from typing import Optional, TextIO
 
@@ -32,6 +33,8 @@ from nemo_run.run.torchx_backend.runner import Runner, get_runner
 from nemo_run.run.torchx_backend.schedulers.api import (
     REVERSE_EXECUTOR_MAPPING,
 )
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def print_log_lines(
@@ -128,27 +131,36 @@ def get_logs(
         sys.exit(1)
 
     exceptions = Queue()
+    threads = []
     for role_name, replica_id in replica_ids:
-        print_log_lines(
-            file,
-            runner,
-            app_handle,
-            role_name,
-            replica_id,
-            regex,
-            should_tail,
-            exceptions,
-            streams,
-            log_path=status.ui_url if status else None,
+        thread = threading.Thread(
+            target=print_log_lines,
+            args=(
+                file,
+                runner,
+                app_handle,
+                role_name,
+                replica_id,
+                regex,
+                should_tail,
+                exceptions,
+                streams,
+            ),
         )
+        thread.daemon = True
+        thread.start()
+        threads.append(thread)
+
+    for thread in threads:
+        thread.join()
 
     # Retrieve all exceptions, print all except one and raise the first recorded exception
-    all_exceptions: list[Exception] = []
+    threads_exceptions = []
     while not exceptions.empty():
-        all_exceptions.append(exceptions.get())
+        threads_exceptions.append(exceptions.get())
 
-    if len(all_exceptions) > 0:
-        for i in range(1, len(all_exceptions)):
-            CONSOLE.log(*traceback.format_exception(all_exceptions[i]))
+    if len(threads_exceptions) > 0:
+        for i in range(1, len(threads_exceptions)):
+            logger.error(threads_exceptions[i])
 
-        raise all_exceptions[0]
+        raise threads_exceptions[0]
