@@ -252,7 +252,7 @@ class DockerContainer:
             **container_kwargs,
         )
 
-    def get_container(self, client: "DockerClient", id: str) -> "Container":
+    def get_container(self, client: "DockerClient", id: str) -> Optional["Container"]:
         containers = client.containers.list(
             all=True,
             filters={
@@ -262,11 +262,7 @@ class DockerContainer:
                 ]
             },
         )
-        if len(containers) == 0:
-            raise RuntimeError(f"failed to find container for {id}/{self.name}")
-        elif len(containers) > 1:
-            raise RuntimeError(f"found multiple containers for {id}/{self.name}: {containers}")
-        return containers[0]
+        return containers[0] if len(containers) >= 1 else None
 
 
 @dataclass(kw_only=True)

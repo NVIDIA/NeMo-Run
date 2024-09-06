@@ -140,9 +140,8 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
                 roles_statuses[role] = RoleStatus(role, [])
             roles[role].num_replicas += 1
 
-            state = self._get_app_state(
-                container.get_container(client=self._docker_client, id=app_id)
-            )
+            c = container.get_container(client=self._docker_client, id=app_id)
+            state = self._get_app_state(c) if c else AppState.SUCCEEDED
 
             roles_statuses[role].replicas.append(
                 ReplicaStatus(
@@ -189,6 +188,8 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             c = next(filter(lambda c: c.name == role_name, req.containers)).get_container(
                 client=self._docker_client, id=app_id
             )
+            if not c:
+                return [""]
         except StopIteration:
             return [""]
 

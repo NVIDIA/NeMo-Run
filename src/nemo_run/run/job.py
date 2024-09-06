@@ -370,7 +370,7 @@ class JobGroup(ConfigurableMixin):
             return
 
         executors: list[Executor] = []
-        for i in range(len(self.fn_or_scripts)):
+        for i in range(len(self.tasks)):
             executor = self.executors if self._merge else self.executors[i]  # type: ignore
             assert isinstance(executor, Executor)
             executors.append(executor)
