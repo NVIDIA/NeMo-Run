@@ -34,7 +34,7 @@ from rich.panel import Panel
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.progress import Task as RichTask
 from rich.syntax import Syntax
-from torchx.specs.api import AppState, is_terminal
+from torchx.specs.api import AppState
 
 import nemo_run as run
 from nemo_run.config import (
@@ -954,7 +954,7 @@ nemo experiment cancel {exp_id} 0
                         else:
                             handle_exists = len(job.handles) > 0 and all(job.handles)
 
-                        if job.launched and handle_exists and not is_terminal(job.state):
+                        if job.launched and handle_exists:
                             self._initialize_live_progress()
                             self._add_progress(job=job)
                             job_executor = (
