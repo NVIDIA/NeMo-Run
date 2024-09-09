@@ -20,13 +20,14 @@ from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from torchx.specs.api import AppState, AppStatus, Role
+
 from nemo_run.core.execution.base import Executor
-from nemo_run.run.logs import get_logs, print_log_lines
+from nemo_run.run import logs
 from nemo_run.run.torchx_backend.runner import Runner
 from nemo_run.run.torchx_backend.schedulers.api import (
     REVERSE_EXECUTOR_MAPPING,
 )
-from torchx.specs.api import AppState, AppStatus, Role
 
 
 class MockExecutorNoLogs(Executor):
@@ -73,7 +74,7 @@ def test_print_log_lines_with_log_supported_executor(mock_runner: Runner, mock_s
     )  # assuming app_handle and role_name are correctly passed
     que = queue.Queue()
     with patch.object(executor_cls, "logs", return_value=None) as mock_logs:
-        print_log_lines(
+        logs.print_log_lines(
             io.StringIO(),
             mock_runner,
             "dummy_backend://nemo_run/12345",
@@ -87,7 +88,7 @@ def test_print_log_lines_with_log_supported_executor(mock_runner: Runner, mock_s
         )
         mock_logs.assert_called_once_with("12345", fallback_path=None)
 
-        print_log_lines(
+        logs.print_log_lines(
             io.StringIO(),
             mock_runner,
             "dummy_backend://nemo_run/12345",
@@ -113,7 +114,7 @@ def test_print_log_lines_with_unsupported_executor(
     )  # assuming app_handle and role_name are correctly passed
     mock_runner.log_lines.return_value = ["test_line"]
     que = queue.Queue()
-    print_log_lines(
+    logs.print_log_lines(
         sys.stderr,
         mock_runner,
         "dummy_backend://nemo_run/12345",
@@ -133,7 +134,7 @@ def test_print_log_lines_with_exception(mock_runner, mock_status):
     que = queue.Queue()
     with patch("nemo_run.run.logs.parse_app_handle", side_effect=Exception("Parse Error")):
         with pytest.raises(Exception):
-            print_log_lines(
+            logs.print_log_lines(
                 io.StringIO(),
                 mock_runner,
                 "example://app_id",
@@ -154,7 +155,7 @@ def test_print_log_lines_with_exception(mock_runner, mock_status):
 def test_get_logs_without_running_app(mock_runner: Runner, capsys):
     mock_runner.status.return_value = None
     with pytest.raises(SystemExit):
-        get_logs(
+        logs.get_logs(
             sys.stderr,
             "dummy_backend://nemo_run/12345",
             None,
@@ -173,7 +174,7 @@ def test_get_logs_with_invalid_role(mock_runner: Runner, mock_app: MagicMock, ca
     mock_runner.status.return_value = MagicMock(spec=AppStatus, state="RUNNING")
     with patch("nemo_run.run.logs.find_role_replicas", return_value=[]):
         with pytest.raises(SystemExit):
-            get_logs(
+            logs.get_logs(
                 sys.stderr,
                 "dummy_backend://nemo_run/12345",
                 None,
@@ -185,6 +186,7 @@ def test_get_logs_with_invalid_role(mock_runner: Runner, mock_app: MagicMock, ca
     assert "No role [None] found for app" in captured.out
 
 
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
 def test_get_logs_exception_handling(mock_runner, mock_status, mock_app):
     mock_runner.status.return_value = mock_status
     mock_runner.describe.return_value = mock_app
@@ -192,10 +194,10 @@ def test_get_logs_exception_handling(mock_runner, mock_status, mock_app):
         Role("main", image=""),
         Role("worker", image=""),
     ]
-    with patch("nemo_run.run.logs.print_log_lines", side_effect=Exception("Log Error")):
+    with patch("nemo_run.run.logs.parse_app_handle", side_effect=Exception("Log Error")):
         with pytest.raises(Exception):
-            get_logs(
-                sys.stderr,
+            logs.get_logs(
+                sys.stdout,
                 "dummy_backend://nemo_run/12345",
                 None,
                 False,
@@ -216,7 +218,7 @@ def test_get_logs_calls_print_log_lines(mock_runner, mock_status, mock_app):
         Role("worker", image=""),
     ]
     with patch("nemo_run.run.logs.print_log_lines") as mock_print_log_lines:
-        get_logs(
+        logs.get_logs(
             sys.stderr,
             "dummy_backend://nemo_run/12345",
             None,
