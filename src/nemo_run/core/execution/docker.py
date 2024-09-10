@@ -13,34 +13,56 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import os
+import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Type
 
+import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
 from invoke.context import Context
+from torchx.specs import (
+    parse_app_handle,
+)
 
-from nemo_run.config import RUNDIR_NAME
+from nemo_run.config import NEMORUN_HOME, RUNDIR_NAME
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.serialization.yaml import YamlSerializer
+from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 
 if TYPE_CHECKING:
     from docker import DockerClient
     from docker.models.containers import Container
 
-logger = logging.getLogger(__name__)
+try:
+    import fcntl
 
+    FCNTL_AVAILABLE = True
+except ModuleNotFoundError:
+    fcntl = None
+    FCNTL_AVAILABLE = False
+
+DOCKER_JOB_DIRS = os.path.join(NEMORUN_HOME, ".docker_jobs.json")
 NETWORK = "nemo_run"
 
 LABEL_EXPERIMENT_ID: str = "nemo-run/experiment-id"
 LABEL_NAME: str = "nemo-run/name"
 LABEL_ID: str = "nemo-run/id"
+
+logger = logging.getLogger(__name__)
+
+
+def get_client() -> "DockerClient":
+    import docker
+
+    return docker.from_env()
 
 
 def ensure_network(client: Optional["DockerClient"] = None, network: Optional[str] = None) -> None:
@@ -54,9 +76,7 @@ def ensure_network(client: Optional["DockerClient"] = None, network: Optional[st
     from docker.errors import APIError
 
     if client is None:
-        import docker
-
-        client = docker.from_env()
+        client = get_client()
 
     lock_path = os.path.join(tempfile.gettempdir(), "nemorun_docker_network_lock")
 
@@ -180,6 +200,14 @@ class DockerExecutor(Executor):
 
         ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path}", hide=True)
 
+    def cleanup(self, handle: str):
+        _, _, app_id = parse_app_handle(handle)
+        req = DockerJobRequest.load(app_id=app_id)
+        client = get_client()
+        if req:
+            for container in req.containers:
+                container.delete(client=client, id=app_id)
+
 
 @dataclass(kw_only=True)
 class DockerContainer:
@@ -267,6 +295,14 @@ class DockerContainer:
         )
         return containers[0] if len(containers) >= 1 else None
 
+    def delete(self, client: "DockerClient", id: str):
+        container = self.get_container(client=client, id=id)
+        if container:
+            try:
+                container.remove(force=True)
+            except Exception as e:
+                logger.warning(f"Error deleting container {id}: {e}")
+
 
 @dataclass(kw_only=True)
 class DockerJobRequest:
@@ -294,3 +330,46 @@ class DockerJobRequest:
 
     def get_containers(self, client: "DockerClient") -> list["Container"]:
         return client.containers.list(all=True, filters={"label": f"{LABEL_ID}={self.id}"})
+
+    def save(self) -> None:
+        apps = {}
+        if not os.path.isfile(DOCKER_JOB_DIRS):
+            Path(DOCKER_JOB_DIRS).touch()
+
+        with open(DOCKER_JOB_DIRS, "r+") as f:
+            if FCNTL_AVAILABLE:
+                assert fcntl
+                fcntl.flock(f, fcntl.LOCK_EX)
+
+            try:
+                try:
+                    apps = json.load(f)
+                except Exception:
+                    apps = {}
+
+                apps[self.id] = ZlibJSONSerializer().serialize(self.to_config())
+                with tempfile.NamedTemporaryFile(mode="w+") as fp:
+                    json.dump(apps, fp)
+                    fp.flush()
+
+                    shutil.copy(fp.name, DOCKER_JOB_DIRS)
+                    fp.close()
+            finally:
+                if FCNTL_AVAILABLE:
+                    assert fcntl
+                    fcntl.flock(f, fcntl.LOCK_UN)
+
+    @staticmethod
+    def load(app_id: str) -> Optional["DockerJobRequest"]:
+        try:
+            with open(DOCKER_JOB_DIRS, "r") as f:
+                apps: dict[str, str] = json.load(f)
+        except FileNotFoundError:
+            return None
+
+        for _id, req_str in apps.items():
+            if _id == app_id:
+                req: DockerJobRequest = fdl.build(ZlibJSONSerializer().deserialize(req_str))  # type: ignore
+                return req
+
+        return None

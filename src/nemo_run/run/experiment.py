@@ -179,7 +179,7 @@ nemo experiment logs {exp_id} 0
 nemo experiment cancel {exp_id} 0
 """
     _PARALLEL_SUPPORTED_EXECUTORS = (SlurmExecutor, LocalExecutor, SkypilotExecutor, DockerExecutor)
-    _DETACH_SUPPORTED_EXECUTORS = (SlurmExecutor, SkypilotExecutor, DockerExecutor)
+    _DETACH_SUPPORTED_EXECUTORS = (SlurmExecutor, SkypilotExecutor)
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)
     _RUNNER_DEPENDENT_EXECUTORS = (LocalExecutor,)
     _CONFIG_FILE = "_CONFIG"

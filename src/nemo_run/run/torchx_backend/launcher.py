@@ -155,9 +155,6 @@ def wait_and_exit(
 
     logger.info(f"Job {app_id} finished: {status.state}")
 
-    if log_thread:
-        log_thread.join()
-
     return status
 
 

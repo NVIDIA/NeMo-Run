@@ -14,15 +14,12 @@
 # limitations under the License.
 
 import glob
-import json
+import logging
 import os
-import shutil
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Optional
 
-import fiddle as fdl
 from torchx.schedulers.api import (
     AppDryRunInfo,
     DescribeAppResponse,
@@ -45,31 +42,23 @@ from torchx.specs.api import (
     is_terminal,
 )
 
-from nemo_run.config import NEMORUN_HOME, RUNDIR_NAME
+from nemo_run.config import RUNDIR_NAME
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.docker import (
     DockerContainer,
     DockerExecutor,
     DockerJobRequest,
 )
-from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
-try:
-    import fcntl
-
-    FCNTL_AVAILABLE = True
-except ModuleNotFoundError:
-    fcntl = None
-    FCNTL_AVAILABLE = False
-
-DOCKER_JOB_DIRS = os.path.join(NEMORUN_HOME, ".docker_jobs.json")
+log: logging.Logger = logging.getLogger(__name__)
 
 
 class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignore
     def __init__(self, session_name: str) -> None:
         # NOTE: make sure any new init options are supported in create_scheduler(...)
         super().__init__(session_name)
+        self._scheduled_reqs: list[DockerJobRequest] = []
 
     def _submit_dryrun(self, app: AppDef, cfg: Executor) -> AppDryRunInfo[DockerJobRequest]:  # type: ignore
         assert isinstance(
@@ -118,11 +107,12 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             container.executor.volumes.append(f"{req.executor.job_dir}:/{RUNDIR_NAME}")
 
         req.run(client=client)
-        _save_req(app_id=req.id, req=req)
+        req.save()
+        self._scheduled_reqs.append(req)
         return req.id
 
     def describe(self, app_id: str) -> Optional[DescribeAppResponse]:
-        req = _get_app_req(app_id=app_id)
+        req = DockerJobRequest.load(app_id=app_id)
         if not req:
             return DescribeAppResponse(
                 app_id=app_id,
@@ -159,8 +149,8 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             states.append(state)
 
         state = AppState.UNKNOWN
-        if all(is_terminal(state) for state in states):
-            if all(state == AppState.SUCCEEDED for state in states):
+        if any(is_terminal(state) for state in states):
+            if any(state == AppState.SUCCEEDED for state in states):
                 state = AppState.SUCCEEDED
             else:
                 state = AppState.FAILED
@@ -185,7 +175,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         should_tail: bool = False,
         streams: Optional[Stream] = None,
     ) -> Iterable[str]:
-        req = _get_app_req(app_id=app_id)
+        req = DockerJobRequest.load(app_id=app_id)
         if not req:
             return [""]
 
@@ -240,6 +230,23 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         else:
             return logs
 
+    def close(self) -> None:
+        # terminate all apps
+        for req in self._scheduled_reqs:
+            log.debug(f"Terminating app: {req.id}")
+            for container in req.containers:
+                container.delete(client=self._docker_client, id=req.id)
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception as e:
+            # When the `__del__` method is invoked, we cannot rely on presence of object attributes,
+            # More info: https://stackoverflow.com/questions/18058730/python-attributeerror-on-del
+            log.warning(
+                f"Exception {e} occurred while trying to clean `DockerScheduler` via `__del__` method"
+            )
+
 
 def create_scheduler(
     session_name: str,
@@ -247,47 +254,3 @@ def create_scheduler(
     return PersistentDockerScheduler(
         session_name=session_name,
     )
-
-
-def _save_req(app_id: str, req: DockerJobRequest) -> None:
-    apps = {}
-    if not os.path.isfile(DOCKER_JOB_DIRS):
-        Path(DOCKER_JOB_DIRS).touch()
-
-    with open(DOCKER_JOB_DIRS, "r+") as f:
-        if FCNTL_AVAILABLE:
-            assert fcntl
-            fcntl.flock(f, fcntl.LOCK_EX)
-
-        try:
-            try:
-                apps = json.load(f)
-            except Exception:
-                apps = {}
-
-            apps[app_id] = ZlibJSONSerializer().serialize(req.to_config())
-            with tempfile.NamedTemporaryFile(mode="w+") as fp:
-                json.dump(apps, fp)
-                fp.flush()
-
-                shutil.copy(fp.name, DOCKER_JOB_DIRS)
-                fp.close()
-        finally:
-            if FCNTL_AVAILABLE:
-                assert fcntl
-                fcntl.flock(f, fcntl.LOCK_UN)
-
-
-def _get_app_req(app_id: str) -> Optional[DockerJobRequest]:
-    try:
-        with open(DOCKER_JOB_DIRS, "r") as f:
-            apps: dict[str, str] = json.load(f)
-    except FileNotFoundError:
-        return None
-
-    for _id, req_str in apps.items():
-        if _id == app_id:
-            req: DockerJobRequest = fdl.build(ZlibJSONSerializer().deserialize(req_str))  # type: ignore
-            return req
-
-    return None
