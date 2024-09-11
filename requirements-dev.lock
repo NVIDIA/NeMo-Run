@@ -12,24 +12,46 @@
 -e file:.
 absl-py==2.1.0
     # via fiddle
+antlr4-python3-runtime==4.9.3
+    # via omegaconf
+anyio==4.4.0
+    # via httpx
+    # via jupyter-server
 appnope==0.1.4
     # via ipykernel
+argon2-cffi==23.1.0
+    # via jupyter-server
+argon2-cffi-bindings==21.2.0
+    # via argon2-cffi
+arrow==1.3.0
+    # via isoduration
 asttokens==2.4.1
     # via stack-data
+async-lru==2.0.4
+    # via jupyterlab
 attrs==24.2.0
     # via jsonschema
     # via referencing
+babel==2.16.0
+    # via jupyterlab-server
 bcrypt==4.2.0
     # via paramiko
+beautifulsoup4==4.12.3
+    # via nbconvert
+bleach==6.1.0
+    # via nbconvert
 cachetools==5.5.0
     # via google-auth
     # via skypilot
 catalogue==2.0.10
     # via nemo-run
 certifi==2024.7.4
+    # via httpcore
+    # via httpx
     # via kubernetes
     # via requests
 cffi==1.17.0
+    # via argon2-cffi-bindings
     # via cryptography
     # via pynacl
 cfgv==3.4.0
@@ -54,6 +76,8 @@ debugpy==1.8.5
 decorator==5.1.1
     # via fabric
     # via ipython
+defusedxml==0.7.1
+    # via nbconvert
 deprecated==1.2.14
     # via fabric
 distlib==0.3.8
@@ -66,21 +90,34 @@ executing==2.0.1
     # via stack-data
 fabric==3.2.2
     # via nemo-run
+fastjsonschema==2.20.0
+    # via nbformat
 fiddle==0.3.0
     # via nemo-run
 filelock==3.15.4
     # via skypilot
     # via torchx
     # via virtualenv
+fqdn==1.5.1
+    # via jsonschema
 fsspec==2024.6.1
     # via torchx
 google-auth==2.34.0
     # via kubernetes
 graphviz==0.20.3
     # via fiddle
+h11==0.14.0
+    # via httpcore
+httpcore==1.0.5
+    # via httpx
+httpx==0.27.2
+    # via jupyterlab
 identify==2.6.0
     # via pre-commit
 idna==3.7
+    # via anyio
+    # via httpx
+    # via jsonschema
     # via requests
 importlib-metadata==8.3.0
     # via torchx
@@ -91,24 +128,74 @@ inquirerpy==0.3.4
 invoke==2.2.0
     # via fabric
 ipykernel==6.29.5
+    # via jupyter
+    # via jupyter-console
+    # via jupyterlab
 ipython==8.26.0
     # via ipykernel
     # via ipywidgets
+    # via jupyter-console
 ipywidgets==8.1.3
+    # via jupyter
+isoduration==20.11.0
+    # via jsonschema
 jedi==0.19.1
     # via ipython
 jinja2==3.1.4
+    # via jupyter-server
+    # via jupyterlab
+    # via jupyterlab-server
+    # via nbconvert
     # via nemo-run
     # via skypilot
+json5==0.9.25
+    # via jupyterlab-server
+jsonpointer==3.0.0
+    # via jsonschema
 jsonschema==4.23.0
+    # via jupyter-events
+    # via jupyterlab-server
+    # via nbformat
     # via skypilot
 jsonschema-specifications==2023.12.1
     # via jsonschema
+jupyter==1.1.1
 jupyter-client==8.6.2
     # via ipykernel
+    # via jupyter-console
+    # via jupyter-server
+    # via nbclient
+jupyter-console==6.6.3
+    # via jupyter
 jupyter-core==5.7.2
     # via ipykernel
     # via jupyter-client
+    # via jupyter-console
+    # via jupyter-server
+    # via jupyterlab
+    # via nbclient
+    # via nbconvert
+    # via nbformat
+jupyter-events==0.10.0
+    # via jupyter-server
+jupyter-lsp==2.2.5
+    # via jupyterlab
+jupyter-server==2.14.2
+    # via jupyter-lsp
+    # via jupyterlab
+    # via jupyterlab-server
+    # via notebook
+    # via notebook-shim
+jupyter-server-terminals==0.5.3
+    # via jupyter-server
+jupyterlab==4.2.5
+    # via jupyter
+    # via notebook
+jupyterlab-pygments==0.3.0
+    # via nbconvert
+jupyterlab-server==2.27.3
+    # via jupyterlab
+    # via notebook
 jupyterlab-widgets==3.0.11
     # via ipywidgets
 kubernetes==30.1.0
@@ -119,31 +206,58 @@ markdown-it-py==3.0.0
     # via rich
 markupsafe==2.1.5
     # via jinja2
+    # via nbconvert
 matplotlib-inline==0.1.7
     # via ipykernel
     # via ipython
 mdurl==0.1.2
     # via markdown-it-py
+mistune==3.0.2
+    # via nbconvert
 mypy-extensions==1.0.0
     # via typing-inspect
+nbclient==0.10.0
+    # via nbconvert
+nbconvert==7.16.4
+    # via jupyter
+    # via jupyter-server
+nbformat==5.10.4
+    # via jupyter-server
+    # via nbclient
+    # via nbconvert
 nest-asyncio==1.6.0
     # via ipykernel
 networkx==3.3
     # via skypilot
 nodeenv==1.9.1
     # via pre-commit
+notebook==7.2.2
+    # via jupyter
+notebook-shim==0.2.4
+    # via jupyterlab
+    # via notebook
 numpy==2.1.0
     # via pandas
 oauthlib==3.2.2
     # via kubernetes
     # via requests-oauthlib
+omegaconf==2.3.0
+    # via nemo-run
+overrides==7.7.0
+    # via jupyter-server
 packaging==24.1
     # via ipykernel
+    # via jupyter-server
+    # via jupyterlab
+    # via jupyterlab-server
+    # via nbconvert
     # via pytest
     # via pytest-sugar
     # via skypilot
 pandas==2.2.2
     # via skypilot
+pandocfilters==1.5.1
+    # via nbconvert
 paramiko==3.4.1
     # via fabric
 parso==0.8.4
@@ -162,14 +276,18 @@ pluggy==1.5.0
 pre-commit==3.8.0
 prettytable==3.11.0
     # via skypilot
+prometheus-client==0.20.0
+    # via jupyter-server
 prompt-toolkit==3.0.47
     # via inquirerpy
     # via ipython
+    # via jupyter-console
 psutil==6.0.0
     # via ipykernel
     # via skypilot
 ptyprocess==0.7.0
     # via pexpect
+    # via terminado
 pulp==2.9.0
     # via skypilot
 pure-eval==0.2.3
@@ -183,6 +301,8 @@ pycparser==2.22
     # via cffi
 pygments==2.18.0
     # via ipython
+    # via jupyter-console
+    # via nbconvert
     # via rich
 pynacl==1.5.0
     # via paramiko
@@ -194,6 +314,7 @@ pytest==8.3.2
 pytest-mock==3.14.0
 pytest-sugar==1.0.0
 python-dateutil==2.9.0.post0
+    # via arrow
     # via jupyter-client
     # via kubernetes
     # via pandas
@@ -201,27 +322,41 @@ python-dateutil==2.9.0.post0
     # via time-machine
 python-dotenv==1.0.1
     # via skypilot
+python-json-logger==2.0.7
+    # via jupyter-events
 pytz==2024.1
     # via pandas
 pyyaml==6.0.2
+    # via jupyter-events
     # via kubernetes
     # via libcst
+    # via omegaconf
     # via pre-commit
     # via skypilot
     # via torchx
 pyzmq==26.1.1
     # via ipykernel
     # via jupyter-client
+    # via jupyter-console
+    # via jupyter-server
 referencing==0.35.1
     # via jsonschema
     # via jsonschema-specifications
+    # via jupyter-events
 requests==2.32.3
     # via docker
+    # via jupyterlab-server
     # via kubernetes
     # via requests-oauthlib
     # via skypilot
 requests-oauthlib==2.0.0
     # via kubernetes
+rfc3339-validator==0.1.4
+    # via jsonschema
+    # via jupyter-events
+rfc3986-validator==0.1.1
+    # via jsonschema
+    # via jupyter-events
 rich==13.7.1
     # via nemo-run
     # via skypilot
@@ -232,14 +367,25 @@ rpds-py==0.20.0
 rsa==4.9
     # via google-auth
 ruff==0.6.1
+send2trash==1.8.3
+    # via jupyter-server
+setuptools==74.1.2
+    # via jupyterlab
 shellingham==1.5.4
     # via typer
 six==1.16.0
     # via asttokens
+    # via bleach
     # via kubernetes
     # via python-dateutil
+    # via rfc3339-validator
 skypilot==0.6.1
     # via nemo-run
+sniffio==1.3.1
+    # via anyio
+    # via httpx
+soupsieve==2.6
+    # via beautifulsoup4
 stack-data==0.6.3
     # via ipython
 tabulate==0.9.0
@@ -247,23 +393,41 @@ tabulate==0.9.0
     # via torchx
 termcolor==2.4.0
     # via pytest-sugar
+terminado==0.18.1
+    # via jupyter-server
+    # via jupyter-server-terminals
 time-machine==2.15.0
     # via pendulum
+tinycss2==1.3.0
+    # via nbconvert
 torchx==0.7.0
     # via nemo-run
 tornado==6.4.1
     # via ipykernel
     # via jupyter-client
+    # via jupyter-server
+    # via jupyterlab
+    # via notebook
+    # via terminado
 traitlets==5.14.3
     # via comm
     # via ipykernel
     # via ipython
     # via ipywidgets
     # via jupyter-client
+    # via jupyter-console
     # via jupyter-core
+    # via jupyter-events
+    # via jupyter-server
+    # via jupyterlab
     # via matplotlib-inline
+    # via nbclient
+    # via nbconvert
+    # via nbformat
 typer==0.12.4
     # via nemo-run
+types-python-dateutil==2.9.0.20240906
+    # via arrow
 typing-extensions==4.12.2
     # via fiddle
     # via ipython
@@ -276,6 +440,8 @@ typing-inspect==0.9.0
 tzdata==2024.1
     # via pandas
     # via pendulum
+uri-template==1.3.0
+    # via jsonschema
 urllib3==1.26.19
     # via docker
     # via kubernetes
@@ -286,7 +452,13 @@ virtualenv==20.26.3
 wcwidth==0.2.13
     # via prettytable
     # via prompt-toolkit
+webcolors==24.8.0
+    # via jsonschema
+webencodings==0.5.1
+    # via bleach
+    # via tinycss2
 websocket-client==1.8.0
+    # via jupyter-server
     # via kubernetes
 wheel==0.44.0
     # via skypilot
