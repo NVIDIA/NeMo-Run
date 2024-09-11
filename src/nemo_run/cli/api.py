@@ -928,7 +928,17 @@ class RunContext:
         Returns:
             bool: True if execution should continue, False otherwise.
         """
-        return skip_confirmation or typer.confirm("Continue?")
+        env_skip = os.environ.get('NEMORUN_SKIP_CONFIRMATION', '').lower() == 'true'
+        
+        if skip_confirmation or env_skip:
+            os.environ['NEMORUN_SKIP_CONFIRMATION'] = 'true'
+            return True
+        
+        if typer.confirm("Continue?"):
+            os.environ['NEMORUN_SKIP_CONFIRMATION'] = 'true'
+            return True
+        
+        return False
 
     def parse_fn(self, fn: T, args: List[str], **default_kwargs) -> Partial[T]:
         """
