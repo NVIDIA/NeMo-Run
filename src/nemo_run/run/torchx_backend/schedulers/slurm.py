@@ -52,7 +52,7 @@ from torchx.specs.api import is_terminal
 
 from nemo_run.config import NEMORUN_HOME, from_dict
 from nemo_run.core.execution.base import Executor
-from nemo_run.core.execution.slurm import JobPaths, SlurmBatchRequest, SlurmExecutor
+from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor, SlurmJobDetails
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel, Tunnel
 from nemo_run.run import experiment as run_experiment
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
@@ -277,7 +277,9 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             local_dir, tunnel_cfg = job_dirs[app_id]
             self._initialize_tunnel(tunnel_cfg)
 
-            local_paths = JobPaths(folder=local_dir, job_name=role_name)
+            local_paths = SlurmJobDetails(
+                folder=Path(local_dir).expanduser().absolute(), job_name=role_name
+            )
             local_file = str(local_paths.stdout).replace("%j", app_id)
 
             iterator = TunnelLogIterator(

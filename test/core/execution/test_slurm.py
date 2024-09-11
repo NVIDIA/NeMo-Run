@@ -22,7 +22,7 @@ import pytest
 
 from nemo_run.config import Script
 from nemo_run.core.execution.base import ExecutorMacros, FaultTolerance
-from nemo_run.core.execution.slurm import JobPaths, SlurmBatchRequest, SlurmExecutor
+from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor, SlurmJobDetails
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.run.torchx_backend.packaging import package
@@ -438,24 +438,51 @@ class TestSlurmBatchRequest:
             in sbatch_script
         )
 
-    def test_dummy_batch_request_custom_file_pattern(
+    def test_dummy_batch_request_custom_job_details_w_defaults(
         self,
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
-        class CustomJobPaths(JobPaths):
+        class CustomJobDetails(SlurmJobDetails):
             @property
             def stdout(self) -> Path:
+                assert self.folder
                 return Path(self.folder / "sbatch_job.out")
 
             @property
             def srun_stdout(self) -> Path:
+                assert self.folder
                 return Path(self.folder / "log_job.out")
 
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.job_paths_cls = CustomJobPaths
+        dummy_slurm_request.slurm_config.job_details = CustomJobDetails()
         sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --job-name=account-account.sample_job" in sbatch_script
         assert "--output /root/sample_job/log_job.out" in sbatch_script
         assert "#SBATCH --output=/root/sample_job/sbatch_job.out" in sbatch_script
+
+    def test_dummy_batch_request_custom_job_details(
+        self,
+        dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        class CustomJobDetails(SlurmJobDetails):
+            @property
+            def stdout(self) -> Path:
+                assert self.folder
+                return Path(self.folder / "sbatch_job.out")
+
+            @property
+            def srun_stdout(self) -> Path:
+                assert self.folder
+                return Path(self.folder / "log_job.out")
+
+        dummy_slurm_request, _ = dummy_slurm_request_with_artifact
+        dummy_slurm_request.slurm_config.job_details = CustomJobDetails(
+            job_name="custom_sample_job", folder=Path("/custom_folder")
+        )
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --job-name=custom_sample_job" in sbatch_script
+        assert "--output /custom_folder/log_job.out" in sbatch_script
+        assert "#SBATCH --output=/custom_folder/sbatch_job.out" in sbatch_script
 
     def test_dummy_batch_request_nsys(
         self,
