@@ -14,11 +14,13 @@
 # limitations under the License.
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from test.dummy_factory import DummyModel
 from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 import pytest
+from omegaconf import OmegaConf
 
 from nemo_run.cli.cli_parser import (
     ArgumentParsingError,
@@ -32,6 +34,7 @@ from nemo_run.cli.cli_parser import (
     TypeParser,
     UndefinedVariableError,
     UnknownTypeError,
+    omegaconf_to_buildable,
     parse_cli_args,
     parse_value,
 )
@@ -664,3 +667,42 @@ class TestEdgeCases:
 
         result = parse_cli_args(func, ["a=[{'x': 1, 'y': ['a', 'b']}, {'z': 2}]"])
         assert result.a == [{"x": 1, "y": ["a", "b"]}, {"z": 2}]
+
+
+class TestOmegaConfParser:
+    def test_omegaconf_to_buildable(self):
+        @dataclass
+        class TestClass:
+            a: int
+            b: int
+
+        cfg = OmegaConf.create({"a": 1, "b": 2})
+        parsed = omegaconf_to_buildable(cfg, TestClass)
+        assert parsed == Config(TestClass, a=1, b=2)
+
+    def test_with_nesting(self):
+        @dataclass
+        class A:
+            a: int
+
+        @dataclass
+        class Nested:
+            a: A
+            b: int
+
+        cfg = OmegaConf.create({"a": {"a": 1}, "b": 2})
+        parsed = omegaconf_to_buildable(cfg, Nested)
+        assert parsed == Config(Nested, a=Config(A, a=1), b=2)
+
+    def test_partial(self):
+        @dataclass
+        class A:
+            a: int
+
+        def some_function(a: A):
+            pass
+
+        cfg = OmegaConf.create({"a": {"a": 1}})
+        parsed = omegaconf_to_buildable(cfg, some_function)
+
+        assert parsed == Partial(some_function, a=Config(A, a=1))
