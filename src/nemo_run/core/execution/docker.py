@@ -231,7 +231,7 @@ class DockerContainer:
                 vals = ulimit.split(":")
                 name = vals[0]
                 soft = vals[1]
-                hard = vals[2] if len(vals) > 2 else None
+                hard = vals[2] if len(vals) > 2 else vals[1]
                 ulimits.append(Ulimit(name=name, soft=int(soft), hard=int(hard) if hard else None))
 
         container_kwargs = {
