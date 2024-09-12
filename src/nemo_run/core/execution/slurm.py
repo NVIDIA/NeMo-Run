@@ -56,27 +56,27 @@ class SlurmJobDetails:
     """Store details like paths and name related to the slurm job."""
 
     job_name: Optional[str] = None
-    folder: Optional[Path] = None
+    folder: Optional[str] = None
 
     @property
     def stderr(self) -> Path:
         assert self.folder, self.job_name
-        return Path(self.folder / f"sbatch_{self.job_name}_%j.err")
+        return Path(self.folder) / f"sbatch_{self.job_name}_%j.err"
 
     @property
     def stdout(self) -> Path:
         assert self.folder, self.job_name
-        return Path(self.folder / f"sbatch_{self.job_name}_%j.out")
+        return Path(self.folder) / f"sbatch_{self.job_name}_%j.out"
 
     @property
     def srun_stderr(self) -> Path:
         assert self.folder, self.job_name
-        return Path(self.folder / f"log-{self.job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.err")
+        return Path(self.folder) / f"log-{self.job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.err"
 
     @property
     def srun_stdout(self) -> Path:
         assert self.folder, self.job_name
-        return Path(self.folder / f"log-{self.job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.out")
+        return Path(self.folder) / f"log-{self.job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.out"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.folder})"
@@ -740,9 +740,7 @@ class SlurmBatchRequest:
             job_details.job_name = job_name
 
         if not job_details.folder:
-            job_details.folder = (
-                Path(os.path.join(slurm_job_dir, job_directory_name)).expanduser().absolute()
-            )
+            job_details.folder = os.path.join(slurm_job_dir, job_directory_name)
 
         parameters["job_name"] = job_details.job_name
 

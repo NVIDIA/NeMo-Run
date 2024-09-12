@@ -277,9 +277,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             local_dir, tunnel_cfg = job_dirs[app_id]
             self._initialize_tunnel(tunnel_cfg)
 
-            local_paths = SlurmJobDetails(
-                folder=Path(local_dir).expanduser().absolute(), job_name=role_name
-            )
+            local_paths = SlurmJobDetails(folder=local_dir, job_name=role_name)
             local_file = str(local_paths.stdout).replace("%j", app_id)
 
             iterator = TunnelLogIterator(

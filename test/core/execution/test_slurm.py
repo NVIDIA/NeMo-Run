@@ -446,12 +446,12 @@ class TestSlurmBatchRequest:
             @property
             def stdout(self) -> Path:
                 assert self.folder
-                return Path(self.folder / "sbatch_job.out")
+                return Path(self.folder) / "sbatch_job.out"
 
             @property
             def srun_stdout(self) -> Path:
                 assert self.folder
-                return Path(self.folder / "log_job.out")
+                return Path(self.folder) / "log_job.out"
 
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
         dummy_slurm_request.slurm_config.job_details = CustomJobDetails()
