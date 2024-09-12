@@ -136,17 +136,17 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             roles[role].num_replicas += 1
 
             c = container.get_container(client=self._docker_client, id=app_id)
-            state = self._get_app_state(c) if c else AppState.SUCCEEDED
+            _state = self._get_app_state(c) if c else AppState.SUCCEEDED
 
             roles_statuses[role].replicas.append(
                 ReplicaStatus(
                     id=0,
                     role=role,
-                    state=state,
+                    state=_state,
                     hostname=container.name,
                 )
             )
-            states.append(state)
+            states.append(_state)
 
         state = AppState.UNKNOWN
         if any(is_terminal(state) for state in states):
