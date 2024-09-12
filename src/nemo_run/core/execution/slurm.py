@@ -327,6 +327,7 @@ class SlurmExecutor(Executor):
     packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore
     #: List of TorchX app handles that will be parsed and passed to --dependency flag in sbatch.
     dependencies: list[str] = field(default_factory=list)
+    dependency_type: str = "afterok"
     #: Optional parameter to explicitly specify nproc_per_node for torchrun like components if the slurm cluster doesn't support granular resource allocation.
     torchrun_nproc_per_node: Optional[int] = None
     wait_time_for_group_job: int = 30
@@ -807,7 +808,11 @@ class SlurmBatchRequest:
 
         if self.slurm_config.dependencies:
             slurm_deps = self.slurm_config.parse_deps()
-            sbatch_flags.append(_as_sbatch_flag("dependency", f"afterok:{':'.join(slurm_deps)}"))
+            sbatch_flags.append(
+                _as_sbatch_flag(
+                    "dependency", f"{self.slurm_config.dependency_type}:{':'.join(slurm_deps)}"
+                )
+            )
 
         env_vars = []
         full_env_vars = self.slurm_config.env_vars | self.extra_env
