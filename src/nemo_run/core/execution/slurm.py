@@ -306,7 +306,7 @@ class SlurmExecutor(Executor):
     srun_args: Optional[list[str]] = None
     heterogeneous: bool = False
     memory_measure: bool = False
-    job_details: SlurmJobDetails = field(default_factory=lambda: SlurmJobDetails())
+    job_details: SlurmJobDetails = field(default_factory=SlurmJobDetails)
     tunnel: Union[SSHTunnel, LocalTunnel] = field(default_factory=lambda: LocalTunnel(job_dir=""))
     packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore
     #: List of TorchX app handles that will be parsed and passed to --dependency flag in sbatch.
