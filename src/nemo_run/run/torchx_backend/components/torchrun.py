@@ -45,6 +45,7 @@ def torchrun(
     *script_args: str,
     script: Optional[str] = None,
     m: Optional[str] = None,
+    no_python: bool = False,
     image: str = torchx.IMAGE,
     name: str = "/",
     h: Optional[str] = None,
@@ -148,6 +149,8 @@ def torchrun(
         # "",
     ]
     if script is not None:
+        if no_python:
+            cmd += ["--no-python"]
         cmd += [script]
     elif m is not None:
         cmd += ["-m", m]

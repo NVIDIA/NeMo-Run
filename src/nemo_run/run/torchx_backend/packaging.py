@@ -21,7 +21,7 @@ import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
 from torchx import specs
 
-from nemo_run.config import Partial, Script
+from nemo_run.config import SCRIPTS_DIR, Partial, Script
 from nemo_run.core.execution.base import Executor, FaultTolerance, Torchrun
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
@@ -95,6 +95,7 @@ def package(
 
         role_args = default_cmd + args
         m = default_cmd[1]
+        no_python = False
         script = None
         entrypoint = "python"
     else:
@@ -117,8 +118,11 @@ def package(
             log.warning(f"Failed saving yaml configs due to: {e}")
 
         args = fn_or_script.args
-        role_args = fn_or_script.to_command(filename=os.path.join(executor.job_dir, f"{name}.sh"))
+        role_args = fn_or_script.to_command(
+            filename=os.path.join(executor.job_dir, SCRIPTS_DIR, f"{name}.sh")
+        )
         m = fn_or_script.path if fn_or_script.m else None
+        no_python = fn_or_script.shell != "python"
         script = fn_or_script.path if not fn_or_script.m else None
         env = env | fn_or_script.env
         entrypoint = fn_or_script.python if fn_or_script.m else fn_or_script.shell
@@ -130,6 +134,7 @@ def package(
             script=script,
             name=name,
             m=m,
+            no_python=no_python,
             image="",
             h=h,
             cpu=cpu,
@@ -149,6 +154,7 @@ def package(
             script=script,
             name=name,
             m=m,
+            no_python=no_python,
             image="",
             h=h,
             cpu=cpu,
