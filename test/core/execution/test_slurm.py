@@ -422,6 +422,10 @@ class TestSlurmBatchRequest:
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --dependency=afterok:depend1:depend2" in sbatch_script
 
+        dummy_slurm_request.slurm_config.dependency_type = "afterany"
+        sbatch_script = dummy_slurm_request.materialize()
+        assert "#SBATCH --dependency=afterany:depend1:depend2" in sbatch_script
+
     def test_dummy_batch_request_memory_measure(
         self,
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
