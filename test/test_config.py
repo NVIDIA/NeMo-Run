@@ -269,8 +269,7 @@ class TestScript:
         assert script.inline == ""
         assert script.args == []
         assert script.env == {}
-        assert script.shell == "bash"
-        assert script.python == "python"
+        assert script.entrypoint == "bash"
         assert script.m is False
 
     def test_script_post_init_assertion(
@@ -280,7 +279,7 @@ class TestScript:
             Script()
 
         with pytest.raises(AssertionError):
-            Script("test.py", shell="")
+            Script("test.py", entrypoint="")
 
     def test_get_name_from_inline(self):
         script = Script(inline="echo hello world")
@@ -330,19 +329,18 @@ class TestScript:
     def test_script_to_command_with_m(
         self,
     ):
-        script = Script(path="test.py", m=True)
+        script = Script(path="test.py", m=True, entrypoint="python")
         command = script.to_command()
         assert command == ["-m", "test.py"]
 
     @pytest.mark.parametrize(
         "args, expected",
         [
-            ({"with_entrypoint": True, "shell": "bash"}, ["bash", "test.py"]),
+            ({"with_entrypoint": True, "entrypoint": "bash"}, ["bash", "test.py"]),
             (
                 {
                     "with_entrypoint": True,
-                    "shell": None,
-                    "python": "python3",
+                    "entrypoint": "python3",
                     "m": True,
                 },
                 ["python3", "-m", "test.py"],
@@ -350,8 +348,7 @@ class TestScript:
             (
                 {
                     "with_entrypoint": True,
-                    "shell": None,
-                    "python": "python3",
+                    "entrypoint": "python3",
                     "m": True,
                     "args": ["--arg1", "value1"],
                 },
@@ -368,7 +365,7 @@ class TestScript:
 
     def test_script_to_command_error(self):
         script = Script(path="test.py")
-        script.shell = ""
+        script.entrypoint = ""
         with pytest.raises(ValueError):
             script.to_command(with_entrypoint=True)
 

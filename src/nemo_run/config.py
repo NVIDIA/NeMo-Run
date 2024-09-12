@@ -403,16 +403,16 @@ class Script(ConfigurableMixin):
     args: list[str] = dataclasses.field(default_factory=list)
     #: Environment variables to set when running the script.
     env: dict[str, str] = dataclasses.field(default_factory=dict)
-    #: Shell to use, defaults to bash.
-    shell: str = "bash"
-    #: Whether to use a python binary to run your script, set shell="" to activate.
-    python: str = "python"
+    #: Entrypoint to use, defaults to bash.
+    entrypoint: str = "bash"
     #: Whether to use ``python -m`` when executing via python.
     m: bool = False
 
     def __post_init__(self):
         assert self.path or self.inline
-        assert self.shell or (self.m and self.python), "Need to specify shell or python"
+        assert self.entrypoint, "Need to provide an entrypoint for script."
+        if self.m:
+            assert "python" in self.entrypoint, "-m can only be used with python"
 
     def get_name(self):
         if self.inline:
@@ -432,14 +432,14 @@ class Script(ConfigurableMixin):
 
                 cmd = [os.path.join(f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name)]
                 if with_entrypoint:
-                    cmd = [self.shell] + cmd
+                    cmd = [self.entrypoint] + cmd
 
                 return cmd
 
             inline = self.inline.replace('"', '\\"')
             cmd = ["-c", f'"{inline}"']
             if with_entrypoint:
-                cmd = [self.shell] + cmd
+                cmd = [self.entrypoint] + cmd
 
             return cmd
 
@@ -450,14 +450,10 @@ class Script(ConfigurableMixin):
             cmd = args
 
         if with_entrypoint:
-            if self.shell:
-                cmd = [self.shell] + cmd
-            elif self.m:
-                cmd = [self.python] + cmd
+            if self.entrypoint:
+                cmd = [self.entrypoint] + cmd
             else:
-                raise ValueError(
-                    "Cannot use with_entrypoint=True without specifying shell or python"
-                )
+                raise ValueError("Cannot use with_entrypoint=True without specifying entrypoint")
 
         return cmd
 

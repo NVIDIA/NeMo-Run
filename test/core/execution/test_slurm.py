@@ -120,7 +120,7 @@ class TestSlurmBatchRequest:
         )
         role = package(
             name="test_ft",
-            fn_or_script=Script("test_ft.py"),
+            fn_or_script=Script("test_ft.sh"),
             executor=slurm_config,
         ).roles[0]
         srun_cmd = [role.entrypoint] + role.args
@@ -357,7 +357,7 @@ class TestSlurmBatchRequest:
         slurm_config.run_as_group = True
         role = package(
             name="test_ft",
-            fn_or_script=Script("test_ft.py"),
+            fn_or_script=Script("test_ft.sh"),
             executor=slurm_config,
         ).roles[0]
         srun_cmd = [role.entrypoint] + role.args

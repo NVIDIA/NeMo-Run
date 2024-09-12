@@ -122,10 +122,10 @@ def package(
             filename=os.path.join(executor.job_dir, SCRIPTS_DIR, f"{name}.sh")
         )
         m = fn_or_script.path if fn_or_script.m else None
-        no_python = fn_or_script.shell != "python"
+        no_python = fn_or_script.entrypoint != "python"
         script = fn_or_script.path if not fn_or_script.m else None
         env = env | fn_or_script.env
-        entrypoint = fn_or_script.python if fn_or_script.m else fn_or_script.shell
+        entrypoint = fn_or_script.entrypoint
 
     launcher = executor.get_launcher()
     if launcher and isinstance(launcher, Torchrun):

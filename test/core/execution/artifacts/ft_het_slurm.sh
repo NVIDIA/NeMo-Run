@@ -77,7 +77,7 @@ echo "$SLURM_JOB_ID ${SLURM_RESTART_COUNT:-0} X" >> "$JOB_RESULTS_FILE"
 export CUSTOM_ENV_1=some_value_1
 
 
-srun --het-group=0 --output /root/experiment/sample_job/log-account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_1 --container-mounts /root/experiment/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 ft_launcher --ft-param-workload_check_interval 10 --ft-param-rank_heartbeat_timeout 10 --rdzv-backend c10d --rdzv-endpoint localhost:0 --rdzv-id 1 --nnodes 1 --nproc-per-node 1 --node-rank 0 --tee 3 test_ft.py & pids[0]=$!
+srun --het-group=0 --output /root/experiment/sample_job/log-account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image image_1 --container-mounts /root/experiment/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 ft_launcher --ft-param-workload_check_interval 10 --ft-param-rank_heartbeat_timeout 10 --rdzv-backend c10d --rdzv-endpoint localhost:0 --rdzv-id 1 --nnodes 1 --nproc-per-node 1 --node-rank 0 --tee 3 --no-python test_ft.sh & pids[0]=$!
 
 sleep 30
 

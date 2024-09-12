@@ -124,10 +124,10 @@ def test_package_script(mock_executor):
 @pytest.mark.parametrize(
     "inline, expected",
     [
-        ("echo 'Hello World Mock Test'", ["/nemo_run/test.sh"]),
+        ("echo 'Hello World Mock Test'", ["/nemo_run/scripts/test.sh"]),
         (
             """echo \"Hello World Mock Test\"""",
-            ["/nemo_run/test.sh"],
+            ["/nemo_run/scripts/test.sh"],
         ),
     ],
 )
@@ -180,6 +180,7 @@ def test_package_torchrun(mock_executor):
         "0",
         "--tee",
         "3",
+        "--no-python",
         "test.py",
         "arg1",
         "arg2",
@@ -291,6 +292,7 @@ def test_package_fault_tolerance(mock_executor):
         "0",
         "--tee",
         "3",
+        "--no-python",
         "test.py",
         "arg1",
         "arg2",
