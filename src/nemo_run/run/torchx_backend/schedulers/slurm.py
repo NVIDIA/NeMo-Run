@@ -50,7 +50,7 @@ from torchx.specs import (
 )
 from torchx.specs.api import is_terminal
 
-from nemo_run.config import NEMORUN_HOME, from_dict
+from nemo_run.config import NEMORUN_HOME, SCRIPTS_DIR, from_dict
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import JobPaths, SlurmBatchRequest, SlurmExecutor
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel, Tunnel
@@ -157,6 +157,16 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         with open(path, "w") as f:
             f.write(script)
+
+        remote_scripts_dir = os.path.join(self.tunnel.job_dir, Path(job_dir).name, SCRIPTS_DIR)
+        for job in req.jobs:
+            local_script = os.path.join(job_dir, SCRIPTS_DIR, f"{job}.sh")
+            if os.path.isfile(local_script):
+                self.tunnel.run(f"mkdir -p {remote_scripts_dir}")
+                self.tunnel.put(
+                    local_script,
+                    os.path.join(remote_scripts_dir, Path(local_script).name),
+                )
 
         dst_path = os.path.join(self.tunnel.job_dir, f"{slurm_cfg.job_name}_sbatch.sh")
         self.tunnel.put(local_path=path, remote_path=dst_path)

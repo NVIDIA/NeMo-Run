@@ -16,6 +16,8 @@
 from dataclasses import dataclass
 
 import pytest
+from torchx import specs
+
 from nemo_run.config import Partial, Script
 from nemo_run.core.execution.base import Executor, FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
@@ -24,7 +26,6 @@ from nemo_run.run.torchx_backend.packaging import (
     merge_executables,
     package,
 )
-from torchx import specs
 
 
 @dataclass(kw_only=True)
@@ -123,10 +124,10 @@ def test_package_script(mock_executor):
 @pytest.mark.parametrize(
     "inline, expected",
     [
-        ("echo 'Hello World Mock Test'", ["-c", "\"echo 'Hello World Mock Test'\""]),
+        ("echo 'Hello World Mock Test'", ["/nemo_run/scripts/test.sh"]),
         (
             """echo \"Hello World Mock Test\"""",
-            ["-c", '"echo \\"Hello World Mock Test\\""'],
+            ["/nemo_run/scripts/test.sh"],
         ),
     ],
 )
@@ -179,6 +180,7 @@ def test_package_torchrun(mock_executor):
         "0",
         "--tee",
         "3",
+        "--no-python",
         "test.py",
         "arg1",
         "arg2",
@@ -290,6 +292,7 @@ def test_package_fault_tolerance(mock_executor):
         "0",
         "--tee",
         "3",
+        "--no-python",
         "test.py",
         "arg1",
         "arg2",

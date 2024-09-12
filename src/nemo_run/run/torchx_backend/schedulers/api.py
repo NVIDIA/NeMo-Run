@@ -18,6 +18,7 @@ from typing import Type
 from torchx.specs import AppDef, AppDryRunInfo
 
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
@@ -26,12 +27,14 @@ EXECUTOR_MAPPING: dict[Type[Executor], str] = {
     SlurmExecutor: "slurm_tunnel",
     SkypilotExecutor: "skypilot",
     LocalExecutor: "local_persistent",
+    DockerExecutor: "docker_persistent",
 }
 
 REVERSE_EXECUTOR_MAPPING: dict[str, Type[Executor]] = {
     "slurm_tunnel": SlurmExecutor,
     "skypilot": SkypilotExecutor,
     "local_persistent": LocalExecutor,
+    "docker_persistent": DockerExecutor,
 }
 
 

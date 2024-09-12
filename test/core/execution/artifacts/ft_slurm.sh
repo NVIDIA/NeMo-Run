@@ -62,7 +62,7 @@ echo "$SLURM_JOB_ID ${SLURM_RESTART_COUNT:-0} X" >> "$JOB_RESULTS_FILE"
 
 # Command 1
 
-srun --output /root/sample_job/log-account-account.sample_job_%j_${SLURM_RESTART_COUNT:-0}.out --container-mounts /root/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 ft_launcher --ft-param-workload_check_interval 10 --ft-param-rank_heartbeat_timeout 10 --rdzv-backend c10d --rdzv-endpoint localhost:0 --rdzv-id 7680 --nnodes 1 --nproc-per-node 1 --node-rank 0 --tee 3 test_ft.py
+srun --output /root/sample_job/log-account-account.sample_job_%j_${SLURM_RESTART_COUNT:-0}.out --container-mounts /root/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 ft_launcher --ft-param-workload_check_interval 10 --ft-param-rank_heartbeat_timeout 10 --rdzv-backend c10d --rdzv-endpoint localhost:0 --rdzv-id 7680 --nnodes 1 --nproc-per-node 1 --node-rank 0 --tee 3 --no-python test_ft.sh
 
 exitcode=$?
 

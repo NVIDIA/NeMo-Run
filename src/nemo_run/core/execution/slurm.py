@@ -28,6 +28,7 @@ import invoke
 from rich.console import Console
 from rich.text import Text
 
+from nemo_run.config import RUNDIR_NAME
 from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
@@ -47,8 +48,6 @@ from nemo_run.devspace.base import DevSpace
 
 logger = logging.getLogger(__name__)
 noquote: TypeAlias = str
-
-_RUNDIR_NAME = "nemo_run"
 
 
 class JobPaths:
@@ -522,7 +521,7 @@ class SlurmExecutor(Executor):
     def get_launcher_prefix(self) -> Optional[list[str]]:
         launcher = self.get_launcher()
         if launcher.nsys_profile:
-            return launcher.get_nsys_prefix(profile_dir=f"/{_RUNDIR_NAME}")
+            return launcher.get_nsys_prefix(profile_dir=f"/{RUNDIR_NAME}")
 
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
         filenames = []
@@ -536,7 +535,7 @@ class SlurmExecutor(Executor):
             filenames.append(
                 os.path.join(
                     "/",
-                    _RUNDIR_NAME,
+                    RUNDIR_NAME,
                     "configs",
                     name,
                 )
@@ -650,7 +649,7 @@ class SlurmExecutor(Executor):
             base_dir = os.path.join(self.tunnel.job_dir, Path(self.job_dir).name)
             launcher.cfg_path = os.path.join(base_dir, f"{self.job_name}_ft_cfg.yml")
             launcher.finished_flag_file = os.path.join(
-                "/", _RUNDIR_NAME, f"{self.job_name}_finished_flag"
+                "/", RUNDIR_NAME, f"{self.job_name}_finished_flag"
             )
             launcher.job_results_file = os.path.join(base_dir, f"{self.job_name}_job_results")
 
@@ -839,12 +838,12 @@ class SlurmBatchRequest:
             _container_flags = ["--container-image", container_image] if container_image else []
 
             new_mounts = copy.deepcopy(base_mounts)
-            new_mounts.append(f"{src_job_dir}:/{_RUNDIR_NAME}")
+            new_mounts.append(f"{src_job_dir}:/{RUNDIR_NAME}")
             _mount_arg = ",".join(new_mounts)
             _container_flags += ["--container-mounts", _mount_arg]
             _container_flags += [
                 "--container-workdir",
-                f"/{_RUNDIR_NAME}/code",
+                f"/{RUNDIR_NAME}/code",
             ]
 
             return _container_flags

@@ -14,6 +14,7 @@
 # limitations under the License.
 
 from typing import Annotated
+
 import typer
 
 from nemo_run.core.frontend.console.api import CONSOLE
@@ -36,16 +37,16 @@ def list(experiment_title: str):
     CONSOLE.log(Experiment.catalog(experiment_title))
 
 
-def logs(experiment_id: str, task_idx: Annotated[int, typer.Argument()] = 0):
+def logs(experiment_id: str, job_idx: Annotated[int, typer.Argument()] = 0):
     """
     Show logs for an experiment task for the experiment id/title
-    and optional task_idx (0 by default).
+    and optional job_idx (0 by default).
     """
 
     exp = _get_experiment(experiment_id)
 
     with exp:
-        exp.logs(task_id=exp.tasks[task_idx].id)
+        exp.logs(job_id=exp.jobs[job_idx].id)
 
 
 def status(experiment_id: str):
@@ -58,7 +59,7 @@ def status(experiment_id: str):
         exp.status()
 
 
-def cancel(experiment_id: str, task_idx: Annotated[int, typer.Argument()] = 0):
+def cancel(experiment_id: str, job_idx: Annotated[int, typer.Argument()] = 0):
     """
     Cancel an experiment task for the experiment id/title
     and optional task_idx (0 by default).
@@ -66,7 +67,7 @@ def cancel(experiment_id: str, task_idx: Annotated[int, typer.Argument()] = 0):
     exp = _get_experiment(experiment_id)
 
     with exp:
-        exp.cancel(task_id=exp.tasks[task_idx].id)
+        exp.cancel(job_id=exp.jobs[job_idx].id)
 
 
 def create() -> typer.Typer:

@@ -31,11 +31,10 @@ import fiddle as fdl
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.progress import Task as RichTask
-from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
-from torchx.specs.api import AppState, is_terminal
+from torchx.specs.api import AppState
 
 import nemo_run as run
 from nemo_run.config import (
@@ -47,6 +46,7 @@ from nemo_run.config import (
     get_type_namespace,
 )
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
@@ -61,8 +61,6 @@ from nemo_run.run.utils import TeeStdoutStderr
 _current_experiment: contextvars.ContextVar["Experiment"] = contextvars.ContextVar(
     "nemo_current_experiment"
 )
-
-_SUPPORTED_EXECUTORS = (SlurmExecutor, LocalExecutor, SkypilotExecutor)
 
 
 class Experiment(ConfigurableMixin):
@@ -180,10 +178,10 @@ nemo experiment status {exp_id}
 nemo experiment logs {exp_id} 0
 nemo experiment cancel {exp_id} 0
 """
-    _PARALLEL_SUPPORTED_EXECUTORS = (SlurmExecutor, LocalExecutor, SkypilotExecutor)
+    _PARALLEL_SUPPORTED_EXECUTORS = (SlurmExecutor, LocalExecutor, SkypilotExecutor, DockerExecutor)
     _DETACH_SUPPORTED_EXECUTORS = (SlurmExecutor, SkypilotExecutor)
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)
-    _RUNNER_DEPENDNET_EXECUTORS = (LocalExecutor,)
+    _RUNNER_DEPENDENT_EXECUTORS = (LocalExecutor,)
     _CONFIG_FILE = "_CONFIG"
     _VERSION_FILE = "_VERSION"
     _TASK_FILE = "_TASKS"
@@ -956,7 +954,7 @@ nemo experiment cancel {exp_id} 0
                         else:
                             handle_exists = len(job.handles) > 0 and all(job.handles)
 
-                        if job.launched and handle_exists and not is_terminal(job.state):
+                        if job.launched and handle_exists:
                             self._initialize_live_progress()
                             self._add_progress(job=job)
                             job_executor = (
@@ -973,7 +971,7 @@ nemo experiment cancel {exp_id} 0
                                 runner=self._runner
                                 if isinstance(
                                     job_executor,
-                                    self._RUNNER_DEPENDNET_EXECUTORS,
+                                    self._RUNNER_DEPENDENT_EXECUTORS,
                                 )
                                 else get_runner(),
                             )

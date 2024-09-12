@@ -23,6 +23,7 @@ from typing import Literal, Optional, overload
 import torchx.specs as specs
 from torchx.schedulers.api import Stream
 from torchx.specs import AppDef, AppHandle
+from torchx.specs.api import parse_app_handle
 
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.api import CONSOLE
@@ -121,7 +122,8 @@ def wait_and_exit(
     if runner is None:
         runner = get_runner()
 
-    logger.info(f"Waiting for the app to finish [log={log}]...")
+    _, _, app_id = parse_app_handle(app_handle=app_handle)
+    logger.info(f"Waiting for job {app_id} to finish [log={log}]...")
 
     log_thread = None
     if log:
@@ -151,11 +153,7 @@ def wait_and_exit(
     if not status:
         raise UnknownStatusError(f"unknown status, wait returned {status}")
 
-    logger.info(f"Job finished: {status.state}")
-    logger.info(status)
-
-    if log_thread:
-        log_thread.join()
+    logger.info(f"Job {app_id} finished: {status.state}")
 
     return status
 
