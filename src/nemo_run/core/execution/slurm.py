@@ -50,48 +50,32 @@ logger = logging.getLogger(__name__)
 noquote: TypeAlias = str
 
 
-class JobPaths:
-    """Creates paths related to the slurm job and its submission"""
+@dataclass(kw_only=True)
+class SlurmJobDetails:
+    """Store details like paths and name related to the slurm job."""
 
-    def __init__(
-        self,
-        folder: Union[Path, str],
-        job_name: str,
-    ) -> None:
-        self._folder = Path(folder).expanduser().absolute()
-        self._job_name = job_name
-
-    @property
-    def folder(self) -> Path:
-        return self._folder
-
-    @property
-    def results_folder(self) -> Path:
-        return self._folder / "results"
-
-    @property
-    def submission_file(self) -> Path:
-        return Path(self.folder / f"{self._job_name}_submission.sh")
-
-    @property
-    def config_file(self) -> Path:
-        return Path(self.folder / f"{self._job_name}_config.yaml")
+    job_name: Optional[str] = None
+    folder: Optional[str] = None
 
     @property
     def stderr(self) -> Path:
-        return Path(self.folder / f"sbatch_{self._job_name}_%j.err")
+        assert self.folder, self.job_name
+        return Path(self.folder) / f"sbatch_{self.job_name}_%j.err"
 
     @property
     def stdout(self) -> Path:
-        return Path(self.folder / f"sbatch_{self._job_name}_%j.out")
+        assert self.folder, self.job_name
+        return Path(self.folder) / f"sbatch_{self.job_name}_%j.out"
 
     @property
     def srun_stderr(self) -> Path:
-        return Path(self.folder / f"log-{self._job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.err")
+        assert self.folder, self.job_name
+        return Path(self.folder) / f"log-{self.job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.err"
 
     @property
     def srun_stdout(self) -> Path:
-        return Path(self.folder / f"log-{self._job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.out")
+        assert self.folder, self.job_name
+        return Path(self.folder) / f"log-{self.job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.out"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.folder})"
@@ -321,7 +305,7 @@ class SlurmExecutor(Executor):
     srun_args: Optional[list[str]] = None
     heterogeneous: bool = False
     memory_measure: bool = False
-    job_paths_cls: Type[JobPaths] = JobPaths
+    job_details: SlurmJobDetails = field(default_factory=SlurmJobDetails)
     tunnel: Union[SSHTunnel, LocalTunnel] = field(default_factory=lambda: LocalTunnel(job_dir=""))
     packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore
     #: List of TorchX app handles that will be parsed and passed to --dependency flag in sbatch.
@@ -744,18 +728,24 @@ class SlurmBatchRequest:
             job_name = f"{self.slurm_config.account}-{self.slurm_config.account.split('_')[-1]}.{original_job_name}"
         else:
             job_name = f"{self.slurm_config.job_name_prefix}{original_job_name}"
-        parameters["job_name"] = job_name
         slurm_job_dir = (
             self.slurm_config.tunnel.job_dir
             if self.slurm_config.tunnel
             else self.slurm_config.job_dir
         )
         job_directory_name = Path(self.slurm_config.job_dir).name
-        paths = self.slurm_config.job_paths_cls(
-            folder=os.path.join(slurm_job_dir, job_directory_name), job_name=job_name
-        )
-        stdout = str(paths.stdout)
-        stderr = str(paths.stderr)
+        job_details = self.slurm_config.job_details
+
+        if not job_details.job_name:
+            job_details.job_name = job_name
+
+        if not job_details.folder:
+            job_details.folder = os.path.join(slurm_job_dir, job_directory_name)
+
+        parameters["job_name"] = job_details.job_name
+
+        stdout = str(job_details.stdout)
+        stderr = str(job_details.stderr)
 
         if self.slurm_config.array is not None:
             stdout = stdout.replace("%j", "%A_%a")
@@ -764,10 +754,6 @@ class SlurmBatchRequest:
 
         if not self.slurm_config.stderr_to_stdout:
             parameters["error"] = stderr.replace("%t", "0")
-
-        # if NEMO_LAUNCHER_CI:  # Override output file for slurm
-        #     parameters["output"] = parameters["error"] = str(paths.folder / "slurm_%j.out")
-        #     stdout = stderr = parameters["output"]
 
         if self.slurm_config.additional_parameters is not None:
             parameters.update(self.slurm_config.additional_parameters)
@@ -824,9 +810,11 @@ class SlurmBatchRequest:
 
         srun_commands = []
         group_env_vars = []
-        srun_stdout = noquote(paths.srun_stdout)
+        srun_stdout = noquote(job_details.srun_stdout)
         stderr_flags = (
-            [] if self.slurm_config.stderr_to_stdout else ["--error", noquote(paths.srun_stderr)]
+            []
+            if self.slurm_config.stderr_to_stdout
+            else ["--error", noquote(job_details.srun_stderr)]
         )
         memory_measure = None
         if self.slurm_config.memory_measure:
