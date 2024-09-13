@@ -94,19 +94,19 @@ class GitArchivePackager(Packager):
                 )
             except subprocess.CalledProcessError as e:
                 raise RuntimeError(
-                    "Your repo has uncommitted changes. Please commit your changes to proceed with packaging."
+                    "Your repo has uncommitted changes. Please commit your changes or set check_uncommitted_changes to False to proceed with packaging."
                 ) from e
 
         if self.check_untracked_files:
+            untracked_files = subprocess.run(
+                f"cd {shlex.quote(str(git_base_path))} && git ls-files --others --exclude-standard",
+                shell=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
             assert not bool(
-                subprocess.run(
-                    f"cd {shlex.quote(str(git_base_path))} && git diff-index --quiet HEAD --",
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                ).stdout.strip()
-            )
-
+                untracked_files
+            ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
         if self.include_pattern:
             cmd = f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path}; find {self.include_pattern} -type f) | tar -czf {output_file} -T -"
         else:

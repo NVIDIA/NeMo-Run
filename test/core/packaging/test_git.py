@@ -199,3 +199,22 @@ def test_package_with_include_pattern_multiple_directories(packager, temp_repo):
         )
         assert cmp.left_list == cmp.right_list
         assert not cmp.diff_files
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_with_check_uncommitted_changes(packager, temp_repo):
+    temp_repo = Path(temp_repo)
+    open(temp_repo / "file1.txt", "w").write("Hello World")
+
+    packager = GitArchivePackager(ref="HEAD", check_uncommitted_changes=True)
+    with pytest.raises(RuntimeError, match="Your repo has uncommitted changes"):
+        packager.package(temp_repo, str(temp_repo), "test_package")
+
+
+def test_untracked_files_raises_exception(temp_repo):
+    packager = GitArchivePackager(check_untracked_files=True)
+    Path(temp_repo / "untracked.txt").touch()
+    with open(temp_repo / "untracked.txt", "w") as f:
+        f.write("Untracked file")
+    with pytest.raises(AssertionError, match="Your repo has untracked files"):
+        packager.package(temp_repo, str(temp_repo), "test")
