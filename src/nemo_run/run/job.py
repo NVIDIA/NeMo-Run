@@ -256,6 +256,10 @@ class JobGroup(ConfigurableMixin):
 
         return self.handles[0]
 
+    @property
+    def executor(self) -> Executor:
+        return self.executors if isinstance(self.executors, Executor) else self.executors[0]
+
     def serialize(self) -> tuple[str, str]:
         cfg = self.to_config()
         tasks_cfg = cfg.tasks
