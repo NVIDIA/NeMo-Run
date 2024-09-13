@@ -207,13 +207,17 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         except StopIteration:
             return [""]
 
-        logs = c.logs(
-            since=since,
-            until=until,
-            stream=should_tail,
-            stderr=streams != Stream.STDOUT,
-            stdout=streams != Stream.STDERR,
-        )  # type: ignore
+        try:
+            logs = c.logs(
+                since=since,
+                until=until,
+                stream=should_tail,
+                stderr=streams != Stream.STDOUT,
+                stdout=streams != Stream.STDERR,
+            )  # type: ignore
+        except Exception:
+            log.info(f"Failed retrieving logs for app: {req.id}/{container.name}")
+            return [""]
 
         if isinstance(logs, (bytes, str)):
             logs = _to_str(logs)
