@@ -65,6 +65,9 @@ class GitArchivePackager(Packager):
     #: This str will be included in the command as: find {include_pattern} -type f to get the list of extra files to include in the archive
     include_pattern: str = ""
 
+    check_uncommitted_changes: bool = False
+    check_untracked_files: bool = False
+
     def package(self, path: Path, job_dir: str, name: str) -> str:
         output_file = os.path.join(job_dir, f"{name}.tar.gz")
         if os.path.exists(output_file):
@@ -82,6 +85,27 @@ class GitArchivePackager(Packager):
         )
         git_base_path = Path(output.stdout.splitlines()[0].decode())
         git_sub_path = os.path.join(self.subpath, "")
+
+        if self.check_uncommitted_changes:
+            try:
+                subprocess.check_call(
+                    f"cd {shlex.quote(str(git_base_path))} && git diff-index --quiet HEAD --",
+                    shell=True,
+                )
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError(
+                    "Your repo has uncommitted changes. Please commit your changes to proceed with packaging."
+                ) from e
+
+        if self.check_untracked_files:
+            assert not bool(
+                subprocess.run(
+                    f"cd {shlex.quote(str(git_base_path))} && git diff-index --quiet HEAD --",
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout.strip()
+            )
 
         if self.include_pattern:
             cmd = f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path}; find {self.include_pattern} -type f) | tar -czf {output_file} -T -"
