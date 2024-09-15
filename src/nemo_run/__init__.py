@@ -17,6 +17,7 @@ from nemo_run import cli
 from nemo_run.api import autoconvert, dryrun_fn
 from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor, ExecutorMacros, FaultTolerance, Torchrun
+from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
@@ -32,10 +33,11 @@ from nemo_run.run.plugin import ExperimentPlugin as Plugin
 __all__ = [
     "autoconvert",
     "cli",
-    "dryrun_fn",
     "Config",
     "ConfigurableMixin",
     "DevSpace",
+    "DockerExecutor",
+    "dryrun_fn",
     "Executor",
     "ExecutorMacros",
     "Experiment",
