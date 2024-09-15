@@ -606,7 +606,7 @@ nemo experiment cancel {exp_id} 0
                 if add_deps:
                     deps = []
                     for dep in task_deps[i]:
-                        handle = dep.handle if isinstance(dep, Job) else dep.handles[0]
+                        handle = dep.handle
                         assert (
                             dep.launched and handle
                         ), f"Dependency {dep.id} for {job.id} not yet launched."
@@ -651,14 +651,7 @@ nemo experiment cancel {exp_id} 0
                 job_info.append(
                     f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}"
                 )
-                job_executor = (
-                    job.executor
-                    if isinstance(job, Job)
-                    else (
-                        job.executors if isinstance(job.executors, Executor) else job.executors[0]
-                    )
-                )
-                job_info.append(f"- [bold green]Executor[/bold green]: {job_executor.info()}")
+                job_info.append(f"- [bold green]Executor[/bold green]: {job.executor.info()}")
 
                 try:
                     _, _, path_str = job.handle.partition("://")
@@ -669,17 +662,17 @@ nemo experiment cancel {exp_id} 0
 
                 job_info.append(f"- [bold green]Job id[/bold green]: {app_id}")
                 directory_info = [
-                    "- [bold green]Local Directory[/bold green]: " + job_executor.job_dir,
+                    "- [bold green]Local Directory[/bold green]: " + job.executor.job_dir,
                 ]
-                if isinstance(job_executor, SlurmExecutor) and isinstance(
-                    job_executor.tunnel, SSHTunnel
+                if isinstance(job.executor, SlurmExecutor) and isinstance(
+                    job.executor.tunnel, SSHTunnel
                 ):
                     directory_info.extend(
                         [
                             "- [bold green]Remote Directory[/bold green]: "
                             + os.path.join(
-                                job_executor.tunnel.job_dir,
-                                Path(job_executor.job_dir).name,
+                                job.executor.tunnel.job_dir,
+                                Path(job.executor.job_dir).name,
                             ),
                         ]
                     )
@@ -745,15 +738,8 @@ nemo experiment cancel {exp_id} 0
                 job.logs(runner=self._runner, regex=regex)
             except Exception as e:
                 self.console.log(f"[bold red]Failed to get logs for {job_id}\nError: {e}\n")
-                job_executor = (
-                    job.executor
-                    if isinstance(job, Job)
-                    else (
-                        job.executors if isinstance(job.executors, Executor) else job.executors[0]
-                    )
-                )
                 self.console.log(
-                    f"Logs may be present in job directory at:\n[bold]{job_executor.job_dir}."
+                    f"Logs may be present in job directory at:\n[bold]{job.executor.job_dir}."
                 )
         except StopIteration:
             self.console.log(f"[bold red]Job {job_id} not found")
@@ -957,20 +943,11 @@ nemo experiment cancel {exp_id} 0
                         if job.launched and handle_exists:
                             self._initialize_live_progress()
                             self._add_progress(job=job)
-                            job_executor = (
-                                job.executor
-                                if isinstance(job, Job)
-                                else (
-                                    job.executors[0]
-                                    if isinstance(job.executors, list)
-                                    else job.executors
-                                )
-                            )
                             future = executor.submit(
                                 job.wait,
                                 runner=self._runner
                                 if isinstance(
-                                    job_executor,
+                                    job.executor,
                                     self._RUNNER_DEPENDENT_EXECUTORS,
                                 )
                                 else get_runner(),

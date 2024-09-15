@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import json
 import logging
 import os
@@ -132,7 +133,7 @@ class DockerExecutor(Executor):
     ) -> "DockerExecutor":
         assert len(executors) in [1, num_tasks]
         if len(executors) == 1:
-            executors = [executors[0]] + [executors[0].clone() for _ in range(1, num_tasks)]
+            executors = [executors[0]] + [copy.deepcopy(executors[0]) for _ in range(1, num_tasks)]
 
         main_executor = executors[0]
         main_executor.run_as_group = True
