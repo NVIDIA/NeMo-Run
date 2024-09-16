@@ -630,12 +630,9 @@ def _get_return_type(fn: Callable) -> Type:
 
 @cache
 def _load_entrypoints():
-    try:
-        entrypoints = metadata.entry_points().select(group="nemo_run.cli")
-        for ep in entrypoints:
-            ep.load()
-    except Exception:
-        ...
+    entrypoints = metadata.entry_points().select(group="nemo_run.cli")
+    for ep in entrypoints:
+        ep.load()
 
 
 def _search_workspace_file() -> str | None:
