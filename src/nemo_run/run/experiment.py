@@ -628,6 +628,7 @@ nemo experiment cancel {exp_id} 0
                 )
 
         self._launched = any(map(lambda job: job.launched, self.jobs))
+        self._waited = wait
 
     def status(self):
         """
@@ -918,6 +919,13 @@ nemo experiment cancel {exp_id} 0
                 if hasattr(self, "_direct") and self._direct:
                     self.console.rule(
                         f"[bold magenta]Direct run Experiment {self._id}",
+                    )
+                    self.status()
+                    return
+
+                if hasattr(self, "_waited") and self._waited:
+                    self.console.rule(
+                        f"[bold magenta]Done waiting for Experiment {self._id}",
                     )
                     self.status()
                     return

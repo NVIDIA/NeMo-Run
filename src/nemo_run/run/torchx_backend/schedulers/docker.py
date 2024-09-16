@@ -179,6 +179,23 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         if not req:
             return [""]
 
+        def local_logs(container: DockerContainer):
+            existing_log_files = glob.glob(
+                os.path.join(container.executor.job_dir, f"*{role_name}*.out")
+            )
+            if not existing_log_files:
+                return [""]
+
+            log_file = existing_log_files[0]
+            if not os.path.isfile(log_file):
+                raise RuntimeError(f"app: {app_id} did not write any log files.")
+            iterator = LogIterator(app_id, log_file, self)
+            # sometimes there's multiple lines per logged line
+            iterator = split_lines_iterator(iterator)
+            if regex:
+                iterator = filter_regex(regex, iterator)
+            return iterator
+
         try:
             container = next(filter(lambda c: c.name == role_name, req.containers))
             if not container:
@@ -186,24 +203,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
 
             c = container.get_container(client=self._docker_client, id=app_id)
             if not c:
-                existing_log_files = glob.glob(
-                    os.path.join(container.executor.job_dir, f"*{role_name}*.out")
-                )
-                if not existing_log_files:
-                    return [""]
-
-                log_file = existing_log_files[0]
-                if not os.path.isfile(log_file):
-                    raise RuntimeError(
-                        f"app: {app_id} was not configured to log into a file."
-                        f" Did you run it with log_dir set in Dict[str, CfgVal]?"
-                    )
-                iterator = LogIterator(app_id, log_file, self)
-                # sometimes there's multiple lines per logged line
-                iterator = split_lines_iterator(iterator)
-                if regex:
-                    iterator = filter_regex(regex, iterator)
-                return iterator
+                return local_logs(container=container)
         except StopIteration:
             return [""]
 
@@ -216,8 +216,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
                 stdout=streams != Stream.STDERR,
             )  # type: ignore
         except Exception:
-            log.info(f"Failed retrieving logs for app: {req.id}/{container.name}")
-            return [""]
+            return local_logs(container=container)
 
         if isinstance(logs, (bytes, str)):
             logs = _to_str(logs)
