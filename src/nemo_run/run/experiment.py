@@ -429,7 +429,7 @@ nemo experiment cancel {exp_id} 0
             cloned_tasks.append(cloned_task)
 
         task_group = JobGroup(
-            id=name,
+            id=task_id,
             tasks=cloned_tasks,
             executors=cloned_executors,
             plugins=plugins,
