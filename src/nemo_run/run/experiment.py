@@ -399,7 +399,7 @@ nemo experiment cancel {exp_id} 0
         plugins = plugins or []
         for plugin in plugins:
             plugin.assign(self._id)
-            plugin.setup(task, executor)
+            plugin.setup(cloned, executor)
 
         self._jobs.append(job)
 
