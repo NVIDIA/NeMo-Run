@@ -60,6 +60,7 @@ from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, g
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
+from nemo_run.lazy import LazyEntrypoint
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
@@ -78,6 +79,7 @@ NEMORUN_SKIP_CONFIRMATION: Optional[bool] = None
 INCLUDE_WORKSPACE_FILE = os.environ.get("INCLUDE_WORKSPACE_FILE", "true").lower() == "true"
 
 logger = logging.getLogger(__name__)
+MAIN_ENTRYPOINT = None
 
 
 def entrypoint(
@@ -234,9 +236,26 @@ def main(
         if __name__ == "__main__":
             main(my_cli_function, default_factory=my_custom_defaults)
     """
+    lazy_cli = os.environ.get("LAZY_CLI", "false").lower() == "true"
+
     if not isinstance(fn, EntrypointProtocol):
         # Wrap the function with the default entrypoint
         fn = entrypoint(**kwargs)(fn)
+    if getattr(fn, "__is_lazy__", False):
+        if lazy_cli:
+            fn = fn._import()
+        else:
+            app = typer.Typer()
+            RunContext.cli_command(
+                app,
+                sys.argv[1] if len(sys.argv) > 1 else "default",
+                LazyEntrypoint(" ".join(sys.argv)),
+                type="task",
+                default_factory=default_factory,
+                default_executor=default_executor,
+                default_plugins=default_plugins,
+            )
+            return app(standalone_mode=False)
 
     _original_default_factory = fn.cli_entrypoint.default_factory
     if default_factory:
@@ -255,6 +274,11 @@ def main(
             if not isinstance(default_plugins, Config):
                 raise ValueError("default_plugins must be a Config object")
         fn.cli_entrypoint.default_plugins = default_plugins
+
+    if lazy_cli:
+        global MAIN_ENTRYPOINT
+        MAIN_ENTRYPOINT = fn.cli_entrypoint
+        return
 
     fn.cli_entrypoint.main()
 
@@ -491,24 +515,47 @@ def create_cli(
     metadata.entry_points().select(group="nemo_run.cli")
     for ep in entrypoints:
         _get_or_add_typer(app, name=ep.name)
+    is_lazy = "--lazy" in sys.argv
 
-    if not nested_entrypoints_creation or (len(sys.argv) > 1 and sys.argv[1] in entrypoints.names):
-        _add_typer_nested(app, list_entrypoints())
+    app: Typer = Typer(add_completion=not is_lazy)
+    if is_lazy:
+        if len(sys.argv) > 1 and sys.argv[1] in ["devspace", "experiment"]:
+            raise ValueError("Lazy CLI does not support devspace and experiment commands.")
 
-    app.add_typer(
-        devspace_cli.create(),
-        name="devspace",
-        help="[Module] Manage devspaces",
-        cls=GeneralCommand,
-        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-    )
-    app.add_typer(
-        experiment_cli.create(),
-        name="experiment",
-        help="[Module] Manage Experiments",
-        cls=GeneralCommand,
-        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-    )
+        # remove --lazy from sys.argv
+        sys.argv = [arg for arg in sys.argv if arg != "--lazy"]
+
+        RunContext.cli_command(
+            app,
+            sys.argv[1],
+            LazyEntrypoint(" ".join(sys.argv)),
+            type="task",
+        )
+    else:
+        entrypoints = metadata.entry_points().select(group="nemo_run.cli")
+        metadata.entry_points().select(group="nemo_run.cli")
+        for ep in entrypoints:
+            _get_or_add_typer(app, name=ep.name)
+
+        if not nested_entrypoints_creation or (
+            len(sys.argv) > 1 and sys.argv[1] in entrypoints.names
+        ):
+            _add_typer_nested(app, list_entrypoints())
+
+        app.add_typer(
+            devspace_cli.create(),
+            name="devspace",
+            help="[Module] Manage devspaces",
+            cls=GeneralCommand,
+            context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+        )
+        app.add_typer(
+            experiment_cli.create(),
+            name="experiment",
+            help="[Module] Manage Experiments",
+            cls=GeneralCommand,
+            context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+        )
 
     if add_verbose_callback:
         app.callback()(global_options)
@@ -711,6 +758,7 @@ class RunContext:
     detach: bool = False
     skip_confirmation: bool = False
     tail_logs: bool = False
+    yaml: Optional[str] = None
 
     executor: Optional[Executor] = field(init=False)
     plugins: List[Plugin] = field(init=False)
@@ -720,7 +768,7 @@ class RunContext:
         cls,
         parent: typer.Typer,
         name: str,
-        fn: Callable,
+        fn: Callable | LazyEntrypoint,
         default_factory: Optional[Callable] = None,
         default_executor: Optional[Executor] = None,
         default_plugins: Optional[List[Plugin]] = None,
@@ -748,7 +796,7 @@ class RunContext:
             **command_kwargs,
         )
         def command(
-            name: str = typer.Option(None, "--name", "-n", help="Name of the run"),
+            run_name: str = typer.Option(None, "--name", "-n", help="Name of the run"),
             direct: bool = typer.Option(
                 False, "--direct/--no-direct", help="Execute the run directly"
             ),
@@ -761,6 +809,9 @@ class RunContext:
             load: Optional[str] = typer.Option(
                 None, "--load", "-l", help="Load a factory from a directory"
             ),
+            yaml: Optional[str] = typer.Option(
+                None, "--yaml", "-y", help="Path to a YAML file to load"
+            ),
             repl: bool = typer.Option(False, "--repl", "-r", help="Enter interactive mode"),
             detach: bool = typer.Option(False, "--detach", help="Detach from the run"),
             skip_confirmation: bool = typer.Option(
@@ -772,11 +823,12 @@ class RunContext:
             ctx: typer.Context = typer.Context,
         ):
             self = cls(
-                name=name,
+                name=run_name or name,
                 direct=direct,
                 dryrun=dryrun,
                 factory=factory or default_factory,
                 load=load,
+                yaml=yaml,
                 repl=repl,
                 detach=detach,
                 skip_confirmation=skip_confirmation,
@@ -789,11 +841,21 @@ class RunContext:
             if default_plugins:
                 self.plugins = default_plugins
 
-            if not is_main:
-                _load_entrypoints()
-            _load_workspace()
+            if isinstance(fn, LazyEntrypoint):
+                self.execute_lazy(fn, sys.argv, name)
+                return
 
-            self.cli_execute(fn, ctx.args, type)
+            try:
+                if not is_main:
+                    _load_entrypoints()
+                _load_workspace()
+                self.cli_execute(fn, ctx.args, type)
+            except RunContextError as e:
+                typer.echo(f"Error: {str(e)}", err=True, color=True)
+                raise typer.Exit(code=1)
+            except Exception as e:
+                typer.echo(f"Unexpected error: {str(e)}", err=True, color=True)
+                raise typer.Exit(code=1)
 
         return command
 
@@ -897,6 +959,51 @@ class RunContext:
 
         run_task()
 
+    def execute_lazy(self, entrypoint: LazyEntrypoint, args: List[str], name: str):
+        console = Console()
+
+        import nemo_run as run
+
+        if self.dryrun:
+            raise ValueError("Dry run is not supported for lazy execution")
+
+        if self.repl:
+            raise ValueError("Interactive mode is not supported for lazy execution")
+
+        if self.direct:
+            raise ValueError("Direct execution is not supported for lazy execution")
+
+        _, run_args, args = _parse_prefixed_args(args, "run")
+        self.parse_args(run_args, lazy=True)
+
+        cmd, cmd_args, i_self = "", [], 0
+        for i, arg in enumerate(sys.argv):
+            if arg == name:
+                i_self = i
+            if i_self == 0:
+                cmd += f" {arg}"
+
+            elif "=" not in arg and not arg.startswith("--"):
+                cmd += f" {arg}"
+            elif "=" in arg and not arg.startswith("--"):
+                cmd_args.append(arg)
+
+        to_run = LazyEntrypoint(cmd, factory=self.factory)
+        to_run._add_overwrite(*cmd_args)
+
+        if self._should_continue(self.skip_confirmation):
+            console.print(f"[bold cyan]Launching {self.name}...[/bold cyan]")
+            run.run(
+                fn_or_script=to_run,
+                name=self.name,
+                executor=self.executor,
+                plugins=self.plugins,
+                direct=False,
+                detach=self.detach,
+            )
+        else:
+            console.print("[bold cyan]Exiting...[/bold cyan]")
+
     def _execute_experiment(self, fn: Callable, experiment_args: List[str]):
         """
         Execute an experiment.
@@ -955,16 +1062,11 @@ class RunContext:
         Returns:
             Partial[T]: A Partial object representing the parsed function and arguments.
         """
-        if self.factory:
-            if isinstance(self.factory, Callable):
-                output = self.factory()
-            else:
-                output = parse_factory(fn, "factory", fn, self.factory)
-            parse_cli_args(output, args, output)
-        else:
-            output = self._parse_partial(fn, args, **default_kwargs)
+        output = LazyEntrypoint(fn, factory=self.factory, yaml=self.yaml)
+        if args:
+            output._add_overwrite(*args)
 
-        return output
+        return output.resolve()
 
     def _parse_partial(self, fn: Callable, args: List[str], **default_args) -> Partial[T]:
         """
@@ -983,7 +1085,7 @@ class RunContext:
             setattr(config, key, value)
         return config
 
-    def parse_args(self, args: List[str]):
+    def parse_args(self, args: List[str], lazy: bool = False):
         """
         Parse the given arguments and update the RunContext accordingly.
 
@@ -1019,8 +1121,10 @@ class RunContext:
         if self.plugins:
             self.plugins = fdl.build(self.plugins)
 
-        if args:
+        if not lazy and args:
             parse_cli_args(self, args, self)
+
+        return args
 
     def parse_executor(self, name: str, *args: str) -> Partial[Executor]:
         """

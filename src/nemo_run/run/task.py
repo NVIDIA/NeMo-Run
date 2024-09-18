@@ -61,6 +61,9 @@ def dryrun_fn(
 
 
 def direct_run_fn(task: Partial | Script, dryrun: bool = False):
+    if hasattr(task, "__is_lazy__"):
+        task = task.resolve()
+
     if not isinstance(task, (Partial, Script)):
         raise TypeError(f"Need a configured run.Partial or run.Script. Got {task}.")
 

@@ -27,6 +27,7 @@ from nemo_run.core.packaging.pattern import PatternPackager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.devspace.base import DevSpace
 from nemo_run.help import help
+from nemo_run.lazy import LazyEntrypoint, lazy_imports
 from nemo_run.run.api import run
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
@@ -34,6 +35,9 @@ from nemo_run.run.plugin import ExperimentPlugin as Plugin
 __all__ = [
     "autoconvert",
     "cli",
+    "dryrun_fn",
+    "lazy_imports",
+    "LazyEntrypoint",
     "Config",
     "ConfigurableMixin",
     "DevSpace",
