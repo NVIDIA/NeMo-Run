@@ -39,8 +39,6 @@ from typing import (
 )
 
 import fiddle as fdl
-from fiddle._src.signatures import SignatureInfo, get_signature, get_type_hints
-from omegaconf import DictConfig, OmegaConf
 
 from nemo_run.config import Config, Partial
 
@@ -55,6 +53,7 @@ class Operation(Enum):
     DIVIDE = "/="
     OR = "|="
     AND = "&="
+    UNION = "|="
 
 
 class CLIException(Exception):
@@ -540,42 +539,34 @@ class PythonicParser:
 
     def apply_operation(self, op: Operation, old: Any, new: Any) -> Any:
         """
-        Apply an operation to two values.
-
-        This method performs the specified operation (like addition, subtraction, etc.)
-        on the given old and new values.
+        Apply the specified operation to the old and new values.
 
         Args:
-            op (Operation): The operation to perform.
-            old (Any): The original value.
-            new (Any): The value to apply in the operation.
+            op (Operation): The operation to apply.
+            old (Any): The existing value.
+            new (Any): The new value to apply the operation with.
 
         Returns:
             Any: The result of applying the operation.
 
         Raises:
-            OperationError: If the operation fails or is unsupported.
-
-        Example:
-            >>> parser = PythonicParser()
-            >>> parser.apply_operation(Operation.ADD, 5, 3)
-            8
+            OperationError: If the operation fails or is not supported for the given types.
         """
-        operation = self.operations.get(op)
-        if operation:
-            try:
-                return operation(old, new)
-            except Exception as e:
-                raise OperationError(
-                    f"Operation '{op.value}' failed: {str(e)}",
-                    f"{old} {op.value} {new}",
-                    {"old": old, "new": new},
-                )
-        raise OperationError(
-            f"Unsupported operation: {op.value}",
-            f"{old} {op.value} {new}",
-            {"old": old, "new": new},
-        )
+        try:
+            if op == Operation.OR and isinstance(old, dict) and isinstance(new, dict):
+                return {**old, **new}
+            elif op == Operation.OR and hasattr(old, "__dict__") and hasattr(new, "__dict__"):
+                return {**old.__dict__, **new.__dict__}
+            elif op in self.operations:
+                return self.operations[op](old, new)
+            else:
+                raise ValueError(f"Unsupported operation: {op}")
+        except Exception as e:
+            raise OperationError(
+                f"Operation '{op.value}' failed: {str(e)}",
+                f"{old} {op.value} {new}",
+                {"old": old, "new": new},
+            ) from e
 
 
 class TypeParser:
@@ -670,6 +661,9 @@ class TypeParser:
         Raises:
             TypeParsingError: If parsing fails.
         """
+        if value.startswith("Config") or value.startswith("Partial"):
+            return self.parse_buildable(value, annotation)
+
         parser = self.get_parser(annotation)
         try:
             return parser(value, annotation)
@@ -681,6 +675,32 @@ class TypeParser:
                 value,
                 {"expected_type": annotation},
             )
+
+    def parse_buildable(self, value: str, annotation: Type[Config | Partial]) -> Config | Partial:
+        """Parse a string value into a Buildable type (Config or Partial).
+
+        Args:
+            value (str): The string value to parse.
+            annotation (Type[Config | Partial]): The Buildable type annotation.
+
+        Returns:
+            Config | Partial: The parsed Buildable type.
+        """
+        match = re.match(r"(Config|Partial)\[(.*)\]", value)
+        if match:
+            buildable_type, target = match.groups()
+
+            # Import the target
+            module_name, function_name = target.rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            config_type = getattr(module, function_name)
+
+            if buildable_type == "Config":
+                return Config(config_type)
+            elif buildable_type == "Partial":
+                return Partial(config_type)
+
+        return Config(annotation)
 
     def parse_int(self, value: str, _: Type) -> int:
         """Parse a string value into an integer.
@@ -728,10 +748,9 @@ class TypeParser:
         Returns:
             str: The parsed string value.
         """
-        if (value.startswith("'") and value.endswith("'")) or (
-            value.startswith('"') and value.endswith('"')
-        ):
-            return value[1:-1]
+        if len(value) >= 2:
+            if (value[0] == "'" and value[-1] == "'") or (value[0] == '"' and value[-1] == '"'):
+                return value[1:-1]
         return value
 
     def parse_bool(self, value: str, _: Type) -> bool:
@@ -1284,78 +1303,3 @@ def parse_attribute(attr, nested):
                 ) from e
 
     return result
-
-
-def omegaconf_to_buildable(
-    cfg: Union[DictConfig, Dict[str, Any]],
-    target_type: Optional[Type | Callable] = None,
-    buildable_type: Type[Config | Partial] = Config,
-) -> Config | Partial:
-    """
-    Convert an OmegaConf object or dictionary to a Fiddle Buildable.
-
-    Args:
-        cfg: OmegaConf object or dictionary to convert.
-        target_type: Optional type to use for the Buildable.
-        buildable_type: Type[Config | Partial] = Config
-    Returns:
-        A Fiddle Buildable (Config or Partial) representing the input configuration.
-    """
-    if isinstance(cfg, dict):
-        _cfg = OmegaConf.create(cfg)
-    else:
-        _cfg = cfg
-
-    if not OmegaConf.is_config(_cfg):
-        raise ValueError("Input must be an OmegaConf object or a dictionary")
-
-    target = _cfg.pop("_target_", None)
-    factory = _cfg.pop("_factory_", None)
-
-    if factory is not None:
-        buildable = parse_factory(target_type, "_factory_", target_type, factory)
-        buildable_type = Partial if inspect.isfunction(buildable) else Config
-        if not isinstance(buildable, (Config, Partial)):
-            buildable = buildable_type(buildable)
-    elif target is not None or target_type is not None:
-        buildable_target = target_type if target is None else target
-        buildable_type = Partial if inspect.isfunction(buildable_target) else Config
-        buildable = buildable_type(buildable_target)
-    else:
-        raise ValueError(
-            "Either '_target_', '_factory_' must be specified in the config or 'target_type' must be provided"
-        )
-
-    # Use Fiddle's SignatureInfo
-    signature = get_signature(buildable_target)
-    signature_info = SignatureInfo(signature)
-
-    # Get type hints using Fiddle's get_type_hints
-    type_hints = get_type_hints(buildable_target)
-
-    # Set remaining values from cfg
-    for key, value in _cfg.items():
-        if key not in signature_info.valid_param_names and signature_info.var_keyword_name is None:
-            continue  # Skip invalid parameters if **kwargs is not present
-
-        attr_type = type_hints.get(key)
-        if OmegaConf.is_config(value) or isinstance(value, dict):
-            if attr_type:
-                setattr(buildable, key, omegaconf_to_buildable(value, attr_type))
-            else:
-                setattr(buildable, key, value)
-        elif isinstance(value, list):
-            setattr(
-                buildable,
-                key,
-                [
-                    omegaconf_to_buildable(item, None)
-                    if OmegaConf.is_config(item) or isinstance(item, dict)
-                    else item
-                    for item in value
-                ],
-            )
-        else:
-            setattr(buildable, key, value)
-
-    return buildable

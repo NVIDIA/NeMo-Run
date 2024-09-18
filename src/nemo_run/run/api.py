@@ -15,7 +15,9 @@
 
 from typing import List, Optional, Union
 
-from nemo_run.config import Config, Partial, Script, get_type_namespace
+from fiddle import Buildable
+
+from nemo_run.config import Script, get_type_namespace
 from nemo_run.core.execution.base import Executor
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
@@ -23,7 +25,7 @@ from nemo_run.run.task import direct_run_fn
 
 
 def run(
-    fn_or_script: Union[Partial, Script],
+    fn_or_script: Union[Buildable, Script],
     executor: Optional[Executor] = None,
     plugins: Optional[Union[Plugin, List[Plugin]]] = None,
     name: str = "",
@@ -58,7 +60,7 @@ def run(
         run.run(configured_fn, executor=slurm_executor)
 
     """
-    if not isinstance(fn_or_script, (Partial, Config, Script)):
+    if not isinstance(fn_or_script, (Buildable, Script)):
         raise TypeError(f"Need a configured Buildable or run.Script. Got {fn_or_script}.")
 
     if direct or executor is None:
