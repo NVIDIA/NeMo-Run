@@ -483,7 +483,7 @@ def create_cli(
     add_verbose_callback: bool = True,
     nested_entrypoints_creation: bool = True,
 ) -> Typer:
-    app: Typer = Typer()
+    app: Typer = Typer(pretty_exceptions_enable=False)
     entrypoints = metadata.entry_points().select(group="nemo_run.cli")
     metadata.entry_points().select(group="nemo_run.cli")
     for ep in entrypoints:
@@ -785,16 +785,9 @@ class RunContext:
             if default_plugins:
                 self.plugins = default_plugins
 
-            try:
-                _load_entrypoints()
-                _load_workspace()
-                self.cli_execute(fn, ctx.args, type)
-            except RunContextError as e:
-                typer.echo(f"Error: {str(e)}", err=True, color=True)
-                raise typer.Exit(code=1)
-            except Exception as e:
-                typer.echo(f"Unexpected error: {str(e)}", err=True, color=True)
-                raise typer.Exit(code=1)
+            _load_entrypoints()
+            _load_workspace()
+            self.cli_execute(fn, ctx.args, type)
 
         return command
 
