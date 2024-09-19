@@ -6,12 +6,14 @@ This section provides answers to common questions organized by Nemo-Run function
   - [Configuration](#configuration)
       - [**Q:** UnserializableValueError when using `run.Partial` or `run.Config`](#q-unserializablevalueerror-when-using-runpartial-or-runconfig)
       - [**Q:** Deserialization error when using `run.Partial` or `run.Config`](#q-deserialization-error-when-using-runpartial-or-runconfig)
+      - [**Q:** How to use control flow in autoconvert?](#q-how-to-use-control-flow-in-autoconvert)
       - [**Q:** I made a change locally in my git repo and tested it using the local executor. However, the change is not reflected in the remote job.](#q-i-made-a-change-locally-in-my-git-repo-and-tested-it-using-the-local-executor-however-the-change-is-not-reflected-in-the-remote-job)
       - [**Q:** I made a change locally *outside* my git repo and tested it using the local executor. However, the change is not reflected in the remote job.](#q-i-made-a-change-locally-outside-my-git-repo-and-tested-it-using-the-local-executor-however-the-change-is-not-reflected-in-the-remote-job)
   - [Execution](#execution)
       - [**Q:** For SlurmExecutor, how can I execute directly from the login node of the cluster.](#q-for-slurmexecutor-how-can-i-execute-directly-from-the-login-node-of-the-cluster)
   - [Management](#management)
       - [**Q:** I can't retrieve logs for an experiment.](#q-i-cant-retrieve-logs-for-an-experiment)
+
 
 ## Configuration
 
@@ -49,7 +51,7 @@ partial = run.Partial(some_function, something=run.Config(Path, "/tmp"))
 serializer.deserialize(serializer.serialize(partial)) == partial
 ```
 
-**Q:** How to use control flow in autoconvert?
+#### **Q:** How to use control flow in autoconvert?
 If I use control flow with `run.autoconvert`, I get `UnsupportedLanguageConstructError: Control flow (ListComp) is unsupported by auto_config.`. For example, the below doesn't work.
 ```python
 @run.autoconvert
@@ -68,6 +70,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
         weights=[1 for i in range(10)]
     )
 ```
+
 
 #### **Q:** I made a change locally in my git repo and tested it using the local executor. However, the change is not reflected in the remote job.
 **A**: This is most likely because you haven't committed the changes. See details about `GitArchivePackager` [here](./execution.md#packagers) to learn more.
