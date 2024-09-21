@@ -616,6 +616,7 @@ nemo experiment cancel {exp_id} 0
                 job.launch(wait=wait, runner=self._runner)
                 if wait:
                     self._update_progress(job, job.state)
+                    job.cleanup()
 
                 self._save_jobs()
             except Exception as e:
