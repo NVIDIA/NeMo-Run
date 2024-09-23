@@ -267,7 +267,7 @@ class SlurmExecutor(Executor):
 
     @dataclass(kw_only=True)
     class ResourceRequest:
-        packager: GitArchivePackager
+        packager: Packager
         nodes: int
         ntasks_per_node: int
         container_image: Optional[str] = None
@@ -307,7 +307,7 @@ class SlurmExecutor(Executor):
     memory_measure: bool = False
     job_details: SlurmJobDetails = field(default_factory=SlurmJobDetails)
     tunnel: Union[SSHTunnel, LocalTunnel] = field(default_factory=lambda: LocalTunnel(job_dir=""))
-    packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore
+    packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore
     #: List of TorchX app handles that will be parsed and passed to --dependency flag in sbatch.
     dependencies: list[str] = field(default_factory=list)
     dependency_type: str = "afterok"
@@ -370,11 +370,6 @@ class SlurmExecutor(Executor):
         return main_executor
 
     def __post_init__(self):
-        # TODO: Remove this
-        assert isinstance(
-            self.packager, GitArchivePackager
-        ), "Only GitArchivePackager is currently supported for SlurmExecutor."
-
         if self.wait_time_for_group_job < 0:
             self.wait_time_for_group_job = 0
 
@@ -546,16 +541,16 @@ class SlurmExecutor(Executor):
         local_pkg = packager.package(base_path, self.job_dir, job_name)
         remote_code_extraction_path = os.path.join(self.tunnel.job_dir, job_name, "code")
         self.tunnel.run(f"mkdir -p {remote_code_extraction_path}")
+        if local_pkg:
+            dst_pkg = os.path.join(self.tunnel.job_dir, job_name, os.path.basename(local_pkg))
+            self.tunnel.put(local_path=local_pkg, remote_path=dst_pkg)
+            self.tunnel.run(f"tar -xvzf {dst_pkg} -C {remote_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
             remote_nsys_extraction_path = os.path.join(
                 self.tunnel.job_dir, job_name, self.get_launcher().nsys_folder
             )
             self.tunnel.run(f"mkdir -p {remote_nsys_extraction_path}")
-
-        dst_pkg = os.path.join(self.tunnel.job_dir, job_name, os.path.basename(local_pkg))
-        self.tunnel.put(local_path=local_pkg, remote_path=dst_pkg)
-        self.tunnel.run(f"tar -xvzf {dst_pkg} -C {remote_code_extraction_path}")
 
         local_configs_path = os.path.join(self.job_dir, "configs")
         remote_config_extraction_path = os.path.join(self.tunnel.job_dir, job_name, "configs")
