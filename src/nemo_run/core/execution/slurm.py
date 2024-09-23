@@ -540,7 +540,7 @@ class SlurmExecutor(Executor):
             path = output.stdout.splitlines()[0].decode()
             base_path = Path(path).absolute()
         else:
-            base_path = Path(os.getcwd()).absolute
+            base_path = Path(os.getcwd()).absolute()
 
         local_pkg = packager.package(base_path, self.job_dir, job_name)
         remote_code_extraction_path = os.path.join(self.tunnel.job_dir, job_name, "code")
