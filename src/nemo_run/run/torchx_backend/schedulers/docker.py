@@ -103,6 +103,19 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         basename = Path(req.executor.job_dir).name
         req.executor.package(packager=req.executor.packager, job_name=basename)
 
+        # Pre pull all images
+        images = set()
+        for container in req.containers:
+            images.add(container.executor.container_image)
+        for image in images:
+            if image.startswith("sha256:"):
+                continue
+            log.info(f"Pulling container image: {image} (this may take a while)")
+            try:
+                client.images.pull(image)
+            except Exception as e:
+                log.warning(f"failed to pull image {image}, falling back to local: {e}")
+
         for container in req.containers:
             container.executor.volumes.append(f"{req.executor.job_dir}:/{RUNDIR_NAME}")
 
