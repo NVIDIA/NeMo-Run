@@ -79,7 +79,7 @@ class GitArchivePackager(Packager):
             stdout=subprocess.PIPE,
             shell=True,
         )
-        git_base_path = Path(output.stdout.splitlines()[0].decode())
+        git_base_path = Path(output.stdout.splitlines()[0].decode().strip())
         git_sub_path = os.path.join(self.subpath, "")
 
         if self.check_uncommitted_changes:
@@ -104,7 +104,10 @@ class GitArchivePackager(Packager):
                 untracked_files
             ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
         if self.include_pattern:
-            cmd = f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path}; find {self.include_pattern} -type f) | tar -czf {output_file} -T -"
+            cmd = (
+                f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path}; "
+                f"find {self.include_pattern} -type f) | tar -czf {output_file} -C {shlex.quote(str(git_base_path))} -T -"
+            )
         else:
             cmd = f"cd {shlex.quote(str(git_base_path))} && git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
         ctx = Context()
