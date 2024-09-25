@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,8 +20,6 @@ from pathlib import Path
 from invoke.context import Context
 
 from nemo_run.core.packaging.base import Packager
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)

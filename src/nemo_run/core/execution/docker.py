@@ -194,8 +194,7 @@ class DockerExecutor(Executor):
         local_pkg = packager.package(base_path, self.job_dir, job_name)
         local_code_extraction_path = os.path.join(self.job_dir, "code")
         ctx = Context()
-        if local_pkg:
-            ctx.run(f"mkdir -p {local_code_extraction_path}")
+        ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
             remote_nsys_extraction_path = os.path.join(
