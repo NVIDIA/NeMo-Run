@@ -110,11 +110,15 @@ class GitArchivePackager(Packager):
         if self.include_pattern:
             include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(str(git_base_path))
             relative_include_pattern = os.path.relpath(self.include_pattern, include_pattern_relative_path)
+            # we first add git files into an uncompressed archive
+            # then we add an extra files from pattern to that archive
+            # finally we compress it (cannot compress right away, since adding files is not possible)
             cmd = (
                 f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path} "
-                f"| tar -czf {output_file} -C {shlex.quote(str(git_base_path))} -T -) "
+                f"| tar -cf {output_file}.tmp -C {shlex.quote(str(git_base_path))} -T -) "
                 f"&& (cd {include_pattern_relative_path} && find {relative_include_pattern} -type f "
-                f"| tar -rf {output_file} -C {include_pattern_relative_path} -T -)"
+                f"| tar -rf {output_file}.tmp -C {include_pattern_relative_path} -T -) "
+                f"&& gzip -c {output_file}.tmp > {output_file} && rm {output_file}.tmp"
             )
         else:
             cmd = f"cd {shlex.quote(str(git_base_path))} && git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
