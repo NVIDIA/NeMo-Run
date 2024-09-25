@@ -61,6 +61,10 @@ class GitArchivePackager(Packager):
     #: This str will be included in the command as: find {include_pattern} -type f to get the list of extra files to include in the archive
     include_pattern: str = ""
 
+    #: Relative path to use as tar -C option - need to be consistent with include_pattern
+    #: If not provided, will use git base path.
+    include_pattern_relative_path: str = ""
+
     check_uncommitted_changes: bool = False
     check_untracked_files: bool = False
 
@@ -104,9 +108,13 @@ class GitArchivePackager(Packager):
                 untracked_files
             ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
         if self.include_pattern:
+            include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(str(git_base_path))
+            relative_include_pattern = os.path.relpath(self.include_pattern, include_pattern_relative_path)
             cmd = (
-                f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path}; "
-                f"find {self.include_pattern} -type f) | tar -czf {output_file} -C {shlex.quote(str(git_base_path))} -T -"
+                f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path} "
+                f"| tar -czf {output_file} -C {shlex.quote(str(git_base_path))} -T -) "
+                f"&& (cd {include_pattern_relative_path} && find {relative_include_pattern} -type f "
+                f"| tar -rf {output_file} -C {include_pattern_relative_path} -T -)"
             )
         else:
             cmd = f"cd {shlex.quote(str(git_base_path))} && git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
