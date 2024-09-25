@@ -53,10 +53,6 @@ class GitArchivePackager(Packager):
     #: a/.
     subpath: str = ""
 
-    #: List of pip packages to install before starting your run.
-    #: This is experimental and risky as it may change the underlying environment drastically.
-    #: This doesn't work when using torchrun.
-    pip_installs: list[str] = field(default_factory=list)
     #: Git ref to use for archiving the code.
     #: Can be a branch name or a commit ref like HEAD.
     ref: str = "HEAD"

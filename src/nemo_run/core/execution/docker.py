@@ -120,7 +120,7 @@ class DockerExecutor(Executor):
     network: str = NETWORK
     additional_kwargs: dict[str, Any] = field(default_factory=dict)
     volumes: list[str] = field(default_factory=list)
-    packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
+    packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     job_name: str = field(init=False, default="nemo-job")
 
@@ -181,25 +181,29 @@ class DockerExecutor(Executor):
 
     def package(self, packager: Packager, job_name: str):
         assert self.experiment_id, "Executor not assigned to an experiment."
-        output = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            check=True,
-            stdout=subprocess.PIPE,
-        )
-        path = output.stdout.splitlines()[0].decode()
-        base_path = Path(path).absolute()
+        if isinstance(packager, GitArchivePackager):
+            output = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                check=True,
+                stdout=subprocess.PIPE,
+            )
+            path = output.stdout.splitlines()[0].decode()
+            base_path = Path(path).absolute()
+        else:
+            base_path = Path(os.getcwd()).absolute()
         local_pkg = packager.package(base_path, self.job_dir, job_name)
         local_code_extraction_path = os.path.join(self.job_dir, "code")
         ctx = Context()
-        ctx.run(f"mkdir -p {local_code_extraction_path}")
+        if local_pkg:
+            ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
             remote_nsys_extraction_path = os.path.join(
                 self.job_dir, job_name, self.get_launcher().nsys_folder
             )
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
-
-        ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path}", hide=True)
+        if local_pkg:
+            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path}", hide=True)
 
     def cleanup(self, handle: str):
         _, _, app_id = parse_app_handle(handle)

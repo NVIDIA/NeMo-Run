@@ -23,6 +23,7 @@ from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
+from nemo_run.core.packaging.pattern import PatternPackager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.devspace.base import DevSpace
 from nemo_run.help import help
@@ -43,6 +44,7 @@ __all__ = [
     "Experiment",
     "FaultTolerance",
     "GitArchivePackager",
+    "PatternPackager",
     "help",
     "LocalExecutor",
     "LocalTunnel",
