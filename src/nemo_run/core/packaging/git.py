@@ -17,7 +17,7 @@ import logging
 import os
 import shlex
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from invoke.context import Context
@@ -53,10 +53,6 @@ class GitArchivePackager(Packager):
     #: a/.
     subpath: str = ""
 
-    #: List of pip packages to install before starting your run.
-    #: This is experimental and risky as it may change the underlying environment drastically.
-    #: This doesn't work when using torchrun.
-    pip_installs: list[str] = field(default_factory=list)
     #: Git ref to use for archiving the code.
     #: Can be a branch name or a commit ref like HEAD.
     ref: str = "HEAD"
@@ -64,6 +60,10 @@ class GitArchivePackager(Packager):
     #: Include extra files in the archive which matches include_pattern
     #: This str will be included in the command as: find {include_pattern} -type f to get the list of extra files to include in the archive
     include_pattern: str = ""
+
+    #: Relative path to use as tar -C option - need to be consistent with include_pattern
+    #: If not provided, will use git base path.
+    include_pattern_relative_path: str = ""
 
     check_uncommitted_changes: bool = False
     check_untracked_files: bool = False
@@ -83,7 +83,7 @@ class GitArchivePackager(Packager):
             stdout=subprocess.PIPE,
             shell=True,
         )
-        git_base_path = Path(output.stdout.splitlines()[0].decode())
+        git_base_path = Path(output.stdout.splitlines()[0].decode().strip())
         git_sub_path = os.path.join(self.subpath, "")
 
         if self.check_uncommitted_changes:
@@ -108,7 +108,22 @@ class GitArchivePackager(Packager):
                 untracked_files
             ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
         if self.include_pattern:
-            cmd = f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path}; find {self.include_pattern} -type f) | tar -czf {output_file} -T -"
+            include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(
+                str(git_base_path)
+            )
+            relative_include_pattern = os.path.relpath(
+                self.include_pattern, include_pattern_relative_path
+            )
+            # we first add git files into an uncompressed archive
+            # then we add an extra files from pattern to that archive
+            # finally we compress it (cannot compress right away, since adding files is not possible)
+            cmd = (
+                f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path} "
+                f"| tar -cf {output_file}.tmp -C {shlex.quote(str(git_base_path))} -T -) "
+                f"&& (cd {include_pattern_relative_path} && find {relative_include_pattern} -type f "
+                f"| tar -rf {output_file}.tmp -C {include_pattern_relative_path} -T -) "
+                f"&& gzip -c {output_file}.tmp > {output_file} && rm {output_file}.tmp"
+            )
         else:
             cmd = f"cd {shlex.quote(str(git_base_path))} && git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
         ctx = Context()
