@@ -211,8 +211,9 @@ def test_package_with_include_pattern_rel_path(packager, temp_repo, tmpdir):
     with open(tmpdir / "extra" / "extra_file2.txt", "w") as f:
         f.write("Extra file 2")
 
-
-    packager = GitArchivePackager(include_pattern=str(tmpdir / "extra/*"), include_pattern_relative_path=str(tmpdir))
+    packager = GitArchivePackager(
+        include_pattern=str(tmpdir / "extra/*"), include_pattern_relative_path=str(tmpdir)
+    )
     with tempfile.TemporaryDirectory() as job_dir:
         output_file = packager.package(Path(temp_repo), job_dir, "test_package")
         assert os.path.exists(output_file)

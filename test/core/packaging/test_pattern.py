@@ -21,9 +21,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import invoke
-import pytest
-
 from nemo_run.core.packaging.pattern import PatternPackager
 from test.conftest import MockContext
 

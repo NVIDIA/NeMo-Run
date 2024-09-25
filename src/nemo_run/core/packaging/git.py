@@ -17,7 +17,7 @@ import logging
 import os
 import shlex
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from invoke.context import Context
@@ -108,8 +108,12 @@ class GitArchivePackager(Packager):
                 untracked_files
             ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
         if self.include_pattern:
-            include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(str(git_base_path))
-            relative_include_pattern = os.path.relpath(self.include_pattern, include_pattern_relative_path)
+            include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(
+                str(git_base_path)
+            )
+            relative_include_pattern = os.path.relpath(
+                self.include_pattern, include_pattern_relative_path
+            )
             # we first add git files into an uncompressed archive
             # then we add an extra files from pattern to that archive
             # finally we compress it (cannot compress right away, since adding files is not possible)
