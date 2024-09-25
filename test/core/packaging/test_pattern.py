@@ -25,7 +25,7 @@ from nemo_run.core.packaging.pattern import PatternPackager
 from test.conftest import MockContext
 
 
-@patch("nemo_run.core.packaging.git.Context", MockContext)
+@patch("nemo_run.core.packaging.pattern.Context", MockContext)
 def test_package_with_include_pattern_rel_path(tmpdir):
     # Create extra files in a separate directory
     (tmpdir / "extra").mkdir()
