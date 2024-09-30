@@ -532,13 +532,16 @@ class SlurmExecutor(Executor):
 
         assert self.experiment_id, "Executor not assigned to an experiment."
         if isinstance(packager, GitArchivePackager):
-            output = subprocess.run(
-                ["git", "rev-parse", "--show-toplevel"],
-                check=True,
-                stdout=subprocess.PIPE,
-            )
-            path = output.stdout.splitlines()[0].decode()
-            base_path = Path(path).absolute()
+            try:
+                output = subprocess.run(
+                    ["git", "rev-parse", "--show-toplevel"],
+                    check=True,
+                    stdout=subprocess.PIPE,
+                )
+                path = output.stdout.splitlines()[0].decode()
+                base_path = Path(path).absolute()
+            except subprocess.CalledProcessError:
+                base_path = Path(os.getcwd()).absolute()
         else:
             base_path = Path(os.getcwd()).absolute()
 
