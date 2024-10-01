@@ -77,6 +77,15 @@ class SlurmJobDetails:
         assert self.folder, self.job_name
         return Path(self.folder) / f"log-{self.job_name}_%j_${{SLURM_RESTART_COUNT:-0}}.out"
 
+    @property
+    def ls_term(self) -> str:
+        """This term will be used to fetch the logs.
+
+        The command used to list the files is ls -1 {ls_term} 2> /dev/null
+        """
+        assert self.folder
+        return os.path.join(self.folder, "log*")
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.folder})"
 

@@ -176,13 +176,13 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         job_id = self.tunnel.run(" ".join(req.cmd)).stdout.strip()
 
         # Save metadata
-        _save_job_dir(job_id, job_dir, tunnel)
+        _save_job_dir(job_id, job_dir, tunnel, slurm_cfg.job_details.ls_term)
         return job_id
 
     def _cancel_existing(self, app_id: str) -> None:
         job_dirs = _get_job_dirs()
         if app_id in job_dirs:
-            _, tunnel_cfg = job_dirs[app_id]
+            _, tunnel_cfg, _ = job_dirs[app_id]
             self._initialize_tunnel(tunnel_cfg)
         else:
             return None
@@ -193,7 +193,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
     def describe(self, app_id: str) -> Optional[DescribeAppResponse]:
         job_dirs = _get_job_dirs()
         if app_id in job_dirs:
-            _, tunnel_cfg = job_dirs[app_id]
+            _, tunnel_cfg, _ = job_dirs[app_id]
             self._initialize_tunnel(tunnel_cfg)
         else:
             return None
@@ -284,7 +284,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         job_dirs = _get_job_dirs()
         if app_id in job_dirs:
-            local_dir, tunnel_cfg = job_dirs[app_id]
+            local_dir, tunnel_cfg, ls_term = job_dirs[app_id]
             self._initialize_tunnel(tunnel_cfg)
 
             local_paths = SlurmJobDetails(folder=local_dir, job_name=role_name)
@@ -297,6 +297,7 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
                 self,
                 should_tail=should_tail,
                 role_name=role_name,
+                ls_term=ls_term,
             )
             # sometimes there's multiple lines per logged line
             iterator = split_lines_iterator(iterator)
@@ -319,6 +320,7 @@ class TunnelLogIterator(LogIterator):
         should_tail: bool = True,
         role_name: Optional[str] = None,
         is_local: bool = False,
+        ls_term: Optional[str] = None,
     ) -> None:
         self._app_id: str = app_id
         self._log_file: str = local_log_file
@@ -328,6 +330,7 @@ class TunnelLogIterator(LogIterator):
         self._app_finished: bool = not should_tail
         self._role_name = role_name
         self._is_local = is_local
+        self._ls_term = ls_term
 
     def _check_finished(self) -> None:
         # either the app (already finished) was evicted from the LRU cache
@@ -342,9 +345,13 @@ class TunnelLogIterator(LogIterator):
             try:
                 for _ in range(5):
                     extension = os.path.splitext(self._log_file)[1]
-                    ls_term = f"log*{extension}"
+                    ls_term = (
+                        self._ls_term
+                        if self._ls_term
+                        else os.path.join(self._remote_dir, f"log*{extension}")
+                    )
                     ls_output = self._scheduler.tunnel.run(
-                        f"ls -1 {os.path.join(self._remote_dir, ls_term)} 2> /dev/null",
+                        f"ls -1 {ls_term} 2> /dev/null",
                         warn=True,
                     ).stdout.strip()
                     remote_log_files = ls_output.split("\n") if ls_output else []
@@ -367,14 +374,16 @@ def create_scheduler(session_name: str, **kwargs: Any) -> SlurmTunnelScheduler:
     )
 
 
-def _save_job_dir(job_id: str, local_job_dir: str, tunnel: SSHTunnel | LocalTunnel) -> None:
+def _save_job_dir(
+    job_id: str, local_job_dir: str, tunnel: SSHTunnel | LocalTunnel, ls_term: str
+) -> None:
     with open(SLURM_JOB_DIRS, "a+") as f:
         f.write(
-            f"{job_id} = {local_job_dir},{tunnel.__class__.__name__},{json.dumps(asdict(tunnel))}\n"
+            f"{job_id} = {ls_term},{local_job_dir},{tunnel.__class__.__name__},{json.dumps(asdict(tunnel))}\n"
         )
 
 
-def _get_job_dirs() -> dict[str, tuple[str, SSHTunnel | LocalTunnel]]:
+def _get_job_dirs() -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
     try:
         with open(SLURM_JOB_DIRS, "rt") as f:
             lines = f.readlines()
@@ -386,16 +395,21 @@ def _get_job_dirs() -> dict[str, tuple[str, SSHTunnel | LocalTunnel]]:
         first, _, second = line.partition("=")
         if not first or not second:
             continue
-        value = second.strip().split(",", maxsplit=2)
-        if len(value) != 3:
+        value = second.strip().split(",", maxsplit=3)
+        if len(value) not in [3, 4]:
             continue
 
-        job_id = value[0]
+        if len(value) == 4:
+            ls_term = value.pop(0)
+        else:
+            ls_term = ""
+
+        local_dir = value[0]
         tunnel_cls = SSHTunnel if value[1] == SSHTunnel.__name__ else LocalTunnel
         try:
             tunnel = from_dict(json.loads(value[2]), tunnel_cls)
         except Exception:
             continue
 
-        out[first.strip()] = (job_id, tunnel)
+        out[first.strip()] = (local_dir, tunnel, ls_term)
     return out
