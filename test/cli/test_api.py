@@ -27,6 +27,7 @@ from typer.testing import CliRunner
 
 import nemo_run as run
 from nemo_run import cli, config
+from nemo_run.cli import api as cli_api
 from nemo_run.cli.api import Entrypoint, RunContext, create_cli
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
@@ -188,7 +189,7 @@ class TestRunContext:
         self, mock_confirm, mock_run, mock_dryrun_fn, sample_function
     ):
         ctx = RunContext(name="test_run")
-        os.environ["NEMORUN_SKIP_CONFIRMATION"] = "false"
+        cli_api.NEMORUN_SKIP_CONFIRMATION = None
         ctx.cli_execute(sample_function, ["a=10", "b=hello"])
         mock_dryrun_fn.assert_called_once()
         mock_confirm.assert_called_once()
