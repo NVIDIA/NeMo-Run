@@ -16,6 +16,7 @@
 import os
 from typing import Any, Optional
 
+import pytest
 from invoke.config import Config
 from invoke.context import Context
 
@@ -33,3 +34,14 @@ class MockContext(Context):
         kwargs["in_stream"] = False
         runner = self.config.runners.local(self)
         return self._run(runner, command, **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def reset_nemorun_skip_confirmation():
+    from nemo_run.cli import api
+
+    """Reset NEMORUN_SKIP_CONFIRMATION to None before each test."""
+    api.NEMORUN_SKIP_CONFIRMATION = None
+    yield
+    # Optionally, reset after the test as well
+    api.NEMORUN_SKIP_CONFIRMATION = None

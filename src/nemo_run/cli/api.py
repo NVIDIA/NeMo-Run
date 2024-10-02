@@ -73,8 +73,11 @@ ROOT_FACTORY_NAMESPACE = "nemo_run.cli.factories"
 DEFAULT_NAME = "default"
 EXECUTOR_CLASSES = [Executor, LocalExecutor, SkypilotExecutor, SlurmExecutor]
 PLUGIN_CLASSES = [Plugin, List[Plugin]]
+NEMORUN_SKIP_CONFIRMATION: Optional[bool] = None
 
 INCLUDE_WORKSPACE_FILE = os.environ.get("INCLUDE_WORKSPACE_FILE", "true").lower() == "true"
+
+logger = logging.getLogger(__name__)
 
 
 def entrypoint(
@@ -918,7 +921,24 @@ class RunContext:
         Returns:
             bool: True if execution should continue, False otherwise.
         """
-        return skip_confirmation or typer.confirm("Continue?")
+        global NEMORUN_SKIP_CONFIRMATION
+
+        # If we're running under torchrun, always continue
+        if _is_torchrun():
+            logger.info("Detected torchrun environment. Skipping confirmation.")
+            return True
+
+        if NEMORUN_SKIP_CONFIRMATION is not None:
+            return NEMORUN_SKIP_CONFIRMATION
+
+        # If skip_confirmation is True or user confirms, continue
+        if skip_confirmation or typer.confirm("Continue?"):
+            NEMORUN_SKIP_CONFIRMATION = True
+            return True
+
+        # Otherwise, don't continue
+        NEMORUN_SKIP_CONFIRMATION = False
+        return False
 
     def parse_fn(self, fn: T, args: List[str], **default_kwargs) -> Partial[T]:
         """
@@ -1355,6 +1375,11 @@ class InvalidOptionError(RunContextError):
 
 class MissingRequiredOptionError(RunContextError):
     """Raised when a required option is missing."""
+
+
+def _is_torchrun() -> bool:
+    """Check if running under torchrun."""
+    return "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) > 1
 
 
 if __name__ == "__main__":
