@@ -335,8 +335,6 @@ nemo experiment cancel {exp_id} 0
                 ...
 
     def _load_jobs(self) -> list[Job | JobGroup]:
-        if "__external_main__" not in sys.modules:
-            maybe_load_external_main(self._exp_dir)
         with open(os.path.join(self._exp_dir, self._TASK_FILE)) as f:
             serialized_jobs = json.load(f)
 
@@ -782,6 +780,9 @@ nemo experiment cancel {exp_id} 0
             shutil.copy(os.path.join(old_exp_dir, "__main__.py"), self._exp_dir)
 
         try:
+            if "__external_main__" not in sys.modules:
+                maybe_load_external_main(self._exp_dir)
+
             for job in jobs:
                 if isinstance(job, Job):
                     if isinstance(job.task, str):
