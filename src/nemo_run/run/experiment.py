@@ -343,9 +343,6 @@ nemo experiment cancel {exp_id} 0
         for job_cfg, task_cfg in serialized_jobs:
             job_cfg = serializer.deserialize(job_cfg)
 
-            if isinstance(task_cfg, str):
-                task_cfg = serializer.deserialize(task_cfg)
-
             job: Job | JobGroup = fdl.build(job_cfg)
             if isinstance(job, Job):
                 job.task = task_cfg  # type: ignore
@@ -1023,6 +1020,12 @@ nemo experiment cancel {exp_id} 0
 
     @property
     def tasks(self) -> list[Config]:
+        serializer = ZlibJSONSerializer()
+
+        for job in self._jobs:
+            if isinstance(job.task, str):
+                job.task = serializer.deserialize(job.task)
+
         return Tasks(job.task for job in self._jobs)
 
 
