@@ -1020,6 +1020,12 @@ nemo experiment cancel {exp_id} 0
 
     @property
     def tasks(self) -> list[Config]:
+        serializer = ZlibJSONSerializer()
+
+        for job in self._jobs:
+            if isinstance(job.task, str):
+                job.task = serializer.deserialize(job.task)
+
         return Tasks(job.task for job in self._jobs)
 
 
