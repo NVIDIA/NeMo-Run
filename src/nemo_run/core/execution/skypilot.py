@@ -22,12 +22,14 @@ from typing import Optional, Type, Union
 
 from invoke.context import Context
 
+from nemo_run.config import RUNDIR_NAME
 from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
     FaultTolerance,
     Torchrun,
 )
+from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
 _SKYPILOT_AVAILABLE: bool = False
@@ -101,7 +103,7 @@ class SkypilotExecutor(Executor):
     setup: Optional[str] = None
     autodown: bool = False
     idle_minutes_to_autostop: Optional[int] = None
-    packager: GitArchivePackager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
+    packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     def __post_init__(self):
         assert (
@@ -255,14 +257,22 @@ class SkypilotExecutor(Executor):
 
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
         filenames = []
-        basepath = os.path.join(self.workdir, "configs")
+        basepath = os.path.join(self.job_dir, "configs")
         for name, cfg in cfgs:
             filename = os.path.join(basepath, name)
             os.makedirs(os.path.dirname(filename), exist_ok=True)
             with open(filename, "w") as f:
                 f.write(cfg)
 
-            filenames.append(os.path.join("~/sky_workdir", "configs", name))
+            filenames.append(
+                os.path.join(
+                    "/",
+                    RUNDIR_NAME,
+                    "configs",
+                    name,
+                )
+            )
+
         return filenames
 
     def assign(
@@ -272,28 +282,38 @@ class SkypilotExecutor(Executor):
         task_id: str,
         task_dir: str,
     ):
+        self.job_name = task_id
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
-        os.makedirs(self.job_dir, exist_ok=True)
-
         self.experiment_id = exp_id
 
-    def package(self) -> str:
-        assert self.experiment_id, "Executor not assigned to an experiment."
-        output = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            check=True,
-            stdout=subprocess.PIPE,
-        )
-        path = output.stdout.splitlines()[0].decode()
-        name = os.path.basename(path)
-        base_path = Path(path).absolute()
-        pkg = self.packager.package(base_path, self.job_dir, name)
+        os.makedirs(self.job_dir, exist_ok=True)
 
+    def package(self, packager: Packager, job_name: str):
+        assert self.experiment_id, "Executor not assigned to an experiment."
+        if isinstance(packager, GitArchivePackager):
+            output = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                check=True,
+                stdout=subprocess.PIPE,
+            )
+            path = output.stdout.splitlines()[0].decode()
+            base_path = Path(path).absolute()
+        else:
+            base_path = Path(os.getcwd()).absolute()
+
+        local_pkg = packager.package(base_path, self.job_dir, job_name)
+        local_code_extraction_path = os.path.join(self.job_dir, "code")
         ctx = Context()
-        os.makedirs(self.workdir, exist_ok=True)
-        ctx.run(f"tar -xvzf {pkg} -C {self.workdir}", hide=True)
-        return self.workdir
+        ctx.run(f"mkdir -p {local_code_extraction_path}")
+
+        if self.get_launcher().nsys_profile:
+            remote_nsys_extraction_path = os.path.join(
+                self.job_dir, job_name, self.get_launcher().nsys_folder
+            )
+            ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
+        if local_pkg:
+            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path}", hide=True)
 
     def nnodes(self) -> int:
         return self.num_nodes
@@ -340,6 +360,9 @@ echo "num_nodes=$num_nodes"
 
 head_node_ip=`echo "$SKYPILOT_NODE_IPS" | head -n1`
 echo "head_node_ip=$head_node_ip"
+
+cd /nemo_run/code
+
 {" ".join(cmd)}
 """
         task = Task(
@@ -347,11 +370,11 @@ echo "head_node_ip=$head_node_ip"
             setup=self.setup if self.setup else "",
             run=run_cmd,
             envs=self.env_vars,
-            workdir=self.workdir,
             num_nodes=self.num_nodes,
         )
-        if self.file_mounts:
-            task.set_file_mounts(self.file_mounts)
+        file_mounts = self.file_mounts or {}
+        file_mounts["/nemo_run"] = self.job_dir
+        task.set_file_mounts(self.file_mounts)
         task.set_resources(self.to_resources())
 
         if env_vars:
@@ -364,7 +387,6 @@ echo "head_node_ip=$head_node_ip"
         task: "skyt.Task",
         cluster_name: Optional[str] = None,
         num_nodes: Optional[int] = None,
-        workdir: Optional[str] = None,
         detach_run: bool = True,
         dryrun: bool = False,
     ) -> tuple[Optional[int], Optional["backends.ResourceHandle"]]:
@@ -372,7 +394,6 @@ echo "head_node_ip=$head_node_ip"
         from sky.execution import launch
         from sky.utils import common_utils
 
-        task.workdir = workdir or self.workdir
         task_yml = os.path.join(self.job_dir, "skypilot_task.yml")
         with open(task_yml, "w+") as f:
             f.write(common_utils.dump_yaml_str(task.to_yaml_config()))

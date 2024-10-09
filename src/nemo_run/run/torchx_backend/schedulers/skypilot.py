@@ -106,7 +106,7 @@ class SkypilotScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         req = dryrun_info.request
         task = req.task
         executor = req.executor
-        executor.package()
+        executor.package(executor.packager, job_name=executor.job_name)
         job_id, handle = executor.launch(task)
         assert (
             job_id and handle
