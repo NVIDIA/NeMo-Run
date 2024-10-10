@@ -325,6 +325,7 @@ class SlurmExecutor(Executor):
     wait_time_for_group_job: int = 30
     monitor_group_job: bool = True
     monitor_group_job_wait_time: int = 60
+    setup_lines: Optional[str] = None
 
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")
@@ -953,7 +954,7 @@ class SlurmBatchRequest:
             "max_retries": self.max_retries,
             "env_vars": env_vars,
             "head_node_ip_var": SlurmExecutor.HEAD_NODE_IP_VAR,
-            "setup_lines": self.setup,
+            "setup_lines": self.slurm_config.setup_lines,
             "memory_measure": memory_measure,
             "srun_commands": srun_commands,
             "group_env_vars": group_env_vars,
