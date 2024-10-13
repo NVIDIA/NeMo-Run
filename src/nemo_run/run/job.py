@@ -60,6 +60,7 @@ class Job(ConfigurableMixin):
     state: AppState = AppState.UNSUBMITTED
     plugins: Optional[list[ExperimentPlugin]] = None
     tail_logs: bool = False
+    dependencies: list[str] = field(default_factory=list)
 
     def serialize(self) -> tuple[str, str]:
         cfg = self.to_config()
@@ -213,6 +214,7 @@ class JobGroup(ConfigurableMixin):
     states: list[AppState] = field(default_factory=list)
     plugins: Optional[list[ExperimentPlugin]] = None
     tail_logs: bool = False
+    dependencies: list[str] = field(default_factory=list)
 
     def __post_init__(self):
         executors = [self.executors] if isinstance(self.executors, Executor) else self.executors
