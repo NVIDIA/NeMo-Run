@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Optional, Type, Union
 
 import fiddle as fdl
+import networkx as nx
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
@@ -355,14 +356,15 @@ nemo experiment cancel {exp_id} 0
 
         return jobs
 
-    def _add_single_task(
+    def _add_single_job(
         self,
         task: Union[Partial, Script],
         executor: Executor,
         name: str = "",
         plugins: Optional[list[ExperimentPlugin]] = None,
         tail_logs: bool = False,
-    ):
+        dependencies: Optional[list[str]] = None,
+    ) -> str:
         if isinstance(task, Script):
             default_name = task.get_name()
         else:
@@ -390,6 +392,7 @@ nemo experiment cancel {exp_id} 0
             executor=executor,
             plugins=plugins,
             tail_logs=tail_logs,
+            dependencies=dependencies or [],
         )
         plugins = plugins or []
         for plugin in plugins:
@@ -397,15 +400,17 @@ nemo experiment cancel {exp_id} 0
             plugin.setup(cloned, executor)
 
         self._jobs.append(job)
+        return job.id
 
-    def _add_task_group(
+    def _add_job_group(
         self,
         tasks: list[Partial | Script],
         executor: list[Executor] | Executor,
         name: str,
         plugins: Optional[list[ExperimentPlugin]] = None,
         tail_logs: bool = False,
-    ):
+        dependencies: Optional[list[str]] = None,
+    ) -> str:
         if any(map(lambda task: task.id == name, self.jobs)):
             task_id = f"{name}_{len(self.jobs)}"
         else:
@@ -423,21 +428,23 @@ nemo experiment cancel {exp_id} 0
             cloned_task = copy.deepcopy(task) if isinstance(task, Script) else task.clone()
             cloned_tasks.append(cloned_task)
 
-        task_group = JobGroup(
+        job_group = JobGroup(
             id=task_id,
             tasks=cloned_tasks,
             executors=cloned_executors,
             plugins=plugins,
             tail_logs=tail_logs,
+            dependencies=dependencies or [],
         )
         plugins = plugins or []
         for plugin in plugins:
             for i, task in enumerate(cloned_tasks):
-                _executor = task_group.executors if task_group._merge else task_group.executors[i]  # type: ignore
+                _executor = job_group.executors if job_group._merge else job_group.executors[i]  # type: ignore
                 assert isinstance(_executor, Executor)
                 plugin.setup(task, _executor)
 
-        self._jobs.append(task_group)
+        self._jobs.append(job_group)
+        return job_group.id
 
     def add(
         self,
@@ -446,7 +453,8 @@ nemo experiment cancel {exp_id} 0
         name: str = "",
         plugins: Optional[list[ExperimentPlugin]] = None,
         tail_logs: bool = False,
-    ):
+        dependencies: Optional[list[str]] = None,
+    ) -> str:
         """
         Add a configured function along with its executor config to the experiment.
         """
@@ -454,15 +462,34 @@ nemo experiment cancel {exp_id} 0
             _current_experiment.get(None) == self
         ), "Using Experiment without it's context manager is not permitted."
 
+        job_ids = set([job.id for job in self.jobs])
+        for dep in dependencies or []:
+            assert dep in job_ids, f"Dependency {dep} not found."
+
         executor = executor or self.executor
         if not isinstance(task, list):
             assert executor and isinstance(executor, Executor)
-            self._add_single_task(task, executor, name, plugins=plugins, tail_logs=tail_logs)
+            job_id = self._add_single_job(
+                task,
+                executor,
+                name,
+                plugins=plugins,
+                tail_logs=tail_logs,
+                dependencies=dependencies,
+            )
         else:
             assert name, "name is required for task group."
-            self._add_task_group(task, executor, name, plugins=plugins, tail_logs=tail_logs)
+            job_id = self._add_job_group(
+                task,
+                executor,
+                name,
+                plugins=plugins,
+                tail_logs=tail_logs,
+                dependencies=dependencies,
+            )
 
         self._save_jobs()
+        return job_id
 
     def dryrun(self):
         """
@@ -522,15 +549,20 @@ nemo experiment cancel {exp_id} 0
         if direct:
             self.console.log(
                 "[bold magenta]Running the experiment with direct=True. "
-                "This will launch all tasks sequentially in the same process."
+                "This will launch all jobs sequentially in the same process."
             )
             if not self.jobs:
-                self.console.log("[bold red]No tasks to run in this experiment.")
+                self.console.log("[bold red]No jobs to run in this experiment.")
                 return
 
             assert all(
                 map(lambda job: isinstance(job, Job), self.jobs)
-            ), "Tasks in this experiment contain JobGroup which cannot be run directly for now."
+            ), "Jobs in this experiment contain JobGroup which cannot be run directly for now."
+
+            assert all(
+                map(lambda job: not job.dependencies, self.jobs)
+            ), "Jobs in this experiment contain dependencies which cannot be run directly for now."
+
             for job in self.jobs:
                 assert isinstance(job, Job)
                 with TeeStdoutStderr(
@@ -560,71 +592,125 @@ nemo experiment cancel {exp_id} 0
             )
             detach = False
 
-        add_deps = False
-        task_deps: list[list[Job | JobGroup]] = [[]]
+        is_dag = any(map(lambda job: len(job.dependencies) > 0, self.jobs))
+        assert not (
+            is_dag and sequential
+        ), "Jobs in this experiment have dependencies, they cannot be run sequentially. Set sequential=False."
+
         if sequential:
+            for i in range(1, len(self.jobs)):
+                self.jobs[i].dependencies.append(self.jobs[i - 1].id)
+
+        return self._run_dag(detach=detach, tail_logs=tail_logs, executors=executors)
+
+    def _run_dag(self, detach: bool, tail_logs: bool, executors: set[Executor]):
+        job_map = {job.id: job for job in self._jobs}
+        graph = nx.DiGraph()
+        job_ids = set([job.id for job in self.jobs])
+        for job in self.jobs:
+            graph.add_node(job.id, job=job)
+            for dep in job.dependencies:
+                assert dep in job_ids, f"Dependency {dep} not found in job list {job_ids}."
+                graph.add_edge(dep, job.id)
+
+        assert nx.is_directed_acyclic_graph(graph), "Jobs have cyclic dependencies."
+        order = [sorted(generation) for generation in nx.topological_generations(graph)]
+        add_deps = False
+        if len(order) > 1:
             if all(map(lambda x: x in self._DEPENDENCY_SUPPORTED_EXECUTORS, executors)):
                 wait = False
                 add_deps = True
-                if len(self.jobs) > 1:
-                    self.console.log(
-                        "[bold cyan]Tasks will be scheduled all at once but executed sequentially."
-                    )
-                    for i in range(1, len(self.jobs)):
-                        task_deps.append([self.jobs[i - 1]])
-
                 self.detach = detach
             else:
                 wait = True
                 if len(self.jobs) > 1:
                     self.console.log(
                         f"[bold cyan]Dependencies not supported for atleast one of {executors}."
-                        "Tasks will be run one after the other, please keep the process alive."
+                        "All jobs will be run one after the other based on their dependencies, please keep the process alive."
                     )
                 if detach:
                     self.console.log(
                         "[bold red] Cannot detach from this experiment. Please keep it running until completion."
                     )
         else:
+            # All jobs will be executed in parallel
             assert all(
                 map(lambda x: x in self._PARALLEL_SUPPORTED_EXECUTORS, executors)
             ), f"Parallel mode not supported for atleast one of {executors}. Set sequential=True."
             wait = False
             self.detach = detach
 
-        for i, job in enumerate(self.jobs):
-            self.console.log(f"[bold cyan]Launching task {job.id} for experiment {self._title}")
-            if tail_logs:
-                job.tail_logs = True
+        for level in order:
+            for _, node in enumerate(level):
+                job: Job | JobGroup = job_map[node]
+                self.console.log(f"[bold cyan]Launching job {job.id} for experiment {self._title}")
+                if tail_logs:
+                    job.tail_logs = True
 
-            try:
-                if add_deps:
-                    deps = []
-                    for dep in task_deps[i]:
-                        handle = dep.handle
-                        assert (
-                            dep.launched and handle
-                        ), f"Dependency {dep.id} for {job.id} not yet launched."
-                        deps.append(handle)
+                try:
+                    if add_deps:
+                        deps = []
+                        for dep_id in job.dependencies:
+                            dep = job_map[dep_id]
+                            handle = dep.handle
+                            assert (
+                                dep.launched and handle
+                            ), f"Dependency {dep.id} for {job.id} not yet launched."
+                            deps.append(handle)
 
-                    job.executor.dependencies = deps  # type: ignore
-                job.launch(wait=wait, runner=self._runner)
-                if wait:
-                    self._update_progress(job, job.state)
-                    job.cleanup()
+                        job.executor.dependencies = deps  # type: ignore
+                    job.launch(wait=False, runner=self._runner)
 
-                self._save_jobs()
-            except Exception as e:
-                self.console.log(f"Error running task {job.id}: {e}")
-                self.console.log(*traceback.format_exception(e))
+                    self._save_jobs()
+                except Exception as e:
+                    self.console.log(f"Error running job {job.id}: {e}")
+                    raise e
 
-                self._update_progress(
-                    job,
-                    AppState.FAILED,
-                )
+            if wait:
+                self._wait_for_jobs(jobs=[job_map[node] for node in level])
 
         self._launched = any(map(lambda job: job.launched, self.jobs))
         self._waited = wait
+
+    def _wait_for_jobs(self, jobs: list[Job | JobGroup]):
+        def set_context(context: contextvars.Context):
+            for var, value in context.items():
+                var.set(value)
+
+        context = contextvars.copy_context()
+        with ThreadPoolExecutor(initializer=set_context, initargs=(context,)) as executor:
+            futures: dict[Future, Job | JobGroup] = {}
+            for job in jobs:
+                if isinstance(job, Job):
+                    handle_exists = job.handle
+                else:
+                    handle_exists = len(job.handles) > 0 and all(job.handles)
+
+                if job.launched and handle_exists:
+                    self._initialize_live_progress()
+                    self._add_progress(job=job)
+                    future = executor.submit(
+                        job.wait,
+                        runner=self._runner
+                        if isinstance(
+                            job.executor,
+                            self._RUNNER_DEPENDENT_EXECUTORS,
+                        )
+                        else get_runner(),
+                    )
+                    futures[future] = job
+
+            for future in as_completed(futures.keys()):
+                job = futures[future]
+                try:
+                    future.result()
+                    self._update_progress(job, job.state)
+                except Exception as e:
+                    self.console.log(f"Exception while waiting for Job {job.id}: {e}")
+                    self.console.log(*traceback.format_exception(e))
+                    self._update_progress(job, AppState.UNKNOWN)
+                finally:
+                    job.cleanup()
 
     def status(self):
         """
@@ -934,44 +1020,7 @@ nemo experiment cancel {exp_id} 0
                 )
                 self.status()
 
-                def set_context(context: contextvars.Context):
-                    for var, value in context.items():
-                        var.set(value)
-
-                context = contextvars.copy_context()
-                with ThreadPoolExecutor(initializer=set_context, initargs=(context,)) as executor:
-                    futures: dict[Future, Job | JobGroup] = {}
-                    for job in self.jobs:
-                        if isinstance(job, Job):
-                            handle_exists = job.handle
-                        else:
-                            handle_exists = len(job.handles) > 0 and all(job.handles)
-
-                        if job.launched and handle_exists:
-                            self._initialize_live_progress()
-                            self._add_progress(job=job)
-                            future = executor.submit(
-                                job.wait,
-                                runner=self._runner
-                                if isinstance(
-                                    job.executor,
-                                    self._RUNNER_DEPENDENT_EXECUTORS,
-                                )
-                                else get_runner(),
-                            )
-                            futures[future] = job
-
-                    for future in as_completed(futures.keys()):
-                        job = futures[future]
-                        try:
-                            future.result()
-                            self._update_progress(job, job.state)
-                        except Exception as e:
-                            self.console.log(f"Exception while waiting for Task {job.id}: {e}")
-                            self.console.log(*traceback.format_exception(e))
-                            self._update_progress(job, AppState.UNKNOWN)
-                        finally:
-                            job.cleanup()
+                self._wait_for_jobs(jobs=self.jobs)
         finally:
             if self._live_progress:
                 self._live_progress.stop()
@@ -1023,10 +1072,21 @@ nemo experiment cancel {exp_id} 0
         serializer = ZlibJSONSerializer()
 
         for job in self._jobs:
-            if isinstance(job.task, str):
-                job.task = serializer.deserialize(job.task)
+            if isinstance(job, Job):
+                if isinstance(job.task, str):
+                    _task = serializer.deserialize(job.task)
+                    if _task.__fn_or_cls__ == Script:
+                        job.task = fdl.build(_task)
+                    else:
+                        job.task = _task  # type: ignore
+            else:
+                if isinstance(job.tasks, str):
+                    tasks = serializer.deserialize(job.tasks)
+                    job.tasks = [
+                        fdl.build(task) if task.__fn_or_cls__ == Script else task for task in tasks
+                    ]
 
-        return Tasks(job.task for job in self._jobs)
+        return Tasks((job.task if isinstance(job, Job) else job.tasks) for job in self._jobs)
 
 
 class Tasks(list, ConfigurableMixin): ...

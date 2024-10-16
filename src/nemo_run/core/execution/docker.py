@@ -96,11 +96,22 @@ class DockerExecutor(Executor):
     """
     Dataclass to configure a docker based executor.
 
+    All configuration is passed to https://docker-py.readthedocs.io
+
     Example:
 
     .. code-block:: python
 
-        run.DockerExecutor()
+        DockerExecutor(
+            container_image="python:3.12",
+            num_gpus=-1,
+            runtime="nvidia",
+            ipc_mode="host",
+            shm_size="30g",
+            volumes=["/src/path:/dst/path"],
+            env_vars={"PYTHONUNBUFFERED": "1"},
+            packager=run.Packager(),
+        )
 
     """
 
