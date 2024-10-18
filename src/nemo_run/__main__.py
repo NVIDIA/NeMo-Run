@@ -12,6 +12,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import warnings
+import matplotlib
+warnings.simplefilter(action='ignore', category=matplotlib._api.deprecation.MatplotlibDeprecationWarning)
+warnings.simplefilter(action='ignore', category=DeprecationWarning)
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from nemo_run.cli.api import create_cli
 
