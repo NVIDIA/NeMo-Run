@@ -58,7 +58,7 @@ def connect(host: str, path: str):
 
 
 def create() -> typer.Typer:
-    app = typer.Typer()
+    app = typer.Typer(pretty_exceptions_enable=False)
 
     from nemo_run.cli.api import Entrypoint
 
