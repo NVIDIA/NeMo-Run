@@ -566,7 +566,7 @@ def _get_or_add_typer(typer: Typer, name: str, help=None, **kwargs):
     help = help or name
     help = f"[Module] {help}"
 
-    output = Typer()
+    output = Typer(pretty_exceptions_enable=False)
     typer.add_typer(
         output,
         name=name,
@@ -1241,7 +1241,7 @@ class Entrypoint(Generic[Params, ReturnType]):
         fn()
 
     def main(self):
-        app = typer.Typer(help=self.help_str)
+        app = typer.Typer(help=self.help_str, pretty_exceptions_enable=False)
         self._add_command(app)
         app(standalone_mode=False)
 

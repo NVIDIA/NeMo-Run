@@ -71,7 +71,7 @@ def cancel(experiment_id: str, job_idx: Annotated[int, typer.Argument()] = 0):
 
 
 def create() -> typer.Typer:
-    app = typer.Typer()
+    app = typer.Typer(pretty_exceptions_enable=False)
 
     app.command(
         "logs",
