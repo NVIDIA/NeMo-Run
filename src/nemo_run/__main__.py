@@ -12,7 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
+import warnings
 
-from nemo_run.cli.api import create_cli
+if "NEMORUN_SHOW_WARNINGS" not in os.environ:
+    warnings.simplefilter(action="ignore", category=DeprecationWarning)
+    warnings.simplefilter(action="ignore", category=FutureWarning)
+
+from nemo_run.cli.api import create_cli  # noqa: E402
 
 app = create_cli()
