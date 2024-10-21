@@ -15,7 +15,7 @@
 import os
 import warnings
 
-if not 'NEMORUN_SHOW_WARNINGS' in os.environ:
+if 'NEMORUN_SHOW_WARNINGS' not in os.environ:
     warnings.simplefilter(action="ignore", category=DeprecationWarning)
     warnings.simplefilter(action="ignore", category=FutureWarning)
 
