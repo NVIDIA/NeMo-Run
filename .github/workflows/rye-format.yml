@@ -15,4 +15,4 @@ jobs:
 
       - uses: eifinger/setup-rye@v2
       - name: Rye fmt
-        run: rye fmt --diff
+        run: rye fmt -- --diff
