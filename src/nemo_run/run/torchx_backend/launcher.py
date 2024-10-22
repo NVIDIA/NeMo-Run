@@ -39,11 +39,12 @@ def launch(
     executable: AppDef,
     executor_name: str,
     executor: Executor,
-    dryrun: Literal[True] = ...,
+    dryrun: Literal[True],
     wait: bool = False,
     log: bool = False,
     parent_run_id: Optional[str] = None,
     runner: Runner | None = None,
+    log_dryrun: bool = ...,
 ) -> tuple[None, None]: ...
 
 
@@ -52,11 +53,12 @@ def launch(
     executable: AppDef,
     executor_name: str,
     executor: Executor,
-    dryrun: Literal[False] = ...,
+    dryrun: Literal[False],
     wait: bool = False,
     log: bool = False,
     parent_run_id: Optional[str] = None,
     runner: Runner | None = None,
+    log_dryrun: bool = ...,
 ) -> tuple[str, specs.AppStatus]: ...
 
 
@@ -70,6 +72,7 @@ def launch(
     log: bool = False,
     parent_run_id: Optional[str] = None,
     runner: Runner | None = None,
+    log_dryrun: bool = False,
 ) -> tuple[str | None, specs.AppStatus | None]: ...
 
 
@@ -82,6 +85,7 @@ def launch(
     log: bool = False,
     parent_run_id: Optional[str] = None,
     runner: Runner | None = None,
+    log_dryrun: bool = False,
 ) -> tuple[str | None, specs.AppStatus | None]:
     runner = runner or get_runner()
 
@@ -92,8 +96,10 @@ def launch(
             cfg=executor,
             parent_run_id=parent_run_id,
         )
-        CONSOLE.log("\n=== APPLICATION ===\n")
-        CONSOLE.log(dryrun_info)
+        if log_dryrun:
+            CONSOLE.log("\n=== APPLICATION ===\n")
+            CONSOLE.log(dryrun_info)
+
         return None, None
     else:
         app_handle = runner.run(

@@ -54,6 +54,7 @@ from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE, configure_logging, deconfigure_logging
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.client import SSHTunnel, Tunnel
+from nemo_run.core.tunnel.rsync import rsync
 from nemo_run.run.job import Job, JobGroup
 from nemo_run.run.plugin import ExperimentPlugin
 from nemo_run.run.torchx_backend.runner import get_runner
@@ -399,6 +400,7 @@ nemo experiment cancel {exp_id} 0
             plugin.assign(self._id)
             plugin.setup(cloned, executor)
 
+        job.prepare()
         self._jobs.append(job)
         return job.id
 
@@ -443,6 +445,7 @@ nemo experiment cancel {exp_id} 0
                 assert isinstance(_executor, Executor)
                 plugin.setup(task, _executor)
 
+        job_group.prepare()
         self._jobs.append(job_group)
         return job_group.id
 
@@ -491,17 +494,21 @@ nemo experiment cancel {exp_id} 0
         self._save_jobs()
         return job_id
 
-    def dryrun(self):
+    def dryrun(self, log: bool = True):
         """
         Logs the raw scripts that will be executed for each task.
         """
-        self.console.log(f"[bold magenta]Experiment {self._id} dryrun...")
+        if log:
+            self.console.log(f"[bold magenta]Experiment {self._id} dryrun...")
+
         for job in self.jobs:
             if isinstance(job, Job):
-                self.console.log(f"[bold magenta]Task {job.id}\n")
+                if log:
+                    self.console.log(f"[bold magenta]Task {job.id}\n")
             elif isinstance(job, JobGroup):
-                self.console.log(f"[bold magenta]Task Group {job.id}\n")
-            job.launch(wait=False, runner=self._runner, dryrun=True)
+                if log:
+                    self.console.log(f"[bold magenta]Task Group {job.id}\n")
+            job.launch(wait=False, runner=self._runner, dryrun=True, direct=False, log_dryrun=log)
 
     def run(
         self,
@@ -600,6 +607,13 @@ nemo experiment cancel {exp_id} 0
         if sequential:
             for i in range(1, len(self.jobs)):
                 self.jobs[i].dependencies.append(self.jobs[i - 1].id)
+
+        self.dryrun(log=False)
+        for tunnel in self.tunnels.values():
+            if isinstance(tunnel, SSHTunnel):
+                tunnel.connect()
+                assert tunnel.session, f"SSH tunnel {tunnel._key} failed to connect."
+                rsync(tunnel.session, self._exp_dir, os.path.dirname(tunnel.job_dir))
 
         return self._run_dag(detach=detach, tail_logs=tail_logs, executors=executors)
 

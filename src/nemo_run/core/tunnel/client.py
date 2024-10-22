@@ -223,7 +223,6 @@ class SSHTunnel(Tunnel):
     def connect(self):
         if not (self.session and self.session.is_connected):
             self._authenticate()
-            self._check_shell()
 
     def _check_connect(self):
         if not (self.session and self.session.is_connected):
@@ -263,7 +262,7 @@ class SSHTunnel(Tunnel):
             self.host,
             user=self.user,
             connect_kwargs=connect_kwargs,
-            forward_agent=True,
+            forward_agent=False,
             config=config,
         )
         logger.debug(
@@ -301,20 +300,6 @@ class SSHTunnel(Tunnel):
         if not self.session.is_connected:
             sys.exit(1)
         logger.debug(":white_check_mark: The client is authenticated successfully")
-
-    def _check_shell(self):
-        logger.debug("Verifying shell location")
-        assert self.session, "session is not yet established."
-
-        if self.shell is None:
-            shell = self.session.run("echo $SHELL || echo $0", hide=True).stdout.strip()
-            if not shell:
-                raise ValueError("Could not determine shell. Please specify one using --shell.")
-            self.shell = shell
-        else:
-            # Get the full path to the shell in case the user specified a shell name
-            self.shell = self.session.run(f"which {self.shell}", hide=True).stdout.strip()
-        logger.debug(f":white_check_mark: Using shell: {self.shell}")
 
 
 class SSHConfigFile:
