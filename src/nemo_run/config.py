@@ -72,7 +72,7 @@ def get_type_namespace(typ: Type | Callable) -> str:
         filename = os.path.basename(main_module.__file__)
         module = os.path.splitext(filename)[0]
 
-    if isinstance(fdl.Buildable):
+    if isinstance(typ, fdl.Buildable):
         typ = typ.__fn_or_cls__
 
     return f"{module}.{typ.__qualname__}"
