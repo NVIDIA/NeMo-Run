@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Type, TypeAlias, Union
 
 import invoke
+from invoke.context import Context
 from rich.console import Console
 from rich.text import Text
 
@@ -553,33 +554,19 @@ class SlurmExecutor(Executor):
             base_path = Path(os.getcwd()).absolute()
 
         local_pkg = packager.package(base_path, self.job_dir, job_name)
-        remote_code_extraction_path = os.path.join(self.tunnel.job_dir, job_name, "code")
-        self.tunnel.run(f"mkdir -p {remote_code_extraction_path}")
-        if local_pkg:
-            dst_pkg = os.path.join(self.tunnel.job_dir, job_name, os.path.basename(local_pkg))
-            self.tunnel.put(local_path=local_pkg, remote_path=dst_pkg)
-            self.tunnel.run(f"tar -xvzf {dst_pkg} -C {remote_code_extraction_path}")
+        local_code_extraction_path = os.path.join(self.job_dir, "code")
+        ctx = Context()
+        ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
             remote_nsys_extraction_path = os.path.join(
-                self.tunnel.job_dir, job_name, self.get_launcher().nsys_folder
+                self.job_dir, job_name, self.get_launcher().nsys_folder
             )
-            self.tunnel.run(f"mkdir -p {remote_nsys_extraction_path}")
-
-        local_configs_path = os.path.join(self.job_dir, "configs")
-        remote_config_extraction_path = os.path.join(self.tunnel.job_dir, job_name, "configs")
-        if os.path.isdir(local_configs_path):
-            self.tunnel.run(f"mkdir -p {remote_config_extraction_path}")
-            for file in os.listdir(local_configs_path):
-                self.tunnel.put(
-                    os.path.join(local_configs_path, file),
-                    os.path.join(remote_config_extraction_path, file),
-                )
-
-        local_main_path = os.path.join(self.job_dir, "__main__.py")
-        if os.path.exists(local_main_path):
-            remote_main_path = os.path.join(self.tunnel.job_dir, job_name, "__main__.py")
-            self.tunnel.put(local_main_path, remote_main_path)
+            ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
+            # Touch hidden init file
+            ctx.run(f"touch {remote_nsys_extraction_path}/.init")
+        if local_pkg:
+            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path}", hide=True)
 
         self.tunnel.packaging_jobs.add(job_name)
 

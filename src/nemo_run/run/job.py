@@ -91,19 +91,24 @@ class Job(ConfigurableMixin):
             regex=regex,
         )
 
+    def prepare(self):
+        self._executable = package(
+            self.id, self.task, executor=self.executor, serialize_to_file=True
+        )
+
     def launch(
         self,
         wait: bool,
         runner: Runner,
         dryrun: bool = False,
+        log_dryrun: bool = False,
         direct: bool = False,
     ):
         if not isinstance(self.task, (Partial, Config, Script)):
             raise TypeError(f"Need a configured Buildable or run.Script. Got {self.task}.")
 
-        executable = package(self.id, self.task, executor=self.executor, serialize_to_file=True)
-
         executor_str = get_executor_str(self.executor)
+        assert hasattr(self, "_executable") and self._executable
 
         if direct:
             direct_run_fn(self.task, dryrun=dryrun)
@@ -114,10 +119,11 @@ class Job(ConfigurableMixin):
 
         if dryrun:
             launch(
-                executable=executable,
+                executable=self._executable,
                 executor_name=executor_str,
                 executor=self.executor,
                 dryrun=True,
+                log_dryrun=log_dryrun,
                 wait=wait,
                 log=self.tail_logs,
                 runner=runner,
@@ -125,7 +131,7 @@ class Job(ConfigurableMixin):
             return
 
         self.handle, status = launch(
-            executable=executable,
+            executable=self._executable,
             executor_name=executor_str,
             executor=self.executor,
             dryrun=False,
@@ -299,17 +305,8 @@ class JobGroup(ConfigurableMixin):
             regex=regex,
         )
 
-    def launch(
-        self,
-        wait: bool,
-        runner: Runner,
-        dryrun: bool = False,
-    ):
-        for task in self.tasks:
-            if not isinstance(task, (Partial, Config, Script)):
-                raise TypeError(f"Need a configured Buildable or run.Script. Got {task}.")
-
-        executables: list[tuple[AppDef, Executor]] = []
+    def prepare(self):
+        self._executables: list[tuple[AppDef, Executor]] = []
         for i, task in enumerate(self.tasks):
             executor = self.executors if self._merge else self.executors[i]  # type: ignore
             assert isinstance(executor, Executor)
@@ -319,13 +316,30 @@ class JobGroup(ConfigurableMixin):
                 executor=executor,
                 serialize_to_file=True,
             )
-            executables.append((executable, executor))
+            self._executables.append((executable, executor))
 
         if self._merge:
-            executable = merge_executables(map(lambda x: x[0], executables), self.id)
-            executables = [(executable, executables[0][1])]
+            executable = merge_executables(map(lambda x: x[0], self._executables), self.id)
+            self._executables = [(executable, self._executables[0][1])]
 
-        for executable, executor in executables:
+    def launch(
+        self,
+        wait: bool,
+        runner: Runner,
+        dryrun: bool = False,
+        log_dryrun: bool = False,
+        direct: bool = False,
+    ):
+        for task in self.tasks:
+            if not isinstance(task, (Partial, Config, Script)):
+                raise TypeError(f"Need a configured Buildable or run.Script. Got {task}.")
+
+        if direct:
+            raise NotImplementedError("Direct launch is not supported yet for JobGroups.")
+
+        assert hasattr(self, "_executables") and self._executables
+
+        for executable, executor in self._executables:
             executor_str = get_executor_str(executor)
 
             if dryrun:
@@ -334,6 +348,7 @@ class JobGroup(ConfigurableMixin):
                     executor_name=executor_str,
                     executor=executor,
                     dryrun=True,
+                    log_dryrun=log_dryrun,
                     wait=wait,
                     log=self.tail_logs,
                     runner=runner,
