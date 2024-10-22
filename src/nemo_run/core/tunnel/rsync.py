@@ -89,6 +89,6 @@ def rsync(
     cmd = cmd.format(options, source, user, host, target)
     result = c.local(cmd, hide=hide_output)
     if result:
-        logger.info(f"Succesfully ran `{result.command}`")
+        logger.info(f"Successfully ran `{result.command}`")
     else:
         raise RuntimeError("rsync failed")
