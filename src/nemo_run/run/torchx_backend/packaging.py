@@ -23,6 +23,7 @@ from torchx import specs
 
 from nemo_run.config import SCRIPTS_DIR, Partial, Script
 from nemo_run.core.execution.base import Executor, FaultTolerance, Torchrun
+from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.components import ft_launcher, torchrun
@@ -119,7 +120,8 @@ def package(
 
         args = fn_or_script.args
         role_args = fn_or_script.to_command(
-            filename=os.path.join(executor.job_dir, SCRIPTS_DIR, f"{name}.sh")
+            filename=os.path.join(executor.job_dir, SCRIPTS_DIR, f"{name}.sh"),
+            is_local=True if isinstance(executor, LocalExecutor) else False,
         )
         m = fn_or_script.path if fn_or_script.m else None
         no_python = fn_or_script.entrypoint != "python"

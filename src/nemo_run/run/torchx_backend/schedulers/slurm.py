@@ -144,24 +144,31 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
     def schedule(self, dryrun_info: AppDryRunInfo[SlurmBatchRequest]) -> str:  # type: ignore
         # Setup
         req = dryrun_info.request
-        slurm_cfg = dryrun_info.request.slurm_config
-        assert slurm_cfg.experiment_id, "Executor not assigned to experiment."
+        slurm_executor = dryrun_info.request.slurm_config
+        assert slurm_executor.experiment_id, "Executor not assigned to experiment."
 
-        job_dir = slurm_cfg.job_dir
-        tunnel = slurm_cfg.tunnel
+        job_dir = slurm_executor.job_dir
+        tunnel = slurm_executor.tunnel
         assert tunnel, f"Tunnel required for {self.__class__}"
         assert job_dir, f"Need to provide job_dir for {self.__class__}"
 
         self._initialize_tunnel(tunnel)
         assert self.tunnel, f"Cannot initialize tunnel {tunnel}"
 
-        dst_path = os.path.join(self.tunnel.job_dir, f"{slurm_cfg.job_name}_sbatch.sh")
+        dst_path = os.path.join(self.tunnel.job_dir, f"{slurm_executor.job_name}_sbatch.sh")
+
+        if slurm_executor.dependencies:
+            cmd = ["sbatch", "--requeue", "--parsable"]
+            slurm_deps = slurm_executor.parse_deps()
+            cmd.append(f"--dependency={slurm_executor.dependency_type}:{':'.join(slurm_deps)}")
+            req.cmd = cmd
+
         # Run sbatch script
         req.cmd += [dst_path]
         job_id = self.tunnel.run(" ".join(req.cmd)).stdout.strip()
 
         # Save metadata
-        _save_job_dir(job_id, job_dir, tunnel, slurm_cfg.job_details.ls_term)
+        _save_job_dir(job_id, job_dir, tunnel, slurm_executor.job_details.ls_term)
         return job_id
 
     def _cancel_existing(self, app_id: str) -> None:
