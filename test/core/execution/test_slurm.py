@@ -223,6 +223,7 @@ class TestSlurmBatchRequest:
                 user="your-user",
             ),
             wait_time_for_group_job=10,
+            env_vars={"CUSTOM_ENV_1": "some_value_1"},
         )
         executor_2 = executor_1.clone()
         executor_2.container_image = "different_container_image"

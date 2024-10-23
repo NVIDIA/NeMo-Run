@@ -35,12 +35,18 @@ head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
 # Command 1
 
+export CUSTOM_ENV_1=some_value_1
+
+
 srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-0_%j_${SLURM_RESTART_COUNT:-0}.out --container-image some-image --container-mounts /some/job/dir/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 bash ./scripts/start_server.sh & pids[0]=$!
 
 sleep 10
 
 
 # Command 2
+
+export CUSTOM_ENV_1=some_value_1
+
 
 srun --output /some/job/dir/sample_job/log-your_account-account.sample_job-1_%j_${SLURM_RESTART_COUNT:-0}.out --container-image different_container_image --container-mounts /some/job/dir/sample_job:/nemo_run --container-workdir /nemo_run/code --wait=60 --kill-on-bad-exit=1 --mpi=pmix bash ./scripts/echo.sh server_host=$het_group_host_0 & pids[1]=$!
 
