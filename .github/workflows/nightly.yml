@@ -16,7 +16,7 @@ jobs:
   tag:
     name: Run Tests and Create Nightly Tag
     runs-on: ubuntu-latest
-
+    needs: [format, lint, test]
     steps:
         - uses: actions/checkout@v4
 
