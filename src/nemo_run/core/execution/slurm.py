@@ -887,6 +887,12 @@ class SlurmBatchRequest:
                     self.command_groups
                 ):
                     resource_req = self.slurm_config.resource_group[group_ind]
+                    current_env_vars = []
+                    for key, value in resource_req.env_vars.items():
+                        current_env_vars.append(f"export {key.upper()}={value}")
+
+                    group_env_vars.append(current_env_vars)
+
                     _container_flags = get_container_flags(
                         base_mounts=resource_req.container_mounts,
                         src_job_dir=os.path.join(
