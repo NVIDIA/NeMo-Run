@@ -30,7 +30,7 @@ def rsync(
     exclude: str | Iterable[str] = (),
     delete: bool = False,
     strict_host_keys: bool = True,
-    rsync_opts: str = "",
+    rsync_opts: str = "--mkpath",
     ssh_opts: str = "",
     hide_output: bool = True,
 ):
