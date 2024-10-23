@@ -425,7 +425,7 @@ class Script(ConfigurableMixin):
             return os.path.basename(self.path)
 
     def to_command(
-        self, with_entrypoint: bool = False, filename: Optional[str] = None
+        self, with_entrypoint: bool = False, filename: Optional[str] = None, is_local: bool = False
     ) -> list[str]:
         if self.inline:
             if filename:
@@ -433,7 +433,11 @@ class Script(ConfigurableMixin):
                 with open(filename, "w") as f:
                     f.write("#!/usr/bin/bash\n" + self.inline)
 
-                cmd = [os.path.join(f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name)]
+                if is_local:
+                    cmd = [filename]
+                else:
+                    cmd = [os.path.join(f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name)]
+
                 if with_entrypoint:
                     cmd = [self.entrypoint] + cmd
 
