@@ -1,0 +1,41 @@
+name: Nightly Build
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs at midnight UTC every day
+  workflow_dispatch:      # Allows manual trigger
+
+jobs:
+  test-and-tag:
+    name: Run Tests and Create Nightly Tag
+    runs-on: ubuntu-latest
+
+    steps:
+        - uses: actions/checkout@v4
+
+        - uses: eifinger/setup-rye@v2
+
+        - uses: .github/rye-format.yml
+        - uses: .github/rye-lint.yml
+        - uses: .github/rye-test.yml
+
+        - name: Create nightly tag
+          uses: actions/github-script@v7
+          with:
+            script: |
+                try {
+                    // Create new tags
+                    const sha = context.sha;
+
+                    // Create/update nightly tag
+                    await github.rest.git.createRef({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    ref: 'refs/tags/nightly',
+                    sha: sha
+                    });
+
+                    console.log(`Created tags: nightly`);
+                } catch (e) {
+                    core.setFailed(e.message);
+                }
