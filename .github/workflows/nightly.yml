@@ -25,6 +25,18 @@ jobs:
           with:
             script: |
                 try {
+                // Delete existing nightly tag if it exists
+                try {
+                    await github.rest.git.deleteRef({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    ref: 'tags/nightly'
+                    });
+                } catch (e) {
+                    // Tag might not exist yet
+                }
+
+                try {
                     // Create new tags
                     const sha = context.sha;
 
