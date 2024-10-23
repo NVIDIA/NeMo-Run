@@ -129,14 +129,6 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             launcher=executor.get_launcher(),
         )
 
-        # Write and copy sbatch script
-        sbatch_dir = executor.experiment_dir
-        path = os.path.join(sbatch_dir, f"{executor.job_name}_sbatch.sh")
-        script = req.materialize()
-
-        with open(path, "w") as f:
-            f.write(script)
-
         executor.package(packager=executor.packager, job_name=Path(job_dir).name)
 
         return AppDryRunInfo(req, repr)
@@ -144,24 +136,34 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
     def schedule(self, dryrun_info: AppDryRunInfo[SlurmBatchRequest]) -> str:  # type: ignore
         # Setup
         req = dryrun_info.request
-        slurm_cfg = dryrun_info.request.slurm_config
-        assert slurm_cfg.experiment_id, "Executor not assigned to experiment."
+        slurm_executor = dryrun_info.request.slurm_config
+        assert slurm_executor.experiment_id, "Executor not assigned to experiment."
 
-        job_dir = slurm_cfg.job_dir
-        tunnel = slurm_cfg.tunnel
+        job_dir = slurm_executor.job_dir
+        tunnel = slurm_executor.tunnel
         assert tunnel, f"Tunnel required for {self.__class__}"
         assert job_dir, f"Need to provide job_dir for {self.__class__}"
 
         self._initialize_tunnel(tunnel)
         assert self.tunnel, f"Cannot initialize tunnel {tunnel}"
 
-        dst_path = os.path.join(self.tunnel.job_dir, f"{slurm_cfg.job_name}_sbatch.sh")
+        # Write and copy sbatch script
+        sbatch_dir = slurm_executor.experiment_dir
+        path = os.path.join(sbatch_dir, f"{slurm_executor.job_name}_sbatch.sh")
+        script = req.materialize()
+
+        with open(path, "w") as f:
+            f.write(script)
+
+        dst_path = os.path.join(self.tunnel.job_dir, f"{slurm_executor.job_name}_sbatch.sh")
+        self.tunnel.put(path, dst_path)
+
         # Run sbatch script
         req.cmd += [dst_path]
         job_id = self.tunnel.run(" ".join(req.cmd)).stdout.strip()
 
         # Save metadata
-        _save_job_dir(job_id, job_dir, tunnel, slurm_cfg.job_details.ls_term)
+        _save_job_dir(job_id, job_dir, tunnel, slurm_executor.job_details.ls_term)
         return job_id
 
     def _cancel_existing(self, app_id: str) -> None:
