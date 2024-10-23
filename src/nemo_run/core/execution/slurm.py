@@ -833,15 +833,14 @@ class SlurmBatchRequest:
             return _container_flags
 
         for group_ind, command_group in enumerate(self.command_groups):
+            resource_req = self.slurm_config.resource_group[group_ind]
+            current_env_vars = []
+            for key, value in resource_req.env_vars.items():
+                current_env_vars.append(f"export {key.upper()}={value}")
+
+            group_env_vars.append(current_env_vars)
+
             if self.slurm_config.heterogeneous:
-                resource_req = self.slurm_config.resource_group[group_ind]
-
-                current_env_vars = []
-                for key, value in resource_req.env_vars.items():
-                    current_env_vars.append(f"export {key.upper()}={value}")
-
-                group_env_vars.append(current_env_vars)
-
                 het_group = f"--het-group={group_ind}"
                 het_stdout = srun_stdout.replace(original_job_name, self.jobs[group_ind])
                 het_stderr = stderr_flags.copy()
@@ -886,7 +885,6 @@ class SlurmBatchRequest:
                 if self.slurm_config.run_as_group and len(self.slurm_config.resource_group) == len(
                     self.command_groups
                 ):
-                    resource_req = self.slurm_config.resource_group[group_ind]
                     _container_flags = get_container_flags(
                         base_mounts=resource_req.container_mounts,
                         src_job_dir=os.path.join(
