@@ -726,7 +726,7 @@ nemo experiment cancel {exp_id} 0
                 finally:
                     job.cleanup()
 
-    def status(self):
+    def status(self, return_dict: bool = False) -> Optional[dict[str, str]]:
         """
         Prints a table specifying the status of all tasks.
 
@@ -740,41 +740,64 @@ nemo experiment cancel {exp_id} 0
             _current_experiment.set(self)
             _set_current_experiment = True
 
+        def _get_job_info_and_dict(
+            idx: int, job: Job | JobGroup
+        ) -> tuple[list[str], dict[str, str]]:
+            job_info = []
+            job_info.append(f"[bold green]Task {idx}[/bold green]: [bold orange1]{job.id}")
+            job_info.append(
+                f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}"
+            )
+            job_info.append(f"- [bold green]Executor[/bold green]: {job.executor.info()}")
+
+            try:
+                _, _, path_str = job.handle.partition("://")
+                path = path_str.split("/")
+                app_id = path[1]
+            except Exception:
+                app_id = ""
+
+            job_info.append(f"- [bold green]Job id[/bold green]: {app_id}")
+            directory_info = [
+                "- [bold green]Local Directory[/bold green]: " + job.executor.job_dir,
+            ]
+            job_dict = {
+                "name": job.id,
+                "status": job.status(runner=self._runner),
+                "executor": job.executor.info(),
+                "job_id": app_id,
+                "local_dir": job.executor.job_dir,
+            }
+
+            if isinstance(job.executor, SlurmExecutor) and isinstance(
+                job.executor.tunnel, SSHTunnel
+            ):
+                directory_info.extend(
+                    [
+                        "- [bold green]Remote Directory[/bold green]: "
+                        + os.path.join(
+                            job.executor.tunnel.job_dir,
+                            Path(job.executor.job_dir).name,
+                        ),
+                    ]
+                )
+                job_dict["remote_dir"] = os.path.join(
+                    job.executor.tunnel.job_dir,
+                    Path(job.executor.job_dir).name,
+                )
+            job_info.extend(directory_info)
+            return job_info, job_dict
+
         try:
+            result_dict = {}
             job_infos = []
             for i, job in enumerate(self.jobs):
-                job_info = []
-                job_info.append(f"[bold green]Task {i}[/bold green]: [bold orange1]{job.id}")
-                job_info.append(
-                    f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}"
-                )
-                job_info.append(f"- [bold green]Executor[/bold green]: {job.executor.info()}")
-
-                try:
-                    _, _, path_str = job.handle.partition("://")
-                    path = path_str.split("/")
-                    app_id = path[1]
-                except Exception:
-                    app_id = ""
-
-                job_info.append(f"- [bold green]Job id[/bold green]: {app_id}")
-                directory_info = [
-                    "- [bold green]Local Directory[/bold green]: " + job.executor.job_dir,
-                ]
-                if isinstance(job.executor, SlurmExecutor) and isinstance(
-                    job.executor.tunnel, SSHTunnel
-                ):
-                    directory_info.extend(
-                        [
-                            "- [bold green]Remote Directory[/bold green]: "
-                            + os.path.join(
-                                job.executor.tunnel.job_dir,
-                                Path(job.executor.job_dir).name,
-                            ),
-                        ]
-                    )
-                job_info.extend(directory_info)
+                job_info, job_dict = _get_job_info_and_dict(i, job)
                 job_infos.append(Group(*job_info))
+                result_dict[job.id] = job_dict
+
+            if return_dict:
+                return result_dict
 
             self.console.print()
             self.console.print(
