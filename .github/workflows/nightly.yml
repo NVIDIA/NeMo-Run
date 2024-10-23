@@ -7,16 +7,18 @@ on:
   pull_request:
 
 jobs:
-  test-and-tag:
+  format:
+    uses: ./.github/workflows/rye-format.yml
+  lint:
+    uses: ./.github/workflows/rye-lint.yml
+  test:
+    uses: ./.github/workflows/rye-test.yml
+  tag:
     name: Run Tests and Create Nightly Tag
     runs-on: ubuntu-latest
 
     steps:
         - uses: actions/checkout@v4
-
-        - uses: ./.github/workflows/rye-format.yml
-        - uses: ./.github/workflows/rye-lint.yml
-        - uses: ./.github/workflows/rye-test.yml
 
         - name: Create nightly tag
           uses: actions/github-script@v7
