@@ -478,7 +478,7 @@ nemo experiment cancel {exp_id} 0
                 name,
                 plugins=plugins,
                 tail_logs=tail_logs,
-                dependencies=dependencies,
+                dependencies=dependencies.copy() if dependencies else None,
             )
         else:
             assert name, "name is required for task group."
@@ -488,7 +488,7 @@ nemo experiment cancel {exp_id} 0
                 name,
                 plugins=plugins,
                 tail_logs=tail_logs,
-                dependencies=dependencies,
+                dependencies=dependencies.copy() if dependencies else None,
             )
 
         self._save_jobs()
