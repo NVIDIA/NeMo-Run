@@ -63,7 +63,7 @@ def print_log_lines(
                 should_tail=should_tail,
                 streams=streams,
             ):
-                prefix = f"{GREEN}{role_name}/{replica_id}{ENDC} "
+                prefix = f"{GREEN}{role_name[-10:]}/{replica_id}{ENDC} "
                 print(_prefix_line(prefix, line), file=file, end="", flush=True)
                 file.flush()
     except Exception as e:
