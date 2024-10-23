@@ -59,7 +59,17 @@ def status(experiment_id: str):
         exp.status()
 
 
-def cancel(experiment_id: str, job_idx: Annotated[int, typer.Argument()] = 0):
+def cancel(
+    experiment_id: str,
+    job_idx: Annotated[int, typer.Argument()] = 0,
+    all: Annotated[bool, typer.Option(help="Cancel all jobs")] = False,
+    dependencies: Annotated[
+        bool,
+        typer.Option(
+            "--dependencies", "-d", help="Cancel all dependencies of the specified job as well"
+        ),
+    ] = False,
+):
     """
     Cancel an experiment task for the experiment id/title
     and optional task_idx (0 by default).
@@ -67,7 +77,14 @@ def cancel(experiment_id: str, job_idx: Annotated[int, typer.Argument()] = 0):
     exp = _get_experiment(experiment_id)
 
     with exp:
-        exp.cancel(job_id=exp.jobs[job_idx].id)
+        if all:
+            for job in exp.jobs:
+                exp.cancel(job_id=job.id)
+        else:
+            exp.cancel(job_id=exp.jobs[job_idx].id)
+            if dependencies:
+                for job_id in exp.jobs[job_idx].dependencies:
+                    exp.cancel(job_id=job_id)
 
 
 def create() -> typer.Typer:
