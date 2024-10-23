@@ -129,6 +129,14 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             launcher=executor.get_launcher(),
         )
 
+        # Write and copy sbatch script
+        sbatch_dir = executor.experiment_dir
+        path = os.path.join(sbatch_dir, f"{executor.job_name}_sbatch.sh")
+        script = req.materialize()
+
+        with open(path, "w") as f:
+            f.write(script)
+
         executor.package(packager=executor.packager, job_name=Path(job_dir).name)
 
         return AppDryRunInfo(req, repr)
@@ -147,16 +155,13 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         self._initialize_tunnel(tunnel)
         assert self.tunnel, f"Cannot initialize tunnel {tunnel}"
 
-        # Write and copy sbatch script
-        sbatch_dir = slurm_executor.experiment_dir
-        path = os.path.join(sbatch_dir, f"{slurm_executor.job_name}_sbatch.sh")
-        script = req.materialize()
-
-        with open(path, "w") as f:
-            f.write(script)
-
         dst_path = os.path.join(self.tunnel.job_dir, f"{slurm_executor.job_name}_sbatch.sh")
-        self.tunnel.put(path, dst_path)
+
+        if slurm_executor.dependencies:
+            cmd = ["sbatch", "--requeue", "--parsable"]
+            slurm_deps = slurm_executor.parse_deps()
+            cmd.append(f"--dependency={slurm_executor.dependency_type}:{':'.join(slurm_deps)}")
+            req.cmd = cmd
 
         # Run sbatch script
         req.cmd += [dst_path]
