@@ -15,9 +15,9 @@ jobs:
 
         - uses: eifinger/setup-rye@v2
 
-        - uses: .github/rye-format.yml
-        - uses: .github/rye-lint.yml
-        - uses: .github/rye-test.yml
+        - uses: ./.github/rye-format.yml
+        - uses: ./.github/rye-lint.yml
+        - uses: ./.github/rye-test.yml
 
         - name: Create nightly tag
           uses: actions/github-script@v7
