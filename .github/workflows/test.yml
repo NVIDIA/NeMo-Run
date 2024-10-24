@@ -20,7 +20,7 @@ jobs:
           version: "latest"
 
       - name: uv sync
-        run: uv sync
+        run: uv sync --extra skypilot
 
       - shell: bash
         run: |
