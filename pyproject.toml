@@ -55,8 +55,9 @@ skypilot-all = [
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[tool.rye]
+[tool.uv]
 managed = true
+prerelease = "allow"
 dev-dependencies = [
     "pytest>=8.2.0",
     "ruff>=0.4.4",
@@ -68,9 +69,6 @@ dev-dependencies = [
     "ipywidgets>=8.1.2",
     "jupyter>=1.1.1"
 ]
-
-[tool.rye.scripts]
-cov = { chain = ["coverage run -m pytest", "coverage report -m" ] }
 
 [tool.pytest.ini_options]
 markers = [
