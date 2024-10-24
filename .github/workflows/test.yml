@@ -31,7 +31,7 @@ jobs:
         run: uv run -- pytest test/
 
       - name: Run coverage
-        run: uv run -- coverage run -m pytest && coverage report -m
+        run: uv run -- coverage run -m pytest; coverage report -m
 
       - name: Run example notebooks
         run: uv run -- jupyter execute examples/**/*.ipynb
