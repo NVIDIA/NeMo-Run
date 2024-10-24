@@ -1,0 +1,41 @@
+name: Run tests
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: uv sync
+        run: uv sync
+
+      - shell: bash
+        run: |
+          git config --global user.name github-actions[bot]
+          git config --global user.email 41898282+github-actions[bot]@users.noreply.github.com
+
+      - name: Run tests
+        run: uv run -- pytest test/
+
+      - name: Run coverage
+        run: uv run -- coverage run -m pytest && coverage report -m
+
+      - name: Run example notebooks
+        run: uv run -- jupyter execute examples/**/*.ipynb
+
+      - name: Run example scripts
+        run: |
+          cd examples/hello-world && uv run -- python hello_scripts.py
