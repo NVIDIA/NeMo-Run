@@ -30,7 +30,7 @@ def rsync(
     exclude: str | Iterable[str] = (),
     delete: bool = False,
     strict_host_keys: bool = True,
-    rsync_opts: str = "--mkpath",
+    rsync_opts: str = "",
     ssh_opts: str = "",
     hide_output: bool = True,
 ):
@@ -87,6 +87,7 @@ def rsync(
     else:
         cmd = "rsync {} {} {}@{}:{}"
     cmd = cmd.format(options, source, user, host, target)
+    c.run(f"mkdir -p {target}", hide=hide_output)
     result = c.local(cmd, hide=hide_output)
     if result:
         logger.info(f"Successfully ran `{result.command}`")
