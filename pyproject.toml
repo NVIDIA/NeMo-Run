@@ -52,16 +52,10 @@ skypilot-all = [
     "skypilot[all]>=v0.6.1",
 ]
 
-[build-system]
-requires = ["hatchling", "hatch-vcs"]
-build-backend = "hatchling.build"
-
-[tool.uv]
-managed = true
-prerelease = "allow"
-dev-dependencies = [
+[dependency-groups]
+dev = [
+    { include-group = "lint" },
     "pytest>=8.2.0",
-    "ruff>=0.4.4",
     "coverage>=7.5.1",
     "pre-commit>=3.7.1",
     "pytest-sugar>=1.0.0",
@@ -70,6 +64,22 @@ dev-dependencies = [
     "ipywidgets>=8.1.2",
     "jupyter>=1.1.1"
 ]
+
+lint = [
+    "ruff>=0.4.4",
+]
+
+docs = [
+    "mkdocs-material"
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+managed = true
+prerelease = "allow"
 
 [tool.pytest.ini_options]
 markers = [

@@ -20,4 +20,4 @@ jobs:
           version: "latest"
 
       - name: Ruff fmt
-        run: uv run -- ruff format --diff
+        run: uv run --group lint -- ruff format --diff

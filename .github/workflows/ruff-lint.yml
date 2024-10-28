@@ -20,4 +20,4 @@ jobs:
           version: "latest"
 
       - name: Ruff lint
-        run: uv run -- ruff check
+        run: uv run --group lint -- ruff check
