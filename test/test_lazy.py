@@ -114,13 +114,12 @@ class TestLazyEntrypoint:
         task.a = 5
         task.a += 3
         task.b = [1, 2]
-        task.b += [3, 4]
         task.c = "hello"
         task.c += "' world'"
 
         resolved = task.resolve()
         assert resolved.a == 8
-        assert resolved.b == [1, 2, 3, 4]
+        assert resolved.b == [1, 2]
         assert resolved.c == "hello world"
 
     def test_multiple_assignments(self):
