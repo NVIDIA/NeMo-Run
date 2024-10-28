@@ -1139,6 +1139,8 @@ def _get_latest_dir(path) -> str:
 
 
 def _get_sorted_dirs(path: str) -> list[str]:
+    if not os.path.exists(path):
+        return []
     dirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
     dirs = sorted(dirs, key=lambda d: os.path.getctime(os.path.join(path, d)))
     return list(dirs)
