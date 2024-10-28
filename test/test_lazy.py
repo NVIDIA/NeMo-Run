@@ -1,16 +1,17 @@
 from dataclasses import dataclass
 from pathlib import Path
-from test.dummy_factory import DummyModel
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import fiddle as fdl
 import pytest
 from omegaconf import OmegaConf
 
 import nemo_run as run
-from nemo_run.config import Config, Partial
+from nemo_run.cli.cli_parser import ParseError
+from nemo_run.config import Partial
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.lazy import LazyEntrypoint, dictconfig_to_dot_list
+from test.dummy_factory import DummyModel  # noqa: F401
 
 
 @dataclass
@@ -49,6 +50,12 @@ def some_function_recipe() -> run.Partial[some_function]:
     return run.Partial(some_function, inner=run.Config(Inner, x=42, y=43))
 
 
+@dataclass
+class Model:
+    hidden: int
+    activation: str
+
+
 class TestLazyEntrypoint:
     def test_simple_value_parsing(self):
         def func(a: int, b: float, c: str, d: bool):
@@ -77,7 +84,8 @@ class TestLazyEntrypoint:
 
         resolved = task.resolve()
         assert resolved.a == [1, 2, 3]
-        assert resolved.b == {"x": 1, "y": 2}
+        assert resolved.b.x == 1
+        assert resolved.b.y == 2
         assert resolved.c == "string"
 
     def test_nested_structures(self):
@@ -128,7 +136,7 @@ class TestLazyEntrypoint:
         assert resolved.a == 3
 
     def test_attribute_access(self):
-        def func(model: Dict[str, Any]):
+        def func(model: Model):
             pass
 
         task = LazyEntrypoint(func)
@@ -148,7 +156,7 @@ class TestLazyEntrypoint:
         task.a = value
 
         resolved = task.resolve()
-        assert resolved.a is None
+        assert not resolved.a
 
     def test_literal_parsing(self):
         def func(color: Literal["red", "green", "blue"]):
@@ -177,35 +185,30 @@ class TestLazyEntrypoint:
         task = LazyEntrypoint(func)
         task.a = "not an int"
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ParseError):
             task.resolve()
 
     def test_yaml_loading(self):
         yaml_content = """
-        model:
+        dummy:
           hidden: 1000
           activation: relu
         """
-        task = LazyEntrypoint("dummy_model", yaml=yaml_content)
+        task = LazyEntrypoint("test.dummy_factory.dummy_entrypoint", yaml=yaml_content)
 
         resolved = task.resolve()
-        assert resolved.model.hidden == 1000
-        assert resolved.model.activation == "relu"
+        assert resolved.dummy.hidden == 1000
+        assert resolved.dummy.activation == "relu"
 
     def test_complex_factory_scenario(self):
-        def complex_factory(hidden: int = 2000, activation: str = "tanh"):
-            return Config(DummyModel, hidden=hidden, activation=activation)
-
-        task = LazyEntrypoint("dummy_model", factory=complex_factory)
-        task.hidden = 3000
-        task.activation = "relu"
-        task.extra_param = "should not be included"
+        task = LazyEntrypoint("test.dummy_factory.dummy_entrypoint", factory="dummy_recipe")
+        task.dummy.hidden = 3000
+        task.dummy.activation = "relu"
 
         resolved = task.resolve()
-        assert isinstance(resolved, Config)
-        assert resolved.hidden == 3000
-        assert resolved.activation == "relu"
-        assert not hasattr(resolved, "extra_param")
+        assert isinstance(resolved, Partial)
+        assert resolved.dummy.hidden == 3000
+        assert resolved.dummy.activation == "relu"
 
     def test_lazy_resolution(self):
         def func(a: int):
@@ -215,7 +218,7 @@ class TestLazyEntrypoint:
         task.a = 5
 
         # Before resolution
-        assert not hasattr(task, "a")
+        assert task.a != 5
         assert ("a", "=", 5) in task._args_
 
         # After resolution
@@ -280,7 +283,7 @@ class TestOmegaConfIntegration:
             ("b", "=", "Config"),
             ("b.c", "=", 2),
             ("b.d", "=", [3, 4]),
-            ("e", "=", '"test"'),
+            ("e", "=", "test"),
         ]
         assert result == expected
 

@@ -661,12 +661,14 @@ class TypeParser:
         Raises:
             TypeParsingError: If parsing fails.
         """
+        if value.startswith("<Config") or value.startswith("<Partial"):
+            value = value[1:-1].replace("()", "")
         if value.startswith("Config") or value.startswith("Partial"):
             return self.parse_buildable(value, annotation)
 
         parser = self.get_parser(annotation)
         try:
-            return parser(value, annotation)
+            return parser(value.strip('"'), annotation)
         except ParseError:
             raise
         except Exception as e:
@@ -938,7 +940,7 @@ class TypeParser:
         """
         if "\0" in value:
             raise ParseError(value, Path, "Invalid path: contains null character")
-        return Path(value)
+        return Path(value.strip("'\" "))
 
     def infer_type(self, value: str) -> Type:
         """Infer the type of a string value.
@@ -1065,11 +1067,29 @@ def parse_cli_args(
 
         param = signature.parameters.get(arg_name)
         if param is None:
-            raise ArgumentValueError(
-                f"Invalid argument: No parameter named '{arg_name}' exists for {fn}",
-                arg,
-                {"key": key, "value": value},
+            kwargs_param = next(
+                (
+                    p
+                    for p in signature.parameters.values()
+                    if p.kind == inspect.Parameter.VAR_KEYWORD
+                ),
+                None,
             )
+            if kwargs_param:
+                # Create a generic parameter for the kwargs argument
+                param = inspect.Parameter(
+                    arg_name,
+                    inspect.Parameter.KEYWORD_ONLY,
+                    annotation=kwargs_param.annotation
+                    if kwargs_param.annotation != inspect.Parameter.empty
+                    else Any,
+                )
+            else:
+                raise ArgumentValueError(
+                    f"Invalid argument: No parameter named '{arg_name}' exists for {fn}",
+                    arg,
+                    {"key": key, "value": value},
+                )
 
         annotation, parsed_value = None, None
         if param.annotation != inspect.Parameter.empty:

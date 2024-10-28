@@ -15,7 +15,6 @@
 
 from configparser import ConfigParser
 from dataclasses import dataclass
-from test.dummy_factory import DummyModel, dummy_entrypoint
 from typing import List, Optional, Union
 from unittest.mock import Mock, patch
 
@@ -28,6 +27,7 @@ import nemo_run as run
 from nemo_run import cli, config
 from nemo_run.cli import api as cli_api
 from nemo_run.cli.api import Entrypoint, RunContext, create_cli
+from test.dummy_factory import DummyModel, dummy_entrypoint
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
 [nemo_run.cli]
@@ -202,7 +202,7 @@ class TestRunContext:
 
     def test_run_context_parse_fn_with_factory(self, sample_function):
         ctx = RunContext(name="test_run", factory="dummy_factory")
-        with patch("nemo_run.cli.api.parse_factory") as mock_parse_factory:
+        with patch("nemo_run.cli.cli_parser.parse_factory") as mock_parse_factory:
             mock_parse_factory.return_value = run.Partial(sample_function, a=20, b="world")
             partial = ctx.parse_fn(sample_function, [])
             assert partial.a == 20

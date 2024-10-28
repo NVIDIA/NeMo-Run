@@ -24,7 +24,7 @@ import sys
 import typing
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Generic, Optional, Type, TypeVar, Union, get_args
+from typing import Any, Callable, Generic, Iterable, Optional, Type, TypeVar, Union, get_args
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -253,6 +253,11 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
         bind_args: bool = True,
         **kwargs,
     ):
+        # Handle dict types by converting to _kwargs_to_dict function
+        if fn_or_cls is dict or (hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict):
+            fn_or_cls = _kwargs_to_dict  # type: ignore
+            bind_args = False
+
         new_kwargs = kwargs
         if bind_args and not isinstance(fn_or_cls, fdl.Buildable):
             try:
@@ -261,6 +266,17 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
                 new_kwargs = kwargs
 
         super().__init__(fn_or_cls, *args, **new_kwargs)
+
+    @classmethod
+    def __unflatten__(
+        cls,
+        values: Iterable[Any],
+        metadata: config.BuildableTraverserMetadata,
+    ):
+        # If this is a dictionary config, reconstruct it with the arguments
+        if metadata.fn_or_cls == _kwargs_to_dict:
+            return cls(**metadata.arguments(values))
+        return super().__unflatten__(values, metadata)
 
 
 class Partial(Generic[_T], fdl.Partial[_T], _CloneAndFNMixin, _VisualizeMixin):
@@ -550,3 +566,7 @@ def _try_set_all(config: _BuildableT, _walk: bool = False, **kwargs) -> _Buildab
                 pass
 
     return config
+
+
+def _kwargs_to_dict(**kwargs):
+    return dict(kwargs)

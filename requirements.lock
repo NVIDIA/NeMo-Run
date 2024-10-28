@@ -90,6 +90,7 @@ mdurl==0.1.2
 mypy-extensions==1.0.0
     # via typing-inspect
 networkx==3.3
+    # via nemo-run
     # via skypilot
 numpy==2.1.0
     # via pandas

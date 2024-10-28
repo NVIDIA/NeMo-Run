@@ -228,6 +228,7 @@ nbformat==5.10.4
 nest-asyncio==1.6.0
     # via ipykernel
 networkx==3.3
+    # via nemo-run
     # via skypilot
 nodeenv==1.9.1
     # via pre-commit

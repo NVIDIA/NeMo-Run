@@ -112,17 +112,25 @@ class LazyEntrypoint(Buildable):
 
         fn = self._target_
         if self._factory_:
-            if isinstance(self._target_, LazyTarget):
-                target = self._target_.target
-            else:
-                target = self._target_
+            if isinstance(self._factory_, str):
+                if isinstance(self._target_, LazyTarget):
+                    target = self._target_.target
+                else:
+                    target = self._target_
 
-            fn = parse_factory(target, "", target, self._factory_)
+                fn = parse_factory(target, "", target, self._factory_)
+            else:
+                fn = self._factory_()
         else:
             if isinstance(fn, LazyTarget):
                 fn = fn.target
 
-        args = [f"{name}{op}{value}" for name, op, value in self._args_]
+        dotlist = dictconfig_to_dot_list(
+            _args_to_dictconfig(self._args_), has_factory=self._factory_ is not None
+        )
+        args = [f"{name}{op}{value}" for name, op, value in dotlist]
+
+        print(fn)
 
         return parse_cli_args(fn, args)
 
@@ -472,11 +480,50 @@ def dictconfig_to_dot_list(
         elif isinstance(value, list):
             result.append((full_key, op, value))
         else:
-            if isinstance(value, str):
-                value = f'"{value}"'
             result.append((full_key, op, value))
 
     return result
+
+
+def _args_to_dictconfig(args: list[tuple[str, str, Any]]) -> DictConfig:
+    """Convert a list of (path, op, value) tuples to a DictConfig."""
+    config = {}
+    structure_args = []
+    value_args = []
+
+    # Separate structure-defining args from value assignments
+    for path, op, value in args:
+        if "." in path:
+            value_args.append((path, op, value))
+        else:
+            structure_args.append((path, op, value))
+
+    # Process top-level assignments first
+    for path, op, value in structure_args:
+        if op != "=":
+            path = f"{path}{op}"
+        config[path] = value
+
+    # Then process all value assignments
+    for path, op, value in value_args:
+        current = config
+        *parts, last = path.split(".")
+
+        # Create nested structure
+        for part in parts:
+            if part not in current:
+                current[part] = {}
+            elif not isinstance(current[part], dict):
+                current[part] = {}  # Convert to dict if it wasn't already
+            current = current[part]
+
+        # Add the operator suffix if it's not a simple assignment
+        if op != "=":
+            last = f"{last}{op}"
+
+        current[last] = value
+
+    return OmegaConf.create(config)
 
 
 def _dummy_fn(*args, **kwargs):
