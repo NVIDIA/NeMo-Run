@@ -34,7 +34,10 @@ def _get_experiment(experiment_id: str) -> Experiment:
 def list(experiment_title: str):
     """List all experiments for a given title."""
     CONSOLE.log(f"[bold magenta] Listing experiments with title {experiment_title}")
-    CONSOLE.log(Experiment.catalog(experiment_title))
+    CONSOLE.log(
+        Experiment.catalog(experiment_title)
+        or f"[bold red] There are no experiments for '{experiment_title}'"
+    )
 
 
 def logs(experiment_id: str, job_idx: Annotated[int, typer.Argument()] = 0):

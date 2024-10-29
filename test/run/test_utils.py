@@ -17,6 +17,8 @@ import sys
 from unittest.mock import MagicMock
 
 import pytest
+
+from nemo_run.run.experiment import Experiment
 from nemo_run.run.utils import TeeStdoutStderr, _Tee
 
 
@@ -52,3 +54,7 @@ class TestTeeStdoutStderr:
         captured = capsys.readouterr()
         assert captured.out == "output_out\noutput_out\n"
         assert captured.err == "output_err\noutput_err\n"
+
+
+def test_list_experiments_handles_missing():
+    assert Experiment.catalog("test_experiment") == []
