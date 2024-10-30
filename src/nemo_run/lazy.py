@@ -130,8 +130,6 @@ class LazyEntrypoint(Buildable):
         )
         args = [f"{name}{op}{value}" for name, op, value in dotlist]
 
-        print(fn)
-
         return parse_cli_args(fn, args)
 
     def __getattr__(self, item: str) -> "LazyEntrypoint":
@@ -228,6 +226,10 @@ class LazyEntrypoint(Buildable):
             return self._target_.import_path
 
         return f"{self._target_.__module__}.{self._target_.__name__}"
+
+    @property
+    def is_lazy(self) -> bool:
+        return True
 
     def __build__(self, *args, **kwargs):
         buildable = self.resolve()
@@ -648,5 +650,3 @@ if __name__ == "__main__":
     task.model = "llama3_70b(input_1=5)"
     task.trainer = "my_trainer"
     task.data = "my_data"
-
-    a = 5
