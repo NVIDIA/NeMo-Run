@@ -1167,6 +1167,10 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
                 module_name, function_name = factory_name.rsplit(".", 1)
                 module = importlib.import_module(module_name)
                 factory_fn = getattr(module, function_name)
+
+                # Handle constants
+                if not callable(factory_fn):
+                    return factory_fn
             except (ImportError, AttributeError):
                 pass  # If import fails, continue with other parsing methods
 
