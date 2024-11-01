@@ -726,6 +726,7 @@ class RunContext:
         default_plugins: Optional[List[Plugin]] = None,
         type: Literal["task", "experiment"] = "task",
         command_kwargs: Dict[str, Any] = {},
+        is_main: bool = False,
     ):
         """
         Create a CLI command for the given function.
@@ -788,8 +789,10 @@ class RunContext:
             if default_plugins:
                 self.plugins = default_plugins
 
-            _load_entrypoints()
+            if not is_main:
+                _load_entrypoints()
             _load_workspace()
+
             self.cli_execute(fn, ctx.args, type)
 
         return command
@@ -1181,13 +1184,13 @@ class Entrypoint(Generic[Params, ReturnType]):
     def cli(self, parent: typer.Typer):
         self._add_command(parent)
 
-    def _add_command(self, typer_instance: typer.Typer):
+    def _add_command(self, typer_instance: typer.Typer, is_main: bool = False):
         if self.enable_executor:
-            self._add_executor_command(typer_instance)
+            self._add_executor_command(typer_instance, is_main=is_main)
         else:
-            self._add_simple_command(typer_instance)
+            self._add_simple_command(typer_instance, is_main=is_main)
 
-    def _add_simple_command(self, typer_instance: typer.Typer):
+    def _add_simple_command(self, typer_instance: typer.Typer, is_main: bool = False):
         @typer_instance.command(
             self.name,
             help=self.help_str,
@@ -1203,7 +1206,7 @@ class Entrypoint(Generic[Params, ReturnType]):
                 console.print(f"[bold red]Error: {str(e)}[/bold red]")
                 sys.exit(1)
 
-    def _add_executor_command(self, parent: typer.Typer):
+    def _add_executor_command(self, parent: typer.Typer, is_main: bool = False):
         help = self.help_str
         colored_help = None
         if help:
@@ -1224,6 +1227,7 @@ class Entrypoint(Generic[Params, ReturnType]):
                 help=colored_help,
                 cls=CLITaskCommand,
             ),
+            is_main=is_main,
         )
 
     def _add_options_to_command(self, command: Callable):
@@ -1242,7 +1246,7 @@ class Entrypoint(Generic[Params, ReturnType]):
 
     def main(self):
         app = typer.Typer(help=self.help_str, pretty_exceptions_enable=False)
-        self._add_command(app)
+        self._add_command(app, is_main=True)
         app(standalone_mode=False)
 
     def help(self, console=Console(), with_docs: bool = True):
