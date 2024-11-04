@@ -87,6 +87,27 @@ The LocalExecutor is the simplest executor. It executes your task locally in a s
 
 The easiest way to define one is to call `run.LocalExecutor()`.
 
+#### DockerExecutor
+
+The DockerExecutor enables launching a task using `docker` on your local machine. It requires `docker` to be installed and running as a prerequisite.
+
+The DockerExecutor uses the [docker python client](https://docker-py.readthedocs.io/en/stable/) and most of the options are passed directly to the client.
+
+Below is an example of configuring a Docker Executor
+
+```python
+run.DockerExecutor(
+    container_image="python:3.12",
+    num_gpus=-1,
+    runtime="nvidia",
+    ipc_mode="host",
+    shm_size="30g",
+    volumes=["/local/path:/path/in/container"],
+    env_vars={"PYTHONUNBUFFERED": "1"},
+    packager=run.Packager(),
+)
+```
+
 #### SlurmExecutor
 
 The SlurmExecutor enables launching the configured task on a Slurm Cluster with Pyxis.  Additionally, you can configure a `run.SSHTunnel`, which enables you to execute tasks on the Slurm cluster from your local machine while NeMo-Run manages the SSH connection for you. This setup supports use cases such as launching the same task on multiple Slurm clusters.
