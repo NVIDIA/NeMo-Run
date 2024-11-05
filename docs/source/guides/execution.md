@@ -4,6 +4,7 @@ After configuring NeMo-Run, the next step is to execute it. Nemo-Run decouples c
 
 Each execution of a single configured task requires an executor. Nemo-Run provides `run.Executor`, which are APIs to configure your remote executor and set up the packaging of your code. Currently we support:
 - `run.LocalExecutor`
+- `run.DockerExecutor`
 - `run.SlurmExecutor` with an optional `SSHTunnel` for executing on Slurm clusters from your local machine
 - `run.SkypilotExecutor` (available under the optional feature `skypilot` in the python package).
 
@@ -36,10 +37,13 @@ The packager support matrix is described below:
 | Executor | Packagers |
 |----------|----------|
 | LocalExecutor | run.Packager |
-| SlurmExecutor | run.GitArchivePackager |
-| SkypilotExecutor | run.GitArchivePackager |
+| DockerExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager |
+| SlurmExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager |
+| SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager |
 
-`run.Packager` is a passthrough base packager. `run.GitArchivePackager` uses `git archive` to package your code. Refer to the API reference for `run.GitArchivePackager` to see the exact mechanics of packaging using `git archive`.
+`run.Packager` is a passthrough base packager.
+
+`run.GitArchivePackager` uses `git archive` to package your code. Refer to the API reference for `run.GitArchivePackager` to see the exact mechanics of packaging using `git archive`.
 At a high level, it works in the following way:
 1. base_path = `git rev-parse --show-toplevel`.
 2. Optionally define a subpath as `base_path/GitArchivePackager.subpath` by setting `subpath` attribute on `GitArchivePackager`.
@@ -60,6 +64,20 @@ If you're executing a Python function, this working directory will automatically
 
 > **_NOTE:_** git archive doesn't package uncommitted changes. In the future, we may add support for including uncommitted changes while honoring `.gitignore`.
 
+`run.PatternPackager` is a packager that uses a pattern to package your code. It is useful for packaging code that is not under version control. For example, if you have a directory structure like this:
+```
+- docs
+- src
+  - your_library
+```
+
+You can use `run.PatternPackager` to package your code by specifying `include_pattern` as `src/**` and `relative_path` as `os.getcwd()`. This will package the entire `src` directory. The command used to get the list of files to package is:
+
+```bash
+# relative_include_pattern = os.path.relpath(self.include_pattern, self.relative_path)
+cd {relative_path} && find {relative_include_pattern} -type f
+```
+
 ### Defining Executors
 Next, We'll describe details on setting up each of the executors below.
 
@@ -68,6 +86,27 @@ Next, We'll describe details on setting up each of the executors below.
 The LocalExecutor is the simplest executor. It executes your task locally in a separate process or group from your current working directory.
 
 The easiest way to define one is to call `run.LocalExecutor()`.
+
+#### DockerExecutor
+
+The DockerExecutor enables launching a task using `docker` on your local machine. It requires `docker` to be installed and running as a prerequisite.
+
+The DockerExecutor uses the [docker python client](https://docker-py.readthedocs.io/en/stable/) and most of the options are passed directly to the client.
+
+Below is an example of configuring a Docker Executor
+
+```python
+run.DockerExecutor(
+    container_image="python:3.12",
+    num_gpus=-1,
+    runtime="nvidia",
+    ipc_mode="host",
+    shm_size="30g",
+    volumes=["/local/path:/path/in/container"],
+    env_vars={"PYTHONUNBUFFERED": "1"},
+    packager=run.Packager(),
+)
+```
 
 #### SlurmExecutor
 

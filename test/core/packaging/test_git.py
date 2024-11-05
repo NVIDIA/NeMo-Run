@@ -163,6 +163,50 @@ def test_package_with_include_pattern(packager, temp_repo):
 
 
 @patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_with_include_pattern_and_subpath(packager, temp_repo):
+    temp_repo = Path(temp_repo)
+    # Create extra files
+    (temp_repo / "extra").mkdir()
+    with open(temp_repo / "extra" / "extra_file1.txt", "w") as f:
+        f.write("Extra file 1")
+    with open(temp_repo / "extra" / "extra_file2.txt", "w") as f:
+        f.write("Extra file 2")
+
+    # Create extra files
+    (temp_repo / "extra2").mkdir()
+    with open(temp_repo / "extra2" / "extra2_file1.txt", "w") as f:
+        f.write("Extra file 1")
+    with open(temp_repo / "extra2" / "extra2_file2.txt", "w") as f:
+        f.write("Extra file 2")
+    subprocess.check_call(
+        [f"cd {temp_repo} && git add extra2 && git commit -m 'Extra2 commit'"], shell=True
+    )
+
+    packager = GitArchivePackager(ref="HEAD", include_pattern="extra", subpath="extra2")
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(Path(temp_repo), job_dir, "test_package")
+        assert os.path.exists(output_file)
+        subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
+        subprocess.check_call(
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+        )
+        cmp = filecmp.dircmp(
+            os.path.join(temp_repo, "extra"),
+            os.path.join(job_dir, "extracted_output", "extra"),
+        )
+        assert cmp.left_list == cmp.right_list
+        assert not cmp.diff_files
+
+        cmp = filecmp.dircmp(
+            os.path.join(temp_repo, "extra2"),
+            os.path.join(job_dir, "extracted_output"),
+            ignore=["extra"],
+        )
+        assert cmp.left_list == cmp.right_list
+        assert not cmp.diff_files
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
 def test_package_with_include_pattern_multiple_directories(packager, temp_repo):
     temp_repo = Path(temp_repo)
     # Create extra files

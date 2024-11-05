@@ -107,6 +107,8 @@ class GitArchivePackager(Packager):
             assert not bool(
                 untracked_files
             ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
+
+        ctx = Context()
         if self.include_pattern:
             include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(
                 str(git_base_path)
@@ -117,17 +119,31 @@ class GitArchivePackager(Packager):
             # we first add git files into an uncompressed archive
             # then we add an extra files from pattern to that archive
             # finally we compress it (cannot compress right away, since adding files is not possible)
-            cmd = (
-                f"(cd {shlex.quote(str(git_base_path))} && git ls-files {git_sub_path} "
-                f"| tar -cf {output_file}.tmp -C {shlex.quote(str(git_base_path))} -T -) "
-                f"&& (cd {include_pattern_relative_path} && find {relative_include_pattern} -type f "
-                f"| tar -rf {output_file}.tmp -C {include_pattern_relative_path} -T -) "
-                f"&& gzip -c {output_file}.tmp > {output_file} && rm {output_file}.tmp"
+            git_archive_cmd = (
+                f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
             )
+            include_pattern_cmd = f"find {relative_include_pattern} -type f | tar -cf {os.path.join(git_base_path, 'additional.tmp')} -T -"
+            tar_concatenate_cmd = f"tar -Af {output_file}.tmp additional.tmp"
+            gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
+            rm_cmd = f"rm {output_file}.tmp additional.tmp"
+
+            with ctx.cd(git_base_path):
+                ctx.run(git_archive_cmd)
+
+            with ctx.cd(include_pattern_relative_path):
+                ctx.run(include_pattern_cmd)
+
+            with ctx.cd(git_base_path):
+                ctx.run(tar_concatenate_cmd)
+                ctx.run(gzip_cmd)
+                ctx.run(rm_cmd)
         else:
-            cmd = f"cd {shlex.quote(str(git_base_path))} && git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
-        ctx = Context()
-        ctx.run(cmd)
+            with ctx.cd(git_base_path):
+                git_archive_cmd = (
+                    f"git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
+                )
+                ctx.run(git_archive_cmd)
+
         return output_file
 
 
