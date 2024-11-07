@@ -32,6 +32,9 @@ class DummyTrainer:
     def __hash__(self) -> int:
         return hash((self.num_epochs))
 
+    def __eq__(self, value: object) -> bool:
+        return isinstance(value, DummyTrainer) and self.num_epochs == value.num_epochs
+
 
 @dataclass
 class NestedModel:
