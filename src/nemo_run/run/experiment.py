@@ -265,6 +265,7 @@ nemo experiment cancel {exp_id} 0
         log_level: str = "INFO",
         _reconstruct: bool = False,
         jobs: list[Job | JobGroup] | None = None,
+        base_dir: str | None = None,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -288,7 +289,8 @@ nemo experiment cancel {exp_id} 0
         self._title = title
         self._id = id or f"{title}_{int(time.time())}"
 
-        self._exp_dir = os.path.join(NEMORUN_HOME, "experiments", title, self._id)
+        base_dir = base_dir or NEMORUN_HOME
+        self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
 
         self.log_level = log_level
         self._runner = get_runner()

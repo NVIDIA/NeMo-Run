@@ -25,6 +25,14 @@ class DummyModel:
     activation: str = "relu"
 
 
+class DummyTrainer:
+    def __init__(self, num_epochs: int = 10):
+        self.num_epochs = num_epochs
+
+    def __hash__(self) -> int:
+        return hash((self.num_epochs))
+
+
 @dataclass
 class NestedModel:
     dummy: DummyModel
@@ -86,6 +94,9 @@ def plugin_list(arg: int = 20) -> List[run.Plugin]:
         dummy_plugin(arg),
         AnotherPlugin(another_arg=arg),
     ]
+
+
+def dummy_train(dummy_model: DummyModel, dummy_trainer: DummyTrainer): ...
 
 
 if __name__ == "__main__":
