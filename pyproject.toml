@@ -47,10 +47,10 @@ dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
 
 [project.optional-dependencies]
 skypilot = [
-    "skypilot[kubernetes]>=v0.6.1",
+    "skypilot[kubernetes]>=v0.7.0",
 ]
 skypilot-all = [
-    "skypilot[all]>=v0.6.1",
+    "skypilot[all]>=v0.7.0",
 ]
 
 [dependency-groups]

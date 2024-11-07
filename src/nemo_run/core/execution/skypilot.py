@@ -18,7 +18,7 @@ import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Type, Union
+from typing import Any, Optional, Type, Union
 
 from invoke.context import Context
 
@@ -104,6 +104,7 @@ class SkypilotExecutor(Executor):
     autodown: bool = False
     idle_minutes_to_autostop: Optional[int] = None
     torchrun_nproc_per_node: Optional[int] = None
+    cluster_config_overrides: Optional[dict[str, Any]] = None
     packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     def __post_init__(self):
@@ -182,6 +183,9 @@ class SkypilotExecutor(Executor):
             parse_attr(attr)
 
         resources_cfg["any_of"] = any_of
+        if self.cluster_config_overrides:
+            resources_cfg["_cluster_config_overrides"] = self.cluster_config_overrides
+
         resources = Resources.from_yaml_config(resources_cfg)
 
         return resources  # type: ignore
