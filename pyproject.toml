@@ -45,10 +45,10 @@ docker_persistent = "nemo_run.run.torchx_backend.schedulers.docker:create_schedu
 
 [project.optional-dependencies]
 skypilot = [
-    "skypilot[kubernetes]>=v0.6.1",
+    "skypilot[kubernetes]>=v0.7.0",
 ]
 skypilot-all = [
-    "skypilot[all]>=v0.6.1",
+    "skypilot[all]>=v0.7.0",
 ]
 
 [build-system]
