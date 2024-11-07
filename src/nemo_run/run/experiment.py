@@ -19,6 +19,7 @@ import importlib.util
 import inspect
 import json
 import os
+import pprint
 import shutil
 import sys
 import time
@@ -29,6 +30,7 @@ from typing import Optional, Type, Union
 
 import fiddle as fdl
 import networkx as nx
+from fiddle._src import daglish, diffing
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
@@ -378,6 +380,8 @@ nemo experiment cancel {exp_id} 0
         else:
             task_id = name
 
+        self._validate_task(task_info=task_id, task=task)
+
         executor = executor.clone()
         executor.assign(
             self._id,
@@ -418,6 +422,9 @@ nemo experiment cancel {exp_id} 0
         else:
             task_id = name
 
+        for i, _task in enumerate(tasks):
+            self._validate_task(task_info=f"Job Group: {task_id}, job index: {i}", task=_task)
+
         executors = executor if isinstance(executor, list) else [executor]
         cloned_executors = []
         for executor in executors:
@@ -448,6 +455,30 @@ nemo experiment cancel {exp_id} 0
         job_group.prepare()
         self._jobs.append(job_group)
         return job_group.id
+
+    def _validate_task(self, task_info: str, task: Union[Partial, Script]) -> None:
+        valid = True
+        message = ""
+        if isinstance(task, Partial):
+            serializer = ZlibJSONSerializer()
+            serialized = serializer.serialize(task)
+            deserialized = serializer.deserialize(serialized)
+            diff = diffing.build_diff(deserialized, task)
+            diff = {
+                daglish.path_str(d.target): (d.new_value if hasattr(d, "new_value") else None)  # type: ignore
+                for d in diff.changes
+            }
+            if deserialized != task:
+                valid = False
+                message += f"""
+Deserialized task does not match original task. The following paths in your task need to be wrapped in `run.Config` or `run.Partial`:
+
+{pprint.PrettyPrinter(indent=4).pformat(diff)}
+
+For more information about `run.Config` and `run.Partial`, please refer to https://github.com/NVIDIA/NeMo-Run/blob/main/docs/source/guides/configuration.md.
+"""
+        if not valid:
+            raise RuntimeError(f"Failed to validate task {task_info}.\n{message}")
 
     def add(
         self,
