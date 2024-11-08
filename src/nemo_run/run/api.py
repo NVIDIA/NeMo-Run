@@ -75,7 +75,7 @@ def run(
     )
     name = name or default_name
     with Experiment(title=name, executor=executor, log_level=log_level) as exp:
-        exp.add(fn_or_script, tail_logs=tail_logs, plugins=plugins)
+        exp.add(fn_or_script, tail_logs=tail_logs, plugins=plugins, name=name)
         if dryrun:
             exp.dryrun()
             return
