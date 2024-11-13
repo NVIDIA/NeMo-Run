@@ -53,6 +53,7 @@ from typer.core import TyperCommand, TyperGroup
 from typer.models import OptionInfo
 from typing_extensions import ParamSpec
 
+from nemo_run.api import dump_fn_or_script
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
@@ -692,6 +693,7 @@ class RunContext:
         name (str): Name of the run.
         direct (bool): If True, execute the run directly without using a scheduler.
         dryrun (bool): If True, print the scheduler request without submitting.
+        dump (str): If True, serialize and output the configuration without execution.
         factory (Optional[str]): Name of a predefined factory to use.
         load (Optional[str]): Path to load a factory from a directory.
         repl (bool): If True, enter interactive mode.
@@ -705,6 +707,7 @@ class RunContext:
     name: str
     direct: bool = False
     dryrun: bool = False
+    dump: str = ""
     factory: Optional[str] = None
     load: Optional[str] = None
     repl: bool = False
@@ -755,6 +758,9 @@ class RunContext:
             dryrun: bool = typer.Option(
                 False, "--dryrun", help="Print the scheduler request without submitting"
             ),
+            dump: Optional[str] = typer.Option(
+                None, "--dump", help="Serialize and dump configuration without executing"
+            ),
             factory: Optional[str] = typer.Option(
                 None, "--factory", "-f", help="Predefined factory to use"
             ),
@@ -775,6 +781,7 @@ class RunContext:
                 name=name,
                 direct=direct,
                 dryrun=dryrun,
+                dump=dump,
                 factory=factory or default_factory,
                 load=load,
                 repl=repl,
@@ -841,6 +848,9 @@ class RunContext:
         _, run_args, filtered_args = _parse_prefixed_args(args, "run")
         self.parse_args(run_args)
 
+        if self.dump:
+            self.dryrun = True
+
         if self.load:
             raise NotImplementedError("Load is not implemented yet")
 
@@ -867,6 +877,8 @@ class RunContext:
         def run_task():
             nonlocal task
             run.dryrun_fn(task, executor=self.executor)
+            if (self.dump is not None) and (self.dump != ""):
+                dump_fn_or_script(task, self.dump)
 
             if self.dryrun:
                 console.print(f"[bold cyan]Dry run for {self.name}:[/bold cyan]")

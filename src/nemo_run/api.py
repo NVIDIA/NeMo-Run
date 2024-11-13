@@ -31,6 +31,7 @@ from typing import (
 )
 
 import fiddle as fdl
+import os
 from fiddle.experimental import auto_config as _auto_config
 from rich.pretty import Pretty
 from rich.table import Table
@@ -38,6 +39,8 @@ from rich.table import Table
 from nemo_run.config import Config, Partial
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.api import CONSOLE, CustomConfigRepr
+from nemo_run.core.serialization.yaml import YamlSerializer
+from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 
 F = TypeVar("F", bound=Callable[..., Any])
 T = TypeVar("T")
@@ -231,6 +234,27 @@ def dryrun_fn(
 
     if build:
         fdl.build(configured_fn)
+
+
+def dump_fn_or_script(
+    fn_or_script: Union[fdl.Partial, fdl.Config],
+    file_path: str,
+    serializer_cls: Type[ZlibJSONSerializer | YamlSerializer] = ZlibJSONSerializer,
+) -> None:
+    """
+    Serializes `fn_or_script` and writes it to the specified file path.
+
+    Args:
+        fn_or_script (Union[fdl.Partial, fdl.Config]): The function or script object to be serialized.
+        file_path (str): The file path where the serialized data will be saved.
+        serializer_cls (Type[ZlibJSONSerializer | YamlSerializer], optional):
+            The serializer class to use. Defaults to `ZlibJSONSerializer`.
+    """
+    serialized_data = serializer_cls().serialize(fn_or_script)
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    with open(file_path, "w") as f:
+        f.write(serialized_data)
 
 
 @runtime_checkable
