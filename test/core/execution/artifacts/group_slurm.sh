@@ -68,6 +68,7 @@ while ! $all_done; do
                     kill -9 "$other_pid"
                 fi
             done
+            break 2
         fi
     done
 
