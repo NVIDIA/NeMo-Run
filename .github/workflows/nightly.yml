@@ -7,11 +7,11 @@ on:
 
 jobs:
   format:
-    uses: ./.github/workflows/rye-format.yml
+    uses: ./.github/workflows/ruff-format.yml
   lint:
-    uses: ./.github/workflows/rye-lint.yml
+    uses: ./.github/workflows/ruff-lint.yml
   test:
-    uses: ./.github/workflows/rye-test.yml
+    uses: ./.github/workflows/test.yml
   tag:
     name: Run Tests and Create Nightly Tag
     runs-on: ubuntu-latest
