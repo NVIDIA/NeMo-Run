@@ -16,6 +16,7 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Union
 
 from invoke.context import Context
 
@@ -32,21 +33,32 @@ class PatternPackager(Packager):
     #: This str will be included in the command as:
     #: find {include_pattern} -type f to get the list of extra files to include in the archive
     #: best to use an absolute path here and a proper relative path argument to pass to tar
-    include_pattern: str
+    include_pattern: Union[str, List[str]]
 
     #: Relative path to use as tar -C option.
-    relative_path: str
+    relative_path: Union[str, List[str]]
 
     def package(self, path: Path, job_dir: str, name: str) -> str:
         output_file = os.path.join(job_dir, f"{name}.tar.gz")
         if os.path.exists(output_file):
             return output_file
 
-        relative_include_pattern = os.path.relpath(self.include_pattern, self.relative_path)
-        cmd = (
-            f"tar -czf {output_file} -C {self.relative_path} -T "
-            f"<(cd {self.relative_path} && find {relative_include_pattern} -type f)"
-        )
+        if isinstance(self.include_pattern, str):
+            self.include_pattern = [self.include_pattern]
+
+        if isinstance(self.relative_path, str):
+            self.relative_path = [self.relative_path]
+
+        if not len(self.relative_path) == len(self.include_pattern):
+            raise ValueError("`relative_path` and `include_pattern` should have the same number of arguments.")
+
+        cmd = f"tar -czf {output_file}"
+        for pattern_index in range(len(self.include_pattern)):
+            relative_path = self.relative_path[pattern_index]
+            include_pattern = self.include_pattern[pattern_index]
+            relative_include_pattern = os.path.relpath(include_pattern, relative_path)
+            cmd += f" -C {relative_path} -T <(cd {relative_path} && find {relative_include_pattern} -type f)"
+
         ctx = Context()
         ctx.run(cmd)
         return output_file

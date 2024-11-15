@@ -18,6 +18,7 @@ import os
 import shlex
 import subprocess
 from dataclasses import dataclass
+from typing import List, Union
 from pathlib import Path
 
 from invoke.context import Context
@@ -59,11 +60,11 @@ class GitArchivePackager(Packager):
 
     #: Include extra files in the archive which matches include_pattern
     #: This str will be included in the command as: find {include_pattern} -type f to get the list of extra files to include in the archive
-    include_pattern: str = ""
+    include_pattern: Union[str, List[str]] = ""
 
     #: Relative path to use as tar -C option - need to be consistent with include_pattern
     #: If not provided, will use git base path.
-    include_pattern_relative_path: str = ""
+    include_pattern_relative_path: Union[str, List[str]] = ""
 
     check_uncommitted_changes: bool = False
     check_untracked_files: bool = False
@@ -109,32 +110,58 @@ class GitArchivePackager(Packager):
             ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
 
         ctx = Context()
-        if self.include_pattern:
-            include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(
-                str(git_base_path)
-            )
-            relative_include_pattern = os.path.relpath(
-                self.include_pattern, include_pattern_relative_path
-            )
-            # we first add git files into an uncompressed archive
-            # then we add an extra files from pattern to that archive
-            # finally we compress it (cannot compress right away, since adding files is not possible)
-            git_archive_cmd = (
-                f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
-            )
-            include_pattern_cmd = f"find {relative_include_pattern} -type f | tar -cf {os.path.join(git_base_path, 'additional.tmp')} -T -"
-            tar_concatenate_cmd = f"tar -Af {output_file}.tmp additional.tmp"
-            gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
-            rm_cmd = f"rm {output_file}.tmp additional.tmp"
 
+        # we first add git files into an uncompressed archive
+        # then we add an extra files from pattern to that archive
+        # finally we compress it (cannot compress right away, since adding files is not possible)
+        git_archive_cmd = (
+            f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
+        )
+
+        if self.include_pattern:
+            # we first add git files into an uncompressed archive
             with ctx.cd(git_base_path):
                 ctx.run(git_archive_cmd)
 
-            with ctx.cd(include_pattern_relative_path):
-                ctx.run(include_pattern_cmd)
+            if isinstance(self.include_pattern, str):
+                self.include_pattern = [self.include_pattern]
+
+            if isinstance(self.include_pattern_relative_path, str):
+                self.include_pattern_relative_path = [self.include_pattern_relative_path]
+
+            if not len(self.include_pattern) == len(self.include_pattern_relative_path):
+                raise ValueError("`include_pattern` and `include_pattern_relative_path` should have the same number of arguments.")
+
+            commands = {
+                'tar_concatenate_cmds': [],
+                'rm_files': [f"{output_file}.tmp"]
+            }
+            for pattern_index in range(len(self.include_pattern)):
+                include_pattern = self.include_pattern[pattern_index]
+                include_pattern_relative_path = self.include_pattern_relative_path[pattern_index]
+
+                include_pattern_relative_path = include_pattern_relative_path or shlex.quote(
+                    str(git_base_path)
+                )
+                relative_include_pattern = os.path.relpath(
+                    include_pattern, include_pattern_relative_path
+                )
+                tarfile_name = f"additional_{pattern_index}.tmp"
+                include_pattern_cmd = f"find {relative_include_pattern} -type f | tar -cf {os.path.join(git_base_path, tarfile_name)} -T -"
+                tar_concatenate_cmd = f"tar -Af {output_file}.tmp {tarfile_name}"
+
+                with ctx.cd(include_pattern_relative_path):
+                    ctx.run(include_pattern_cmd)
+
+                commands['tar_concatenate_cmds'].append(tar_concatenate_cmd)
+                commands['rm_files'].append(tarfile_name)
+
+            gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
+            rm_cmd = f"rm {' '.join(commands['rm_files'])}"
 
             with ctx.cd(git_base_path):
-                ctx.run(tar_concatenate_cmd)
+                for tar_concatenate_cmd in commands['tar_concatenate_cmds']:
+                    ctx.run(tar_concatenate_cmd)
                 ctx.run(gzip_cmd)
                 ctx.run(rm_cmd)
         else:
