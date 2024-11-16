@@ -624,6 +624,40 @@ class TestSlurmBatchRequest:
         expected = Path(artifact).read_text()
         assert sbatch_script.strip() == expected.strip()
 
+    def test_group_resource_req_request_custom_job_details(
+        self,
+        group_resource_req_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
+    ):
+        class CustomJobDetails(SlurmJobDetails):
+            @property
+            def stdout(self) -> Path:
+                assert self.folder
+                return Path(self.folder / "sbatch_job.out")
+
+            @property
+            def srun_stdout(self) -> Path:
+                assert self.folder
+                return Path(self.folder / f"log_{self.job_name}.out")
+
+        group_resource_req_slurm_request, _ = group_resource_req_slurm_request_with_artifact
+        group_resource_req_slurm_request.slurm_config.job_details = CustomJobDetails(
+            job_name="custom_sample_job", folder=Path("/custom_folder")
+        )
+        group_resource_req_slurm_request.slurm_config.resource_group[0].job_details = copy.deepcopy(
+            group_resource_req_slurm_request.slurm_config.job_details
+        )
+        group_resource_req_slurm_request.slurm_config.resource_group[
+            1
+        ].job_details = CustomJobDetails(
+            job_name="custom_sample_job_2", folder=Path("/custom_folder_2")
+        )
+
+        sbatch_script = group_resource_req_slurm_request.materialize()
+        assert "#SBATCH --job-name=custom_sample_job" in sbatch_script
+        assert "srun --output /custom_folder/log_custom_sample_job.out" in sbatch_script
+        assert "srun --output /custom_folder_2/log_custom_sample_job_2.out" in sbatch_script
+        assert "#SBATCH --output=/custom_folder/sbatch_job.out" in sbatch_script
+
     def test_ft_slurm_request_materialize(
         self, ft_slurm_request_with_artifact: tuple[SlurmBatchRequest, str]
     ):
