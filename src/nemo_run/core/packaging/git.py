@@ -57,6 +57,9 @@ class GitArchivePackager(Packager):
     #: Can be a branch name or a commit ref like HEAD.
     ref: str = "HEAD"
 
+    #: Include submodules in the archive.
+    include_submodules: bool = True
+
     #: Include extra files in the archive which matches include_pattern
     #: This str will be included in the command as: find {include_pattern} -type f to get the list of extra files to include in the archive
     include_pattern: str = ""
@@ -109,6 +112,20 @@ class GitArchivePackager(Packager):
             ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
 
         ctx = Context()
+        # we first add git files into an uncompressed archive
+        # then we add submodule files into that archive
+        # then we add an extra files from pattern to that archive
+        # finally we compress it (cannot compress right away, since adding files is not possible)
+        git_archive_cmd = (
+            f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
+        )
+        git_submodule_cmd = f"""git submodule foreach --recursive \
+'git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && tar -Af {output_file}.tmp $sha1.tmp && rm $sha1.tmp'"""
+        with ctx.cd(git_base_path):
+            ctx.run(git_archive_cmd)
+            if self.include_submodules:
+                ctx.run(git_submodule_cmd)
+
         if self.include_pattern:
             include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(
                 str(git_base_path)
@@ -116,33 +133,21 @@ class GitArchivePackager(Packager):
             relative_include_pattern = os.path.relpath(
                 self.include_pattern, include_pattern_relative_path
             )
-            # we first add git files into an uncompressed archive
-            # then we add an extra files from pattern to that archive
-            # finally we compress it (cannot compress right away, since adding files is not possible)
-            git_archive_cmd = (
-                f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
-            )
             include_pattern_cmd = f"find {relative_include_pattern} -type f | tar -cf {os.path.join(git_base_path, 'additional.tmp')} -T -"
-            tar_concatenate_cmd = f"tar -Af {output_file}.tmp additional.tmp"
-            gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
-            rm_cmd = f"rm {output_file}.tmp additional.tmp"
-
-            with ctx.cd(git_base_path):
-                ctx.run(git_archive_cmd)
+            tar_concatenate_cmd = f"tar -Af {output_file}.tmp additional.tmp && rm additional.tmp"
 
             with ctx.cd(include_pattern_relative_path):
                 ctx.run(include_pattern_cmd)
 
             with ctx.cd(git_base_path):
                 ctx.run(tar_concatenate_cmd)
-                ctx.run(gzip_cmd)
-                ctx.run(rm_cmd)
-        else:
-            with ctx.cd(git_base_path):
-                git_archive_cmd = (
-                    f"git archive --format=tar.gz --output={output_file} {self.ref}:{git_sub_path}"
-                )
-                ctx.run(git_archive_cmd)
+
+        gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
+        rm_cmd = f"rm {output_file}.tmp"
+
+        with ctx.cd(git_base_path):
+            ctx.run(gzip_cmd)
+            ctx.run(rm_cmd)
 
         return output_file
 
