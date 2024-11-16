@@ -290,3 +290,60 @@ def test_untracked_files_raises_exception(temp_repo):
         f.write("Untracked file")
     with pytest.raises(AssertionError, match="Your repo has untracked files"):
         packager.package(temp_repo, str(temp_repo), "test")
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_with_include_submodules(packager, temp_repo):
+    temp_repo = Path(temp_repo)
+    # Create a submodule
+    submodule_path = temp_repo / "submodule"
+    submodule_path.mkdir()
+    os.chdir(str(submodule_path))
+    subprocess.check_call(["git", "init", "--initial-branch=main"])
+    open("submodule_file.txt", "w").write("Submodule file")
+    subprocess.check_call(["git", "add", "."])
+    subprocess.check_call(["git", "commit", "-m", "Initial submodule commit"])
+    os.chdir(str(temp_repo))
+    subprocess.check_call(["git", "submodule", "add", str(submodule_path)])
+    subprocess.check_call(["git", "commit", "-m", "Add submodule"])
+
+    packager = GitArchivePackager(ref="HEAD", include_submodules=True)
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(Path(temp_repo), job_dir, "test_package")
+        assert os.path.exists(output_file)
+        subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
+        subprocess.check_call(
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+        )
+        cmp = filecmp.dircmp(
+            os.path.join(temp_repo, "submodule"),
+            os.path.join(job_dir, "extracted_output", "submodule"),
+        )
+        assert cmp.left_list == cmp.right_list
+        assert not cmp.diff_files
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_without_include_submodules(packager, temp_repo):
+    temp_repo = Path(temp_repo)
+    # Create a submodule
+    submodule_path = temp_repo / "submodule"
+    submodule_path.mkdir()
+    os.chdir(str(submodule_path))
+    subprocess.check_call(["git", "init", "--initial-branch=main"])
+    open("submodule_file.txt", "w").write("Submodule file")
+    subprocess.check_call(["git", "add", "."])
+    subprocess.check_call(["git", "commit", "-m", "Initial submodule commit"])
+    os.chdir(str(temp_repo))
+    subprocess.check_call(["git", "submodule", "add", str(submodule_path)])
+    subprocess.check_call(["git", "commit", "-m", "Add submodule"])
+
+    packager = GitArchivePackager(ref="HEAD", include_submodules=False)
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(Path(temp_repo), job_dir, "test_package")
+        assert os.path.exists(output_file)
+        subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
+        subprocess.check_call(
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+        )
+        assert len(os.listdir(os.path.join(job_dir, "extracted_output", "submodule"))) == 0
