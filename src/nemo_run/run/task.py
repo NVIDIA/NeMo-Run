@@ -61,7 +61,7 @@ def dryrun_fn(
 
 
 def direct_run_fn(task: Partial | Script, dryrun: bool = False):
-    if hasattr(task, "__is_lazy__"):
+    if getattr(task, "is_lazy", False):
         task = task.resolve()
 
     if not isinstance(task, (Partial, Script)):

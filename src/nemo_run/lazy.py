@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Iterator
+from typing import Any, Callable, Iterator
 
 from fiddle import Buildable, daglish
 from fiddle._src import signatures
@@ -18,9 +18,6 @@ from fiddle.experimental import serialization
 from omegaconf import DictConfig, OmegaConf
 
 from nemo_run.config import Partial
-
-if TYPE_CHECKING:
-    from nemo_run.cli.api import Entrypoint
 
 
 @contextlib.contextmanager
@@ -561,9 +558,7 @@ serialization.register_node_traverser(
 )
 
 
-def _load_entrypoint_from_script(
-    script_content: str, module_name: str = "__dynamic_module__"
-) -> "Entrypoint":
+def _load_entrypoint_from_script(script_content: str, module_name: str = "__dynamic_module__"):
     """
     Load the script as a module from a string and extract its __main__ block.
 
