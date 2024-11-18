@@ -254,8 +254,8 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
         **kwargs,
     ):
         # Handle dict types by converting to _kwargs_to_dict function
-        if fn_or_cls is dict or (hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict):
-            fn_or_cls = _kwargs_to_dict  # type: ignore
+        if fn_or_cls == {} or (hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict):
+            fn_or_cls = dict  # type: ignore
             bind_args = False
 
         new_kwargs = kwargs
@@ -274,7 +274,7 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
         metadata: config.BuildableTraverserMetadata,
     ):
         # If this is a dictionary config, reconstruct it with the arguments
-        if metadata.fn_or_cls == _kwargs_to_dict:
+        if metadata.fn_or_cls is dict:
             return cls(**metadata.arguments(values))
         return super().__unflatten__(values, metadata)
 
@@ -566,7 +566,3 @@ def _try_set_all(config: _BuildableT, _walk: bool = False, **kwargs) -> _Buildab
                 pass
 
     return config
-
-
-def _kwargs_to_dict(**kwargs):
-    return dict(kwargs)
