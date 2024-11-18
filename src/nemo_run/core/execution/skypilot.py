@@ -89,7 +89,7 @@ class SkypilotExecutor(Executor):
     region: Optional[Union[str, list[str]]] = None
     zone: Optional[Union[str, list[str]]] = None
     gpus: Optional[Union[str, list[str]]] = None
-    gpus_per_node: Optional[Union[int, list[int]]] = None
+    gpus_per_node: Optional[int] = None
     cpus: Optional[Union[int | float, list[int | float]]] = None
     memory: Optional[Union[int | float, list[int | float]]] = None
     instance_type: Optional[Union[str, list[str]]] = None
@@ -103,6 +103,7 @@ class SkypilotExecutor(Executor):
     setup: Optional[str] = None
     autodown: bool = False
     idle_minutes_to_autostop: Optional[int] = None
+    torchrun_nproc_per_node: Optional[int] = None
     packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     def __post_init__(self):
@@ -126,24 +127,16 @@ class SkypilotExecutor(Executor):
         resources_cfg = {}
         accelerators = None
         if self.gpus:
-            if isinstance(self.gpus, str):
-                if not self.gpus_per_node:
-                    self.gpus_per_node = 1
-
-                assert isinstance(self.gpus_per_node, int)
-                gpus, gpus_per_node = [self.gpus], [self.gpus_per_node]
+            if not self.gpus_per_node:
+                self.gpus_per_node = 1
             else:
-                if not self.gpus_per_node:
-                    self.gpus_per_node = [1 for _ in self.gpus]
+                assert isinstance(self.gpus_per_node, int)
 
-                assert isinstance(self.gpus_per_node, list) and len(self.gpus) == len(
-                    self.gpus_per_node
-                )
-                gpus, gpus_per_node = self.gpus, self.gpus_per_node
+            gpus = [self.gpus] if isinstance(self.gpus, str) else self.gpus
 
             accelerators = {}
-            for gpu, count in zip(gpus, gpus_per_node):
-                accelerators[gpu] = count
+            for gpu in gpus:
+                accelerators[gpu] = self.gpus_per_node
 
             resources_cfg["accelerators"] = accelerators
 
@@ -319,7 +312,10 @@ class SkypilotExecutor(Executor):
         return self.num_nodes
 
     def nproc_per_node(self) -> int:
-        return 1
+        if self.torchrun_nproc_per_node:
+            return self.torchrun_nproc_per_node
+
+        return self.gpus_per_node or 1
 
     def macro_values(self) -> Optional[ExecutorMacros]:
         return ExecutorMacros(
