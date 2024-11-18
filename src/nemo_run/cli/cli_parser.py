@@ -1057,7 +1057,7 @@ def parse_cli_args(
                         f"Invalid attribute: {attr}", key, {"nested": nested}
                     ) from e
 
-            signature = inspect.signature(nested.__fn_or_cls__)
+            signature = _signature(nested.__fn_or_cls__)
             # If nested.__fn_or_cls__ is a class and has just *args and **kwargs as parameters,
             # Get signature of the __init__ method
             if len(signature.parameters) == 2 and inspect.isclass(nested.__fn_or_cls__):
@@ -1254,6 +1254,15 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
         return [parse_single_factory(item.strip()) for item in items]
 
     return parse_single_factory(value)
+
+
+def _signature(fn: Callable):
+    if fn is dict:
+        # Create a signature that accepts **kwargs for dict
+        return inspect.Signature(
+            [inspect.Parameter("kwargs", inspect.Parameter.VAR_KEYWORD, annotation=Any)]
+        )
+    return inspect.signature(fn)
 
 
 def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
