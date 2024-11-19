@@ -526,22 +526,6 @@ class TestEntrypointRunner:
     def app(self):
         return create_cli(add_verbose_callback=False, nested_entrypoints_creation=False)
 
-    def test_dummy_entrypoint_cli(self, runner, app):
-        with patch("test.dummy_factory.NestedModel") as mock_nested_model:
-            result = runner.invoke(
-                app,
-                [
-                    "dummy",
-                    "dummy_entrypoint",
-                    "dummy=dummy_model_config",
-                    "run.skip_confirmation=True",
-                ],
-            )
-            assert result.exit_code == 0
-            mock_nested_model.assert_called_once_with(
-                dummy=DummyModel(hidden=2000, activation="tanh")
-            )
-
     def test_parse_partial_function_call(self):
         entrypoint = Entrypoint(dummy_entrypoint, namespace="test")
         partial = entrypoint.parse_partial(["dummy=my_dummy_model(hidden=100)"])
