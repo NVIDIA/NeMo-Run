@@ -53,6 +53,7 @@ class Operation(Enum):
     DIVIDE = "/="
     OR = "|="
     AND = "&="
+    UNION = "|="
 
 
 class CLIException(Exception):
@@ -538,42 +539,34 @@ class PythonicParser:
 
     def apply_operation(self, op: Operation, old: Any, new: Any) -> Any:
         """
-        Apply an operation to two values.
-
-        This method performs the specified operation (like addition, subtraction, etc.)
-        on the given old and new values.
+        Apply the specified operation to the old and new values.
 
         Args:
-            op (Operation): The operation to perform.
-            old (Any): The original value.
-            new (Any): The value to apply in the operation.
+            op (Operation): The operation to apply.
+            old (Any): The existing value.
+            new (Any): The new value to apply the operation with.
 
         Returns:
             Any: The result of applying the operation.
 
         Raises:
-            OperationError: If the operation fails or is unsupported.
-
-        Example:
-            >>> parser = PythonicParser()
-            >>> parser.apply_operation(Operation.ADD, 5, 3)
-            8
+            OperationError: If the operation fails or is not supported for the given types.
         """
-        operation = self.operations.get(op)
-        if operation:
-            try:
-                return operation(old, new)
-            except Exception as e:
-                raise OperationError(
-                    f"Operation '{op.value}' failed: {str(e)}",
-                    f"{old} {op.value} {new}",
-                    {"old": old, "new": new},
-                )
-        raise OperationError(
-            f"Unsupported operation: {op.value}",
-            f"{old} {op.value} {new}",
-            {"old": old, "new": new},
-        )
+        try:
+            if op == Operation.OR and isinstance(old, dict) and isinstance(new, dict):
+                return {**old, **new}
+            elif op == Operation.OR and hasattr(old, "__dict__") and hasattr(new, "__dict__"):
+                return {**old.__dict__, **new.__dict__}
+            elif op in self.operations:
+                return self.operations[op](old, new)
+            else:
+                raise ValueError(f"Unsupported operation: {op}")
+        except Exception as e:
+            raise OperationError(
+                f"Operation '{op.value}' failed: {str(e)}",
+                f"{old} {op.value} {new}",
+                {"old": old, "new": new},
+            ) from e
 
 
 class TypeParser:
@@ -668,9 +661,14 @@ class TypeParser:
         Raises:
             TypeParsingError: If parsing fails.
         """
+        if value.startswith("<Config") or value.startswith("<Partial"):
+            value = value[1:-1].replace("()", "")
+        if value.startswith("Config") or value.startswith("Partial"):
+            return self.parse_buildable(value, annotation)
+
         parser = self.get_parser(annotation)
         try:
-            return parser(value, annotation)
+            return parser(value.strip('"'), annotation)
         except ParseError:
             raise
         except Exception as e:
@@ -679,6 +677,32 @@ class TypeParser:
                 value,
                 {"expected_type": annotation},
             )
+
+    def parse_buildable(self, value: str, annotation: Type[Config | Partial]) -> Config | Partial:
+        """Parse a string value into a Buildable type (Config or Partial).
+
+        Args:
+            value (str): The string value to parse.
+            annotation (Type[Config | Partial]): The Buildable type annotation.
+
+        Returns:
+            Config | Partial: The parsed Buildable type.
+        """
+        match = re.match(r"(Config|Partial)\[(.*)\]", value)
+        if match:
+            buildable_type, target = match.groups()
+
+            # Import the target
+            module_name, function_name = target.rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            config_type = getattr(module, function_name)
+
+            if buildable_type == "Config":
+                return Config(config_type)
+            elif buildable_type == "Partial":
+                return Partial(config_type)
+
+        return Config(annotation)
 
     def parse_int(self, value: str, _: Type) -> int:
         """Parse a string value into an integer.
@@ -726,10 +750,9 @@ class TypeParser:
         Returns:
             str: The parsed string value.
         """
-        if (value.startswith("'") and value.endswith("'")) or (
-            value.startswith('"') and value.endswith('"')
-        ):
-            return value[1:-1]
+        if len(value) >= 2:
+            if (value[0] == "'" and value[-1] == "'") or (value[0] == '"' and value[-1] == '"'):
+                return value[1:-1]
         return value
 
     def parse_bool(self, value: str, _: Type) -> bool:
@@ -917,7 +940,7 @@ class TypeParser:
         """
         if "\0" in value:
             raise ParseError(value, Path, "Invalid path: contains null character")
-        return Path(value)
+        return Path(value.strip("'\" "))
 
     def infer_type(self, value: str) -> Type:
         """Infer the type of a string value.
@@ -1034,7 +1057,7 @@ def parse_cli_args(
                         f"Invalid attribute: {attr}", key, {"nested": nested}
                     ) from e
 
-            signature = inspect.signature(nested.__fn_or_cls__)
+            signature = _signature(nested.__fn_or_cls__)
             # If nested.__fn_or_cls__ is a class and has just *args and **kwargs as parameters,
             # Get signature of the __init__ method
             if len(signature.parameters) == 2 and inspect.isclass(nested.__fn_or_cls__):
@@ -1044,11 +1067,29 @@ def parse_cli_args(
 
         param = signature.parameters.get(arg_name)
         if param is None:
-            raise ArgumentValueError(
-                f"Invalid argument: No parameter named '{arg_name}' exists for {fn}",
-                arg,
-                {"key": key, "value": value},
+            kwargs_param = next(
+                (
+                    p
+                    for p in signature.parameters.values()
+                    if p.kind == inspect.Parameter.VAR_KEYWORD
+                ),
+                None,
             )
+            if kwargs_param:
+                # Create a generic parameter for the kwargs argument
+                param = inspect.Parameter(
+                    arg_name,
+                    inspect.Parameter.KEYWORD_ONLY,
+                    annotation=kwargs_param.annotation
+                    if kwargs_param.annotation != inspect.Parameter.empty
+                    else Any,
+                )
+            else:
+                raise ArgumentValueError(
+                    f"Invalid argument: No parameter named '{arg_name}' exists for {fn}",
+                    arg,
+                    {"key": key, "value": value},
+                )
 
         annotation, parsed_value = None, None
         if param.annotation != inspect.Parameter.empty:
@@ -1213,6 +1254,15 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
         return [parse_single_factory(item.strip()) for item in items]
 
     return parse_single_factory(value)
+
+
+def _signature(fn: Callable):
+    if fn is dict:
+        # Create a signature that accepts **kwargs for dict
+        return inspect.Signature(
+            [inspect.Parameter("kwargs", inspect.Parameter.VAR_KEYWORD, annotation=Any)]
+        )
+    return inspect.signature(fn)
 
 
 def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:

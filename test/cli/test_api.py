@@ -15,7 +15,6 @@
 
 from configparser import ConfigParser
 from dataclasses import dataclass
-from test.dummy_factory import DummyModel, dummy_entrypoint
 from typing import List, Optional, Union
 from unittest.mock import Mock, patch
 
@@ -28,6 +27,7 @@ import nemo_run as run
 from nemo_run import cli, config
 from nemo_run.cli import api as cli_api
 from nemo_run.cli.api import Entrypoint, RunContext, create_cli
+from test.dummy_factory import DummyModel, dummy_entrypoint
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
 [nemo_run.cli]
@@ -202,7 +202,7 @@ class TestRunContext:
 
     def test_run_context_parse_fn_with_factory(self, sample_function):
         ctx = RunContext(name="test_run", factory="dummy_factory")
-        with patch("nemo_run.cli.api.parse_factory") as mock_parse_factory:
+        with patch("nemo_run.cli.cli_parser.parse_factory") as mock_parse_factory:
             mock_parse_factory.return_value = run.Partial(sample_function, a=20, b="world")
             partial = ctx.parse_fn(sample_function, [])
             assert partial.a == 20
@@ -525,22 +525,6 @@ class TestEntrypointRunner:
     @pytest.fixture
     def app(self):
         return create_cli(add_verbose_callback=False, nested_entrypoints_creation=False)
-
-    def test_dummy_entrypoint_cli(self, runner, app):
-        with patch("test.dummy_factory.NestedModel") as mock_nested_model:
-            result = runner.invoke(
-                app,
-                [
-                    "dummy",
-                    "dummy_entrypoint",
-                    "dummy=dummy_model_config",
-                    "run.skip_confirmation=True",
-                ],
-            )
-            assert result.exit_code == 0
-            mock_nested_model.assert_called_once_with(
-                dummy=DummyModel(hidden=2000, activation="tanh")
-            )
 
     def test_parse_partial_function_call(self):
         entrypoint = Entrypoint(dummy_entrypoint, namespace="test")

@@ -12,6 +12,8 @@
 -e file:.
 absl-py==2.1.0
     # via fiddle
+antlr4-python3-runtime==4.9.3
+    # via omegaconf
 attrs==24.2.0
     # via jsonschema
     # via referencing
@@ -88,12 +90,15 @@ mdurl==0.1.2
 mypy-extensions==1.0.0
     # via typing-inspect
 networkx==3.3
+    # via nemo-run
     # via skypilot
 numpy==2.1.0
     # via pandas
 oauthlib==3.2.2
     # via kubernetes
     # via requests-oauthlib
+omegaconf==2.3.0
+    # via nemo-run
 packaging==24.1
     # via skypilot
 pandas==2.2.2
@@ -137,6 +142,7 @@ pytz==2024.1
 pyyaml==6.0.2
     # via kubernetes
     # via libcst
+    # via omegaconf
     # via skypilot
     # via torchx
 referencing==0.35.1

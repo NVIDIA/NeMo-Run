@@ -185,6 +185,13 @@ def fake_visualize_error(self, **kwargs):
     raise Exception
 
 
+class TestConfigDict:
+    def test_config_dict(self):
+        cfg = run.Config({}, a=1, b=2)
+        assert cfg.a == 1
+        assert cfg.b == 2
+
+
 class TestPartial:
     def test_resolve_optional(self):
         partial = run.Partial(train, model=dummy_model(), optim=optimizer())

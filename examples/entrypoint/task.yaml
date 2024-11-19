@@ -1,0 +1,14 @@
+model:
+  _factory_: "my_model"
+  hidden_size: 256
+  num_layers: 3
+  activation: "relu"
+
+optimizer:
+  _factory_: "my_optimizer"
+  learning_rate: 0.001
+  weight_decay: 1e-5
+  betas: [0.9, 0.999]
+
+epochs: 10
+batch_size: 32

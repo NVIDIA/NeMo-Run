@@ -82,6 +82,9 @@ class YamlSerializer:
     """Serializer that uses JSON, zlib, and base64 encoding."""
 
     def serialize(self, cfg: config_lib.Buildable, stream=None) -> str:
+        if getattr(cfg, "is_lazy", False):
+            cfg = cfg.resolve()
+
         return yaml.safe_dump(cfg, stream=stream)
 
     def deserialize(
