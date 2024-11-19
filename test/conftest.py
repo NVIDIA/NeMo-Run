@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import os
+import sys
 from typing import Any, Optional
 
 import pytest
@@ -34,6 +35,17 @@ class MockContext(Context):
         kwargs["in_stream"] = False
         runner = self.config.runners.local(self)
         return self._run(runner, command, **kwargs)
+
+
+@pytest.fixture(autouse=True)
+def add_test_to_pythonpath():
+    """Add the test directory to PYTHONPATH for all tests."""
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    if test_dir not in sys.path:
+        sys.path.append(test_dir)
+    yield
+    if test_dir in sys.path:
+        sys.path.remove(test_dir)
 
 
 @pytest.fixture(autouse=True)

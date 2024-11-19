@@ -1,7 +1,7 @@
 import nemo_run as run
 
 with run.lazy_imports():
-    from nemo_run.test_utils import dummy_entrypoint, dummy_recipe
+    from test.test_utils import dummy_entrypoint, dummy_recipe
 
 
 if __name__ == "__main__":
