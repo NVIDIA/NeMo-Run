@@ -120,7 +120,7 @@ class GitArchivePackager(Packager):
             f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
         )
         git_submodule_cmd = f"""git submodule foreach --recursive \
-'git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && tar -Af {output_file}.tmp $sha1.tmp && rm $sha1.tmp'"""
+'git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && cat $sha1.tmp >> {output_file}.tmp && rm $sha1.tmp'"""
         with ctx.cd(git_base_path):
             ctx.run(git_archive_cmd)
             if self.include_submodules:
@@ -134,7 +134,7 @@ class GitArchivePackager(Packager):
                 self.include_pattern, include_pattern_relative_path
             )
             include_pattern_cmd = f"find {relative_include_pattern} -type f | tar -cf {os.path.join(git_base_path, 'additional.tmp')} -T -"
-            tar_concatenate_cmd = f"tar -Af {output_file}.tmp additional.tmp && rm additional.tmp"
+            tar_concatenate_cmd = f"cat additional.tmp >> {output_file}.tmp && rm additional.tmp"
 
             with ctx.cd(include_pattern_relative_path):
                 ctx.run(include_pattern_cmd)
