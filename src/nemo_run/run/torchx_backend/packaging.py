@@ -80,11 +80,6 @@ def package(
             except Exception as e:
                 log.warning(f"Failed saving yaml configs due to: {e}")
 
-            args += [
-                "-p",
-                packager_filename,
-            ]
-
             args.append(fn_or_script_filename)
         else:
             args += [

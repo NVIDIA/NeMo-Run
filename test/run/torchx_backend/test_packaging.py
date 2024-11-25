@@ -95,8 +95,6 @@ def test_package_partial_to_file(tmpdir):
         "nemo_run.core.runners.fdl_runner",
         "-n",
         "test",
-        "-p",
-        f"{tmpdir}/configs/test_packager",
         f"{tmpdir}/configs/test_fn_or_script",
     ]
 
