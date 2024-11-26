@@ -288,6 +288,39 @@ def test_package_with_include_pattern_rel_path(packager, temp_repo, tmpdir):
 
 
 @patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_with_multi_include_pattern_rel_path(packager, temp_repo, tmpdir):
+    temp_repo = Path(temp_repo)
+    # Create extra files in a separate directory
+    (tmpdir / "extra").mkdir()
+    with open(tmpdir / "extra" / "extra_file1.txt", "w") as f:
+        f.write("Extra file 1")
+    with open(tmpdir / "extra" / "extra_file2.txt", "w") as f:
+        f.write("Extra file 2")
+
+    include_pattern = [str(tmpdir / "extra/extra_file1.txt"), str(tmpdir / "extra/extra_file2.txt")]
+    relative_path = [str(tmpdir), str(tmpdir)]
+
+    packager = GitArchivePackager(
+        include_pattern=include_pattern, include_pattern_relative_path=relative_path
+    )
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(Path(temp_repo), job_dir, "test_package")
+        assert os.path.exists(output_file)
+        subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
+        subprocess.check_call(
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
+        )
+        cmp = filecmp.dircmp(
+            os.path.join(tmpdir, "extra"),
+            os.path.join(job_dir, "extracted_output", "extra"),
+        )
+        assert cmp.left_list == cmp.right_list
+        assert not cmp.diff_files
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
 def test_package_with_check_uncommitted_changes(packager, temp_repo):
     temp_repo = Path(temp_repo)
     open(temp_repo / "file1.txt", "w").write("Hello World")
