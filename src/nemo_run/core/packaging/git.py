@@ -116,12 +116,11 @@ class GitArchivePackager(Packager):
         # then we add submodule files into that archive
         # then we add an extra files from pattern to that archive
         # finally we compress it (cannot compress right away, since adding files is not possible)
-        git_archive_cmd = f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
-        git_submodule_cmd = (
-            f"git submodule foreach --recursive "
-            f"git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && cat $sha1.tmp "
-            f">> {output_file}.tmp && rm $sha1.tmp' "
+        git_archive_cmd = (
+            f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
         )
+        git_submodule_cmd = f"""git submodule foreach --recursive \
+'git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && cat $sha1.tmp >> {output_file}.tmp && rm $sha1.tmp'"""
         with ctx.cd(git_base_path):
             ctx.run(git_archive_cmd)
             if self.include_submodules:
@@ -134,9 +133,6 @@ class GitArchivePackager(Packager):
 
         if len(self.include_pattern) != len(self.include_pattern_relative_path):
             raise ValueError("include_pattern and include_pattern_relative_path should have the same length")
-
-        print("I'm here!!")
-        print(self.include_pattern, self.include_pattern_relative_path)
 
         for include_pattern, include_pattern_relative_path in zip(
             self.include_pattern, self.include_pattern_relative_path
