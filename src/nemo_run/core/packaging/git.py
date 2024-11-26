@@ -62,11 +62,11 @@ class GitArchivePackager(Packager):
 
     #: Include extra files in the archive which matches include_pattern
     #: This str will be included in the command as: find {include_pattern} -type f to get the list of extra files to include in the archive
-    include_pattern: str = ""
+    include_pattern: str | list[str] = ""
 
     #: Relative path to use as tar -C option - need to be consistent with include_pattern
     #: If not provided, will use git base path.
-    include_pattern_relative_path: str = ""
+    include_pattern_relative_path: str | list[str] = ""
 
     check_uncommitted_changes: bool = False
     check_untracked_files: bool = False
@@ -116,24 +116,39 @@ class GitArchivePackager(Packager):
         # then we add submodule files into that archive
         # then we add an extra files from pattern to that archive
         # finally we compress it (cannot compress right away, since adding files is not possible)
-        git_archive_cmd = (
-            f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
+        git_archive_cmd = f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
+        git_submodule_cmd = (
+            f"git submodule foreach --recursive "
+            f"git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && cat $sha1.tmp "
+            f">> {output_file}.tmp && rm $sha1.tmp' "
         )
-        git_submodule_cmd = f"""git submodule foreach --recursive \
-'git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && cat $sha1.tmp >> {output_file}.tmp && rm $sha1.tmp'"""
         with ctx.cd(git_base_path):
             ctx.run(git_archive_cmd)
             if self.include_submodules:
                 ctx.run(git_submodule_cmd)
+        if isinstance(self.include_pattern, str):
+            self.include_pattern = [self.include_pattern]
 
-        if self.include_pattern:
-            include_pattern_relative_path = self.include_pattern_relative_path or shlex.quote(
-                str(git_base_path)
+        if isinstance(self.include_pattern_relative_path, str):
+            self.include_pattern_relative_path = [self.include_pattern_relative_path]
+
+        if len(self.include_pattern) != len(self.include_pattern_relative_path):
+            raise ValueError("include_pattern and include_pattern_relative_path should have the same length")
+
+        print("I'm here!!")
+        print(self.include_pattern, self.include_pattern_relative_path)
+
+        for include_pattern, include_pattern_relative_path in zip(
+            self.include_pattern, self.include_pattern_relative_path
+        ):
+            if include_pattern == "":
+                continue
+            include_pattern_relative_path = include_pattern_relative_path or shlex.quote(str(git_base_path))
+            relative_include_pattern = os.path.relpath(include_pattern, include_pattern_relative_path)
+            include_pattern_cmd = (
+                f"find {relative_include_pattern} -type f | "
+                f"tar -cf {os.path.join(git_base_path, 'additional.tmp')} -T -"
             )
-            relative_include_pattern = os.path.relpath(
-                self.include_pattern, include_pattern_relative_path
-            )
-            include_pattern_cmd = f"find {relative_include_pattern} -type f | tar -cf {os.path.join(git_base_path, 'additional.tmp')} -T -"
             tar_concatenate_cmd = f"cat additional.tmp >> {output_file}.tmp && rm additional.tmp"
 
             with ctx.cd(include_pattern_relative_path):
