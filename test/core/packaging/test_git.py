@@ -63,7 +63,9 @@ def test_package(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         cmp = filecmp.dircmp(temp_repo, os.path.join(job_dir, "extracted_output"))
         assert cmp.left_list == cmp.right_list
@@ -84,7 +86,9 @@ def test_package_with_subpath(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "subdir"), os.path.join(job_dir, "extracted_output")
@@ -110,7 +114,9 @@ def test_package_with_subpath_with_basepath(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "subdir", "subdir2"),
@@ -152,7 +158,9 @@ def test_package_with_include_pattern(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "extra"),
@@ -188,7 +196,9 @@ def test_package_with_include_pattern_and_subpath(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "extra"),
@@ -228,7 +238,9 @@ def test_package_with_include_pattern_multiple_directories(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "extra"),
@@ -263,7 +275,9 @@ def test_package_with_include_pattern_rel_path(packager, temp_repo, tmpdir):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         cmp = filecmp.dircmp(
             os.path.join(tmpdir, "extra"),
@@ -313,7 +327,9 @@ def test_package_with_include_submodules(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "submodule"),
@@ -344,6 +360,8 @@ def test_package_without_include_submodules(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')}"),
+            shlex.split(
+                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
+            ),
         )
         assert len(os.listdir(os.path.join(job_dir, "extracted_output", "submodule"))) == 0

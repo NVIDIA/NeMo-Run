@@ -213,7 +213,9 @@ class DockerExecutor(Executor):
             )
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
         if local_pkg:
-            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path}", hide=True)
+            ctx.run(
+                f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
+            )
 
     def cleanup(self, handle: str):
         _, _, app_id = parse_app_handle(handle)

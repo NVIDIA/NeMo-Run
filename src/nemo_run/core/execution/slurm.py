@@ -569,7 +569,9 @@ class SlurmExecutor(Executor):
             # Touch hidden init file
             ctx.run(f"touch {remote_nsys_extraction_path}/.init")
         if local_pkg:
-            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path}", hide=True)
+            ctx.run(
+                f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
+            )
 
         self.tunnel.packaging_jobs.add(job_name)
 
