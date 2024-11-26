@@ -55,9 +55,7 @@ class PatternPackager(Packager):
         ctx = Context()
         ctx.run(f"tar -cf {output_file}.tmp --files-from /dev/null")
 
-        for include_pattern, relative_path in zip(
-            self.include_pattern, self.relative_path
-        ):
+        for include_pattern, relative_path in zip(self.include_pattern, self.relative_path):
             if include_pattern == "":
                 continue
 

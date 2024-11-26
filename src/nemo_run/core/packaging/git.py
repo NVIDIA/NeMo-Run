@@ -132,15 +132,21 @@ class GitArchivePackager(Packager):
             self.include_pattern_relative_path = [self.include_pattern_relative_path]
 
         if len(self.include_pattern) != len(self.include_pattern_relative_path):
-            raise ValueError("include_pattern and include_pattern_relative_path should have the same length")
+            raise ValueError(
+                "include_pattern and include_pattern_relative_path should have the same length"
+            )
 
         for include_pattern, include_pattern_relative_path in zip(
             self.include_pattern, self.include_pattern_relative_path
         ):
             if include_pattern == "":
                 continue
-            include_pattern_relative_path = include_pattern_relative_path or shlex.quote(str(git_base_path))
-            relative_include_pattern = os.path.relpath(include_pattern, include_pattern_relative_path)
+            include_pattern_relative_path = include_pattern_relative_path or shlex.quote(
+                str(git_base_path)
+            )
+            relative_include_pattern = os.path.relpath(
+                include_pattern, include_pattern_relative_path
+            )
             include_pattern_cmd = (
                 f"find {relative_include_pattern} -type f | "
                 f"tar -cf {os.path.join(git_base_path, 'additional.tmp')} -T -"
