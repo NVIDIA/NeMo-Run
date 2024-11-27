@@ -15,7 +15,7 @@
 
 from configparser import ConfigParser
 from dataclasses import dataclass
-from typing import Annotated, List, Optional, Union
+from typing import Annotated, List, Optional, Tuple, Union
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -441,7 +441,7 @@ class Optimizer:
 
     learning_rate: float = 0.001
     weight_decay: float = 1e-5
-    betas: List[float] = [0.9, 0.999]
+    betas: Tuple[float, float] = (0.9, 0.999)
 
 
 @run.cli.factory
@@ -621,11 +621,11 @@ class TestEntrypointRunner:
         assert "Training model with the following configuration:" in output
         assert "Model: Model(hidden_size=1024, num_layers=3, activation='relu')" in output
         assert (
-            "Optimizer: Optimizer(learning_rate=0.001, weight_decay=1e-05, betas=[0.9, 0.999])"
+            "Optimizer: Optimizer(learning_rate=0.001, weight_decay=1e-05, betas=(0.9, 0.999))"
             in output
         )
         assert "Epochs: 30" in output
-        assert "Batch size: 1024" in output
+        assert "Batch size: 32" in output
         assert "Training completed!" in output
 
         # Check that all epochs were simulated
