@@ -702,6 +702,14 @@ class TypeParser:
             elif buildable_type == "Partial":
                 return Partial(config_type)
 
+        if str(annotation).startswith("typing.Annotated"):
+            args = get_args(annotation)
+            if str(args[0]).startswith("typing.Optional") and len(args) > 1:
+                cfg_type = get_args(args[0])[0]
+                buildable = args[1].__origin__
+                if issubclass(buildable, fdl.Buildable):
+                    return buildable(cfg_type)
+
         return Config(annotation)
 
     def parse_int(self, value: str, _: Type) -> int:

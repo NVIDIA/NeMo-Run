@@ -15,7 +15,7 @@
 
 from configparser import ConfigParser
 from dataclasses import dataclass
-from typing import List, Optional, Union
+from typing import Annotated, List, Optional, Tuple, Union
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -439,9 +439,9 @@ class Model:
 class Optimizer:
     """Dummy optimizer config"""
 
-    learning_rate: float
-    weight_decay: float
-    betas: List[float]
+    learning_rate: float = 0.001
+    weight_decay: float = 1e-5
+    betas: Tuple[float, float] = (0.9, 0.999)
 
 
 @run.cli.factory
@@ -504,6 +504,22 @@ def train_model(
     print("Training completed!")
 
     return {"model": model, "optimizer": optimizer, "epochs": epochs, "batch_size": batch_size}
+
+
+@run.cli.entrypoint(
+    namespace="my_llm",
+    skip_confirmation=True,
+)
+def train_model_default_optimizer(
+    model: Model,
+    optimizer: Annotated[Optional[Optimizer], run.Config[Optimizer]] = None,
+    epochs: int = 10,
+    batch_size: int = 32,
+):
+    if optimizer is None:
+        optimizer = Optimizer()
+
+    return train_model(model, optimizer, epochs, batch_size)
 
 
 @run.cli.factory(target=train_model)
@@ -579,6 +595,37 @@ class TestEntrypointRunner:
         )
         assert "Epochs: 30" in output
         assert "Batch size: 1024" in output
+        assert "Training completed!" in output
+
+        # Check that all epochs were simulated
+        for i in range(1, 31):
+            assert f"Epoch {i}/30" in output
+
+    def test_with_defaults_no_optimizer(self, runner, app):
+        # Test CLI execution with default factory
+        result = runner.invoke(
+            app,
+            [
+                "my_llm",
+                "train_model_default_optimizer",
+                "model=my_model(hidden_size=1024)",
+                "epochs=30",
+                "run.skip_confirmation=True",
+            ],
+            env={"INCLUDE_WORKSPACE_FILE": "false"},
+        )
+        assert result.exit_code == 0
+
+        # Parse the output to check the values
+        output = result.stdout
+        assert "Training model with the following configuration:" in output
+        assert "Model: Model(hidden_size=1024, num_layers=3, activation='relu')" in output
+        assert (
+            "Optimizer: Optimizer(learning_rate=0.001, weight_decay=1e-05, betas=(0.9, 0.999))"
+            in output
+        )
+        assert "Epochs: 30" in output
+        assert "Batch size: 32" in output
         assert "Training completed!" in output
 
         # Check that all epochs were simulated
