@@ -229,13 +229,15 @@ class Executor(ConfigurableMixin):
     def cleanup(self, handle: str): ...
 
 
-def get_executor(name: str, file_path: Optional[str] = None) -> Executor:
+def get_executor(
+    name: str, file_path: Optional[str] = None, call: bool = True, **kwargs
+) -> Executor:
     """
     Retrieves an executor instance by name from a specified or default Python file.
-    The file must contain a global dict called EXECUTOR_MAP, which maps executor names to their corresponding instances.
+    The file must contain either a function or executor instance by the provided name.
 
-    This function dynamically imports the file_path, searches for the EXECUTOR_MAP dictionary
-    and returns the value corresponding to the given name.
+    This function dynamically imports the file_path, searches for the name attr
+    and returns the value corresponding to the given name, and optionally calls the value if call is True.
 
     This functionality allows you to define all your executors in a single file which lives separately from your codebase.
     It is similar to ~/.ssh/config and allows you to use executors across your projects without having to redefine them.
@@ -253,13 +255,10 @@ def get_executor(name: str, file_path: Optional[str] = None) -> Executor:
             - It should be a path to a Python file (with a .py extension).
             - The file should contain a dictionary named `EXECUTOR_MAP` that maps executor names to their corresponding instances.
             - The file can be located anywhere in the file system, but if not provided, it defaults to `NEMORUN_HOME/executors.py`.
+        call (bool): If True, the value from the module is called with the rest of the given kwargs.
 
     Returns:
         Executor: The executor instance corresponding to the given name.
-
-    Raises:
-        AttributeError: If the file at the specified path does not contain an `EXECUTOR_MAP` dictionary.
-        AssertionError: If the given executor name is not found in the `EXECUTOR_MAP` dictionary.
     """
 
     if not file_path:
@@ -273,4 +272,4 @@ def get_executor(name: str, file_path: Optional[str] = None) -> Executor:
     executor_fn = getattr(module, name)
     if not callable(executor_fn):
         return executor_fn
-    return executor_fn()  # type: ignore
+    return executor_fn(**kwargs)  # type: ignore
