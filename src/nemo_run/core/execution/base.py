@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import copy
+import importlib.util
 import os
 from dataclasses import asdict, dataclass, field
 from string import Template
@@ -23,7 +24,7 @@ import fiddle as fdl
 from torchx.specs import Role
 from typing_extensions import Self
 
-from nemo_run.config import ConfigurableMixin
+from nemo_run.config import NEMORUN_HOME, ConfigurableMixin
 from nemo_run.core.packaging.base import Packager
 
 
@@ -226,3 +227,49 @@ class Executor(ConfigurableMixin):
         return filenames
 
     def cleanup(self, handle: str): ...
+
+
+def import_executor(
+    name: str, file_path: Optional[str] = None, call: bool = True, **kwargs
+) -> Executor:
+    """
+    Retrieves an executor instance by name from a specified or default Python file.
+    The file must contain either a function or executor instance by the provided name.
+
+    This function dynamically imports the file_path, searches for the name attr
+    and returns the value corresponding to the given name, and optionally calls the value if call is True.
+
+    This functionality allows you to define all your executors in a single file which lives separately from your codebase.
+    It is similar to ~/.ssh/config and allows you to use executors across your projects without having to redefine them.
+
+    Example:
+        executor = import_executor("local", file_path="path/to/executors.py")
+        executor = import_executor("gpu")  # Uses the default location of os.path.join(NEMORUN_HOME, "executors.py")
+
+    Args:
+        name (str): The name of the executor to retrieve.
+        file_path (Optional[str]): The path to the Python file containing the executor definitions.
+            Defaults to None, in which case the default location of os.path.join(NEMORUN_HOME, "executors.py") is used.
+
+            The file_path is expected to be a string representing a file path with the following structure:
+            - It should be a path to a Python file (with a .py extension).
+            - The file should contain a dictionary named `EXECUTOR_MAP` that maps executor names to their corresponding instances.
+            - The file can be located anywhere in the file system, but if not provided, it defaults to `NEMORUN_HOME/executors.py`.
+        call (bool): If True, the value from the module is called with the rest of the given kwargs.
+
+    Returns:
+        Executor: The executor instance corresponding to the given name.
+    """
+
+    if not file_path:
+        file_path = os.path.join(NEMORUN_HOME, "executors.py")
+
+    spec = importlib.util.spec_from_file_location("executors", file_path)
+    assert spec
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader
+    spec.loader.exec_module(module)
+    executor_fn = getattr(module, name)
+    if not callable(executor_fn):
+        return executor_fn
+    return executor_fn(**kwargs)  # type: ignore
