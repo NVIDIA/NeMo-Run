@@ -270,6 +270,7 @@ def get_executor(name: str, file_path: Optional[str] = None) -> Executor:
     module = importlib.util.module_from_spec(spec)
     assert spec.loader
     spec.loader.exec_module(module)
-    executor_map = getattr(module, "EXECUTOR_MAP")
-    assert name in executor_map, f"Executor {name} not found."
-    return executor_map[name]
+    executor_fn = getattr(module, name)
+    if not callable(executor_fn):
+        return executor_fn
+    return executor_fn()  # type: ignore
