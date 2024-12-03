@@ -21,7 +21,7 @@ from nemo_run.core.execution.base import (
     ExecutorMacros,
     FaultTolerance,
     Torchrun,
-    get_executor,
+    import_executor,
 )
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.local import LocalExecutor
@@ -46,7 +46,7 @@ __all__ = [
     "DockerExecutor",
     "dryrun_fn",
     "Executor",
-    "get_executor",
+    "import_executor",
     "ExecutorMacros",
     "Experiment",
     "FaultTolerance",

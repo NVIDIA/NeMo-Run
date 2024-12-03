@@ -229,7 +229,7 @@ class Executor(ConfigurableMixin):
     def cleanup(self, handle: str): ...
 
 
-def get_executor(
+def import_executor(
     name: str, file_path: Optional[str] = None, call: bool = True, **kwargs
 ) -> Executor:
     """
@@ -243,8 +243,8 @@ def get_executor(
     It is similar to ~/.ssh/config and allows you to use executors across your projects without having to redefine them.
 
     Example:
-        executor = get_executor("local", file_path="path/to/executors.py")
-        executor = get_executor("gpu")  # Uses the default location of os.path.join(NEMORUN_HOME, "executors.py")
+        executor = import_executor("local", file_path="path/to/executors.py")
+        executor = import_executor("gpu")  # Uses the default location of os.path.join(NEMORUN_HOME, "executors.py")
 
     Args:
         name (str): The name of the executor to retrieve.
