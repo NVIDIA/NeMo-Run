@@ -154,12 +154,12 @@ class SkypilotExecutor(Executor):
                         if len(any_of) < i + 1:
                             any_of.append({})
 
-                        if val.lower() == "none":
-                            any_of[i][attr] = val
+                        if isinstance(val, str) and val.lower() == "none":
+                            any_of[i][attr] = None
                         else:
                             any_of[i][attr] = val
                 else:
-                    if value.lower() == "none":
+                    if isinstance(value, str) and value.lower() == "none":
                         resources_cfg[attr] = None
                     else:
                         resources_cfg[attr] = value
@@ -413,8 +413,8 @@ cd /nemo_run/code
             backend=backend,
             idle_minutes_to_autostop=self.idle_minutes_to_autostop,
             down=self.autodown,
+            fast=True,
             # retry_until_up=retry_until_up,
-            no_setup=True if (self.cluster_name and not self.setup) else False,
             # clone_disk_from=clone_disk_from,
         )
 
