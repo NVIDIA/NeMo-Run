@@ -25,11 +25,11 @@ Not all steps are necessary for some contributions, so read the linked sections 
 1. **Sensible**: code should make sense. If you think a piece of code might be confusing, write comments.
 
 ## Environment Setup
-We use [rye](https://rye.astral.sh/) to develop NeMo Run. The following steps should get you started with the dev environment:
+We use [uv](https://docs.astral.sh/uv/) to develop NeMo Run. The following steps should get you started with the dev environment:
 
-1. Install [rye](https://rye.astral.sh/guide/installation/)
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
 2. Clone NeMo-Run
-3. Sanity check with `rye test` (This will create a venv and run all unit tests)
+3. Sanity check with `uv sync --extra skypilot && uv run -- pytest test/` (This will create a venv and run all unit tests)
 
 If all tests passed, then you should be good to get started with the development of NeMo-Run.
 
@@ -55,14 +55,11 @@ The documentation should also cover potential pitfalls and caveats.
 This existing examples and documentation should serve as a good reference to what is expected.
 
 ## Python style
-We use [``ruff``](https://docs.astral.sh/ruff/) for linting and formatting. To lint and format your code, you can run `rye check` and `rye fmt` respectively.
+We use [``ruff``](https://docs.astral.sh/ruff/) for linting and formatting. To lint and format your code, you can run `uv run --group lint -- ruff check` and `uv run --group lint -- ruff format` respectively.
 
 ## Unit tests
 Unit tests should be simple and fast.
 Developers should be able to run them frequently while developing without any slowdown.
-```
-rye test
-```
 
 ## Pull Requests (PR) Guidelines
 
