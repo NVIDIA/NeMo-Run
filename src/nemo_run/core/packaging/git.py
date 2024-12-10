@@ -17,6 +17,7 @@ import logging
 import os
 import shlex
 import subprocess
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -136,6 +137,8 @@ class GitArchivePackager(Packager):
                 "include_pattern and include_pattern_relative_path should have the same length"
             )
 
+        pattern_file_id = uuid.uuid4()
+        pattern_tar_file_name = f"additional_{pattern_file_id}.tmp"
         for include_pattern, include_pattern_relative_path in zip(
             self.include_pattern, self.include_pattern_relative_path
         ):
@@ -149,9 +152,11 @@ class GitArchivePackager(Packager):
             )
             include_pattern_cmd = (
                 f"find {relative_include_pattern} -type f | "
-                f"tar -cf {os.path.join(git_base_path, 'additional.tmp')} -T -"
+                f"tar -cf {os.path.join(git_base_path, pattern_tar_file_name)} -T -"
             )
-            tar_concatenate_cmd = f"cat additional.tmp >> {output_file}.tmp && rm additional.tmp"
+            tar_concatenate_cmd = (
+                f"cat {pattern_tar_file_name} >> {output_file}.tmp && rm {pattern_tar_file_name}"
+            )
 
             with ctx.cd(include_pattern_relative_path):
                 ctx.run(include_pattern_cmd)
