@@ -16,8 +16,9 @@
 from dataclasses import dataclass
 from unittest.mock import Mock
 
-import nemo_run as run
 import pytest
+
+import nemo_run as run
 from nemo_run.api import dryrun_fn
 
 
@@ -117,7 +118,10 @@ class TestDryRun:
 
         captured = capsys.readouterr()
         assert "Dry run for task test.test_api:some_fn" in captured.out
-        assert "LocalExecutor(packager=Packager(debug=False)" in captured.out
+        assert (
+            "LocalExecutor(packager=Packager(debug=False, symlink_from_remote_dir=None)"
+            in captured.out
+        )
 
     def test_dryrun_fn_with_build(self, mocker, configured_fn):
         build_mock = Mock()

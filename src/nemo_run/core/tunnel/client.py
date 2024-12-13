@@ -58,14 +58,24 @@ def authentication_handler(title, instructions, prompt_list):
 
 
 @dataclass(kw_only=True)
+class PackagingJob:
+    symlink: bool = False
+    src_path: Optional[str] = None
+    dst_path: Optional[str] = None
+
+    def symlink_cmd(self):
+        return f"ln -s {self.src_path} {self.dst_path}"
+
+
+@dataclass(kw_only=True)
 class Tunnel(ABC):
     job_dir: str
     host: str
     user: str
 
     def __post_init__(self):
-        self._key = f"{self.user}@{self.host}"
-        self._packaging_jobs = set()
+        self.key = f"{self.user}@{self.host}"
+        self._packaging_jobs: dict[str, PackagingJob] = {}
 
     @property
     def packaging_jobs(self):

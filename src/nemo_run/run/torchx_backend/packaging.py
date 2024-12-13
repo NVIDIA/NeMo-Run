@@ -82,11 +82,6 @@ def package(
 
             args.append(fn_or_script_filename)
         else:
-            args += [
-                "-p",
-                _serialize(executor.packager.to_config()),
-            ]
-
             args.append(_serialize(fn_or_script))
 
         role_args = default_cmd + args

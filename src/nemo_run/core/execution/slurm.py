@@ -43,7 +43,7 @@ from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.callback import Callback
-from nemo_run.core.tunnel.client import LocalTunnel, SSHConfigFile, SSHTunnel, Tunnel
+from nemo_run.core.tunnel.client import LocalTunnel, PackagingJob, SSHConfigFile, SSHTunnel, Tunnel
 from nemo_run.core.tunnel.server import TunnelMetadata, server_dir
 from nemo_run.devspace.base import DevSpace
 
@@ -388,7 +388,7 @@ class SlurmExecutor(Executor):
             self.wait_time_for_group_job = 0
 
     def info(self) -> str:
-        return f"{self.__class__.__qualname__} on {self.tunnel._key}"
+        return f"{self.__class__.__qualname__} on {self.tunnel.key}"
 
     def alloc(self, job_name="interactive"):
         self.job_name = f"{self.job_name_prefix}{job_name}"
@@ -544,6 +544,21 @@ class SlurmExecutor(Executor):
             )
             return
 
+        if packager.symlink_from_remote_dir:
+            logger.info(
+                f"Packager {packager} is configured to symlink from remote dir. Skipping packaging."
+            )
+            if type(packager) is Packager:
+                self.tunnel.packaging_jobs[job_name] = PackagingJob(symlink=False)
+                return
+
+            self.tunnel.packaging_jobs[job_name] = PackagingJob(
+                symlink=True,
+                src_path=packager.symlink_from_remote_dir,
+                dst_path=os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
+            )
+            return
+
         assert self.experiment_id, "Executor not assigned to an experiment."
         if isinstance(packager, GitArchivePackager):
             output = subprocess.run(
@@ -573,7 +588,12 @@ class SlurmExecutor(Executor):
                 f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
             )
 
-        self.tunnel.packaging_jobs.add(job_name)
+        self.tunnel.packaging_jobs[job_name] = PackagingJob(
+            symlink=False,
+            dst_path=None
+            if type(packager) is Packager
+            else os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
+        )
 
     def parse_deps(self) -> list[str]:
         """

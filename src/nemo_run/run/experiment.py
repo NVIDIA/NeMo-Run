@@ -645,8 +645,16 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         for tunnel in self.tunnels.values():
             if isinstance(tunnel, SSHTunnel):
                 tunnel.connect()
-                assert tunnel.session, f"SSH tunnel {tunnel._key} failed to connect."
+                assert tunnel.session, f"SSH tunnel {tunnel.key} failed to connect."
                 rsync(tunnel.session, self._exp_dir, os.path.dirname(tunnel.job_dir))
+
+            symlink_cmds = []
+            for packaging_job in tunnel.packaging_jobs.values():
+                if packaging_job.symlink:
+                    symlink_cmds.append(packaging_job.symlink_cmd())
+
+            if symlink_cmds:
+                tunnel.run(" && ".join(symlink_cmds))
 
         return self._run_dag(detach=detach, tail_logs=tail_logs, executors=executors)
 
