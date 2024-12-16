@@ -24,7 +24,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import Callable, Optional
 
 import paramiko
 import paramiko.ssh_exception
@@ -34,9 +34,6 @@ from invoke.runners import Result as RunResult
 
 from nemo_run.config import NEMORUN_HOME, ConfigurableMixin
 from nemo_run.core.frontend.console.api import CONSOLE
-
-if TYPE_CHECKING:
-    from nemo_run.core.tunnel.callback import Callback
 
 logger: logging.Logger = logging.getLogger(__name__)
 TUNNEL_DIR = ".tunnels"
@@ -383,3 +380,29 @@ class SSHConfigFile:
                     file.writelines(lines)
 
             print(f"Removed SSH config entry for {host}.")
+
+
+class Callback:
+    def setup(self, tunnel: "Tunnel"):
+        """Called when the tunnel is setup."""
+        self.tunnel = tunnel
+
+    def on_start(self):
+        """Called when the keep_alive loop starts."""
+        pass
+
+    def on_interval(self):
+        """Called at each interval during the keep_alive loop."""
+        pass
+
+    def on_stop(self):
+        """Called when the keep_alive loop stops."""
+        pass
+
+    def on_error(self, error: Exception):
+        """Called when an error occurs during the keep_alive loop.
+
+        Args:
+            error (Exception): The exception that was raised.
+        """
+        pass
