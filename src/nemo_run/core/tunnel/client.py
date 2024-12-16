@@ -32,7 +32,7 @@ from fabric import Config, Connection
 from invoke.context import Context
 from invoke.runners import Result as RunResult
 
-from nemo_run.config import NEMORUN_HOME
+from nemo_run.config import NEMORUN_HOME, ConfigurableMixin
 from nemo_run.core.frontend.console.api import CONSOLE
 
 if TYPE_CHECKING:
@@ -58,7 +58,7 @@ def authentication_handler(title, instructions, prompt_list):
 
 
 @dataclass(kw_only=True)
-class PackagingJob:
+class PackagingJob(ConfigurableMixin):
     symlink: bool = False
     src_path: Optional[str] = None
     dst_path: Optional[str] = None
@@ -68,18 +68,14 @@ class PackagingJob:
 
 
 @dataclass(kw_only=True)
-class Tunnel(ABC):
+class Tunnel(ABC, ConfigurableMixin):
     job_dir: str
     host: str
     user: str
+    packaging_jobs: dict[str, PackagingJob] = field(default_factory=dict)
 
     def __post_init__(self):
         self.key = f"{self.user}@{self.host}"
-        self._packaging_jobs: dict[str, PackagingJob] = {}
-
-    @property
-    def packaging_jobs(self):
-        return self._packaging_jobs
 
     def _set_job_dir(self, experiment_id: str): ...
 

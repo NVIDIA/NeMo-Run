@@ -190,6 +190,7 @@ nemo experiment cancel {exp_id} 0
     _VERSION_FILE = "_VERSION"
     _TASK_FILE = "_TASKS"
     _DONE_FILE = "_DONE"
+    _TUNNELS_FILE = "_TUNNELS"
     _current_experiment_token: Optional[contextvars.Token]
 
     @classmethod
@@ -221,6 +222,12 @@ nemo experiment cancel {exp_id} 0
 
         exp: "Experiment" = fdl.build(cfg)
         exp._jobs = exp._load_jobs()
+        try:
+            exp.tunnels = exp._load_tunnels()
+        except Exception as e:
+            exp.console.log(
+                f"Exception {e} loading tunnels for experiment {id}, will continue without loading tunnels."
+            )
 
         return exp
 
@@ -326,6 +333,20 @@ nemo experiment cancel {exp_id} 0
 
         with open(os.path.join(self._exp_dir, self.__class__._VERSION_FILE), "w+") as f:
             f.write(f"{run.__version__}\n")
+
+    def _save_tunnels(self):
+        serializer = ZlibJSONSerializer()
+        serialized_tunnels = {
+            k: serializer.serialize(v.to_config()) for k, v in self.tunnels.items()
+        }
+        with open(os.path.join(self._exp_dir, self.__class__._TUNNELS_FILE), "w+") as f:
+            json.dump(serialized_tunnels, f)
+
+    def _load_tunnels(self) -> dict[str, Tunnel]:
+        with open(os.path.join(self._exp_dir, self.__class__._TUNNELS_FILE)) as f:
+            serialized_tunnels = json.load(f)
+        serializer = ZlibJSONSerializer()
+        return {k: fdl.build(serializer.deserialize(v)) for k, v in serialized_tunnels.items()}
 
     def _save_jobs(self):
         serialized_jobs = list(map(lambda job: job.serialize(), self.jobs))
@@ -655,6 +676,8 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
             if symlink_cmds:
                 tunnel.run(" && ".join(symlink_cmds))
+
+        self._save_tunnels()
 
         return self._run_dag(detach=detach, tail_logs=tail_logs, executors=executors)
 
