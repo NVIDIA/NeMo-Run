@@ -1,0 +1,28 @@
+service:
+  type: LoadBalancer
+  port: 8888
+
+resources:
+  limits:
+    cpu: 1
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+
+config:
+  password: "nemo-run"
+  allowRoot: true
+
+command:
+  enabled: true
+  entrypoint: ["/bin/bash", "-c"]
+  args:
+    [
+      "jupyter lab --ServerApp.ip=0.0.0.0 --ServerApp.port=8888 --ServerApp.allow_root=True --ServerApp.token='' --ServerApp.password='' --no-browser",
+    ]

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-k8s-hello-world
+  labels:
+    app: k8s-hello-world
+    {{- include "k8s-hello-world.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: k8s-hello-world
+      {{- include "k8s-hello-world.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: k8s-hello-world
+        {{- include "k8s-hello-world.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.command.enabled }}
+          {{- if .Values.command.entrypoint }}
+          command:
+            {{- toYaml .Values.command.entrypoint | nindent 12 }}
+          {{- end }}
+          {{- if .Values.command.args }}
+          args:
+            {{- toYaml .Values.command.args | nindent 12 }}
+          {{- end }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 8888
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /workspace
+          {{- end }}
+          env:
+            {{- if .Values.config.password }}
+            - name: JUPYTER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-k8s-hello-world
+                  key: jupyter-password
+            {{- end }}
+            {{- if .Values.config.allowRoot }}
+            - name: GRANT_SUDO
+              value: "yes"
+            {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-k8s-hello-world
+      {{- end }}

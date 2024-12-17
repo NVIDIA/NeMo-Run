@@ -1,0 +1,2 @@
+Thank you for installing {{ .Chart.Name }}.
+Your NeMo Framework version is: {{ .Values.image.tag | default .Chart.AppVersion }}
