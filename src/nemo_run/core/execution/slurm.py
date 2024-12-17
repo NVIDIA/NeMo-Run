@@ -563,6 +563,13 @@ class SlurmExecutor(Executor):
                 src_path=packager.symlink_from_remote_dir,
                 dst_path=os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
             )
+
+            # Tunnel job dir is the directory of the experiment id, so the base job dir is two levels up
+            base_remote_dir = str(Path(self.tunnel.job_dir).parent.parent)
+            base_remote_mount = f"{base_remote_dir}:{base_remote_dir}"
+            if base_remote_mount not in self.container_mounts:
+                self.container_mounts.append(f"{base_remote_dir}:{base_remote_dir}")
+
             return
 
         assert self.experiment_id, "Executor not assigned to an experiment."
