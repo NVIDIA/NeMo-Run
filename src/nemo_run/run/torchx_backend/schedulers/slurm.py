@@ -96,6 +96,8 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
         partition = executor.partition
         assert partition is None or isinstance(partition, str), "partition must be str"
 
+        executor.package(packager=executor.packager, job_name=Path(job_dir).name)
+
         srun_cmds: list[list[str]] = []
         jobs = []
         envs = {}
@@ -136,8 +138,6 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         with open(path, "w") as f:
             f.write(script)
-
-        executor.package(packager=executor.packager, job_name=Path(job_dir).name)
 
         return AppDryRunInfo(req, repr)
 

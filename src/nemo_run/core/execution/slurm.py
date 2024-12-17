@@ -543,7 +543,7 @@ class SlurmExecutor(Executor):
         return filenames
 
     def package(self, packager: Packager, job_name: str):
-        if job_name in self.tunnel.packaging_jobs:
+        if job_name in self.tunnel.packaging_jobs and not packager.symlink_from_remote_dir:
             logger.info(
                 f"Packaging for job {job_name} in tunnel {self.tunnel} already done. Skipping subsequent packagings.\n"
                 "This may cause issues if you have multiple tasks with the same name but different packagers, as only the first packager will be used."
@@ -569,6 +569,10 @@ class SlurmExecutor(Executor):
             base_remote_mount = f"{base_remote_dir}:{base_remote_dir}"
             if base_remote_mount not in self.container_mounts:
                 self.container_mounts.append(f"{base_remote_dir}:{base_remote_dir}")
+
+            for req in self.resource_group:
+                if base_remote_mount not in req.container_mounts:
+                    req.container_mounts.append(base_remote_mount)
 
             return
 
