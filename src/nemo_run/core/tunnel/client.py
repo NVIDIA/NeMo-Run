@@ -24,7 +24,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import Callable, Optional
 
 import paramiko
 import paramiko.ssh_exception
@@ -32,11 +32,8 @@ from fabric import Config, Connection
 from invoke.context import Context
 from invoke.runners import Result as RunResult
 
-from nemo_run.config import NEMORUN_HOME
+from nemo_run.config import NEMORUN_HOME, ConfigurableMixin
 from nemo_run.core.frontend.console.api import CONSOLE
-
-if TYPE_CHECKING:
-    from nemo_run.core.tunnel.callback import Callback
 
 logger: logging.Logger = logging.getLogger(__name__)
 TUNNEL_DIR = ".tunnels"
@@ -58,18 +55,24 @@ def authentication_handler(title, instructions, prompt_list):
 
 
 @dataclass(kw_only=True)
-class Tunnel(ABC):
+class PackagingJob(ConfigurableMixin):
+    symlink: bool = False
+    src_path: Optional[str] = None
+    dst_path: Optional[str] = None
+
+    def symlink_cmd(self):
+        return f"ln -s {self.src_path} {self.dst_path}"
+
+
+@dataclass(kw_only=True)
+class Tunnel(ABC, ConfigurableMixin):
     job_dir: str
     host: str
     user: str
+    packaging_jobs: dict[str, PackagingJob] = field(default_factory=dict)
 
     def __post_init__(self):
-        self._key = f"{self.user}@{self.host}"
-        self._packaging_jobs = set()
-
-    @property
-    def packaging_jobs(self):
-        return self._packaging_jobs
+        self.key = f"{self.user}@{self.host}"
 
     def _set_job_dir(self, experiment_id: str): ...
 
@@ -377,3 +380,29 @@ class SSHConfigFile:
                     file.writelines(lines)
 
             print(f"Removed SSH config entry for {host}.")
+
+
+class Callback:
+    def setup(self, tunnel: "Tunnel"):
+        """Called when the tunnel is setup."""
+        self.tunnel = tunnel
+
+    def on_start(self):
+        """Called when the keep_alive loop starts."""
+        pass
+
+    def on_interval(self):
+        """Called at each interval during the keep_alive loop."""
+        pass
+
+    def on_stop(self):
+        """Called when the keep_alive loop stops."""
+        pass
+
+    def on_error(self, error: Exception):
+        """Called when an error occurs during the keep_alive loop.
+
+        Args:
+            error (Exception): The exception that was raised.
+        """
+        pass

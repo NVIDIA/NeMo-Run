@@ -16,7 +16,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-
+from typing import Optional
 
 from nemo_run.config import ConfigurableMixin
 
@@ -44,6 +44,10 @@ class Packager(ConfigurableMixin):
 
     #: Uses component or executor specific debug flags if set to True.
     debug: bool = False
+
+    #: Symlinks the package from the provided remote dir.
+    #: Only applicable when using SlurmExecutor at the moment.
+    symlink_from_remote_dir: Optional[str] = None
 
     def package(self, path: Path, job_dir: str, name: str) -> str: ...
 

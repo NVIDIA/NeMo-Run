@@ -72,14 +72,14 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             return
 
         experiment = run_experiment._current_experiment.get(None)
-        if experiment and tunnel._key in experiment.tunnels:
-            self.tunnel = experiment.tunnels[tunnel._key]
+        if experiment and tunnel.key in experiment.tunnels:
+            self.tunnel = experiment.tunnels[tunnel.key]
             return
 
         self.tunnel = tunnel
 
         if experiment:
-            experiment.tunnels[tunnel._key] = self.tunnel
+            experiment.tunnels[tunnel.key] = self.tunnel
 
     def _submit_dryrun(self, app: AppDef, cfg: Executor) -> AppDryRunInfo[Any]:  # type: ignore
         assert isinstance(cfg, SlurmExecutor), f"{cfg.__class__} not supported for slurm scheduler."
@@ -95,6 +95,8 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         partition = executor.partition
         assert partition is None or isinstance(partition, str), "partition must be str"
+
+        executor.package(packager=executor.packager, job_name=Path(job_dir).name)
 
         srun_cmds: list[list[str]] = []
         jobs = []
@@ -136,8 +138,6 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         with open(path, "w") as f:
             f.write(script)
-
-        executor.package(packager=executor.packager, job_name=Path(job_dir).name)
 
         return AppDryRunInfo(req, repr)
 
