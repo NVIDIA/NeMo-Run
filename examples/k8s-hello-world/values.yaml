@@ -18,6 +18,7 @@ persistence:
   enabled: true
   size: 10Gi
   storageClass: ""
+  existingClaim: ""
 
 config:
   password: ""
@@ -26,4 +27,7 @@ config:
 command:
   enabled: true
   entrypoint: ["/bin/bash", "-c"]
-  args: ["jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root"]
+  args:
+    [
+      "apt update && apt install graphviz -y && jupyter lab --ServerApp.ip=0.0.0.0 --ServerApp.port=8888 --ServerApp.allow_root=True --no-browser",
+    ]

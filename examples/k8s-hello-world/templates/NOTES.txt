@@ -1,2 +1,6 @@
 Thank you for installing {{ .Chart.Name }}.
-Your NeMo Framework version is: {{ .Values.image.tag | default .Chart.AppVersion }}
+
+You can access it at:
+export SVC_IP=$(kubectl -n {{ .Release.Namespace }} get svc {{ .Release.Name }}-{{ .Chart.Name }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export SVC_PORT=$(kubectl -n {{ .Release.Namespace }} get svc {{ .Release.Name }}-{{ .Chart.Name }} -o jsonpath='{.spec.ports[0].nodePort}')
+echo "Visit ${SVC_IP}:${SVC_PORT} to use your application"
