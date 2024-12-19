@@ -682,7 +682,10 @@ def _get_return_type(fn: Callable) -> Type:
 def _load_entrypoints():
     entrypoints = metadata.entry_points().select(group="nemo_run.cli")
     for ep in entrypoints:
-        ep.load()
+        try:
+            ep.load()
+        except Exception as e:
+            print(f"Couldn't load entrypoint {ep.name}: {e}")
 
 
 def _search_workspace_file() -> str | None:
