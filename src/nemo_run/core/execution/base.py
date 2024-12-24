@@ -116,7 +116,7 @@ class ExecutorMacros(ConfigurableMixin):
         """
         substitute applies the values to the template arg.
         """
-        return Template(arg).safe_substitute(**asdict(self))
+        return Template(str(arg)).safe_substitute(**asdict(self))
 
 
 @runtime_checkable

@@ -16,6 +16,8 @@
 
 import fiddle as fdl
 import pytest
+from torchx.specs import Role
+
 from nemo_run.config import Config
 from nemo_run.core.execution.base import (
     Executor,
@@ -25,7 +27,6 @@ from nemo_run.core.execution.base import (
     Torchrun,
 )
 from nemo_run.core.execution.slurm import SlurmExecutor
-from torchx.specs import Role
 
 
 class TestExecutorMacros:
@@ -58,6 +59,8 @@ class TestExecutorMacros:
         )
         assert macros.substitute("${head_node_ip_var}") == "192.168.0.1"
         assert macros.substitute("${nproc_per_node_var}") == "4"
+
+        assert macros.substitute(1) == "1"
 
     def test_group_host(self):
         macros = SlurmExecutor(account="a").macro_values()
