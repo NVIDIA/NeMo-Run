@@ -520,7 +520,6 @@ class SlurmExecutor(Executor):
     def get_launcher_prefix(self) -> Optional[list[str]]:
         launcher = self.get_launcher()
         if launcher.nsys_profile:
-            os.makedirs(os.path.join(self.job_dir, launcher.nsys_folder), exist_ok=True)
             return launcher.get_nsys_prefix(profile_dir=f"/{RUNDIR_NAME}")
 
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
@@ -595,7 +594,9 @@ class SlurmExecutor(Executor):
         ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
-            remote_nsys_extraction_path = os.path.join(self.job_dir, self.get_launcher().nsys_folder)
+            remote_nsys_extraction_path = os.path.join(
+                self.job_dir, self.get_launcher().nsys_folder
+            )
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
             # Touch hidden init file
             ctx.run(f"touch {remote_nsys_extraction_path}/.init")
