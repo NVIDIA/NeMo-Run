@@ -88,7 +88,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             cmd = [role.entrypoint] + role.args
             containers.append(
                 DockerContainer(
-                    name=f"{executor.experiment_id}_{role.name}",
+                    name=f"{executor.experiment_id}_{role.name}".replace('_', '-'),
                     command=cmd,
                     executor=_current_executor,
                     extra_env=role.env,
