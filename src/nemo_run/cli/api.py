@@ -853,9 +853,6 @@ class RunContext:
             except RunContextError as e:
                 typer.echo(f"Error: {str(e)}", err=True, color=True)
                 raise typer.Exit(code=1)
-            except Exception as e:
-                typer.echo(f"Unexpected error: {str(e)}", err=True, color=True)
-                raise typer.Exit(code=1)
 
         return command
 
