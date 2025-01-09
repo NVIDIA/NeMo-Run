@@ -73,3 +73,4 @@ jobs:
       uses: github/codeql-action/analyze@v2
       with:
         category: "/language:${{matrix.language}}"
+     [![CodeQL](https://github.com/NVIDIA/NeMo-Run/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/NVIDIA/NeMo-Run/actions/workflows/codeql.yml)   
