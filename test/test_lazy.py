@@ -208,6 +208,19 @@ class TestLazyEntrypoint:
         resolved = task.resolve()
         assert resolved.a == 5
 
+    def test_overwrites_as_positional_args(self):
+        def func(a: int, b: str = "dummy"):
+            pass
+
+        task = LazyEntrypoint(func)
+        task._add_overwrite("5", "my_dummy")
+        assert ("a", "=", "5") in task._args_
+        assert ("b", "=", "my_dummy") in task._args_
+
+        resolved = task.resolve()
+        assert resolved.a == 5
+        assert resolved.b == "my_dummy"
+
 
 class TestLazyEntrypointFromCmd:
     def test_from_cmd_with_script(self):
