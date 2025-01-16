@@ -27,9 +27,7 @@ from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
-from nemo_run.core.packaging.base import Packager
-from nemo_run.core.packaging.git import GitArchivePackager
-from nemo_run.core.packaging.pattern import PatternPackager
+from nemo_run.core.packaging import GitArchivePackager, HybridPackager, Packager, PatternPackager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.devspace.base import DevSpace
 from nemo_run.help import help
@@ -54,6 +52,7 @@ __all__ = [
     "ExecutorMacros",
     "Experiment",
     "FaultTolerance",
+    "HybridPackager",
     "GitArchivePackager",
     "PatternPackager",
     "help",
