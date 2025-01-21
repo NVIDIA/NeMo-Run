@@ -38,6 +38,11 @@ from nemo_run.run.api import run
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
+from nemo_run.package_info import (__contact_emails__, __contact_names__,
+                           __description__, __download_url__, __keywords__,
+                           __license__, __package_name__, __repository_url__,
+                           __shortversion__, __version__)
+
 __all__ = [
     "autoconvert",
     "cli",
@@ -68,9 +73,14 @@ __all__ = [
     "SlurmExecutor",
     "SSHTunnel",
     "Torchrun",
+    "__contact_emails__",
+    "__contact_names__",
+    "__description__",
+    "__download_url__",
+    "__keywords__",
+    "__license__",
+    "__package_name__",
+    "__repository_url__",
+    "__shortversion__",
+    "__version__"
 ]
-
-try:
-    from nemo_run._version import __version__
-except Exception:
-    __version__ = "0.0.1"
