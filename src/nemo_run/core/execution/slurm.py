@@ -595,7 +595,7 @@ class SlurmExecutor(Executor):
 
         if self.get_launcher().nsys_profile:
             remote_nsys_extraction_path = os.path.join(
-                self.job_dir, self.get_launcher().nsys_folder
+                self.job_dir, job_name, self.get_launcher().nsys_folder
             )
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
             # Touch hidden init file
