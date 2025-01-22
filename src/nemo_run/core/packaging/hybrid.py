@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Union
 
 from invoke.context import Context
 
@@ -16,7 +16,7 @@ class HybridPackager(Packager):
     the top-level folder under which that packager’s content is placed.
     """
 
-    sub_packagers: Dict[str, Packager] = field(default_factory=dict)
+    sub_packagers: Dict[str, Union[Packager, List[Packager]]] = field(default_factory=dict)
 
     def package(self, path: Path, job_dir: str, name: str) -> str:
         final_tar_gz = os.path.join(job_dir, f"{name}.tar.gz")
@@ -28,18 +28,38 @@ class HybridPackager(Packager):
         ctx = Context()
         ctx.run(f"tar -cf {tmp_tar} --files-from /dev/null")
 
+        # Defer deletion of temporary files until all subpackagers have been processed
+        subarchive_list = set([])
+        tmp_extract_dir_list = set([])
+
         # For each subpackager, run its .package() method and extract to a subfolder
-        for folder_name, packager in self.sub_packagers.items():
-            subarchive_path = packager.package(path, job_dir, f"{name}_{folder_name}")
+        for folder_name, packagers in self.sub_packagers.items():
+            if not isinstance(packagers, list):
+                packagers = [packagers]
 
-            # Create a temp folder, extract subarchive content into it,
-            # then add that folder to the final tar under the desired subpath
-            tmp_extract_dir = os.path.join(job_dir, f"__extract_{folder_name}")
-            os.makedirs(tmp_extract_dir, exist_ok=True)
+            for packager in packagers:
+                subarchive_path = packager.package(path, job_dir, f"{name}_{folder_name}")
+                subarchive_list.add(subarchive_path)
 
-            ctx.run(f"tar -xf {subarchive_path} -C {tmp_extract_dir}")
-            ctx.run(f"tar -rf {tmp_tar} -C {tmp_extract_dir} . --transform='s,^,{folder_name}/,'")
+                # Create a temp folder, extract subarchive content into it,
+                # then add that folder to the final tar under the desired subpath
+                tmp_extract_dir = os.path.join(job_dir, f"__extract_{folder_name}")
+                tmp_extract_dir_list.add(tmp_extract_dir)
+                os.makedirs(tmp_extract_dir, exist_ok=True)
+
+                ctx.run(f"tar -xf {subarchive_path} -C {tmp_extract_dir}")
+
+                # If a folder name is provided, add the content under that folder
+                if folder_name != '':
+                    ctx.run(f"tar -rf {tmp_tar} -C {tmp_extract_dir} . --transform='s,^,{folder_name}/,'")
+                else:
+                    # Otherwise, add the content directly to the root of the tar
+                    ctx.run(f"tar -rf {tmp_tar} -C {tmp_extract_dir} .")
+
+        for tmp_extract_dir in tmp_extract_dir_list:
             ctx.run(f"rm -rf {tmp_extract_dir}")
+
+        for subarchive_path in subarchive_list:
             ctx.run(f"rm {subarchive_path}")
 
         # Finally, compress the combined tar

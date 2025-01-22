@@ -78,3 +78,76 @@ def test_hybrid_packager(mock_subpackager_one, mock_subpackager_two, tmp_path):
             os.path.join(extract_dir, "2"),
         )
         assert not cmp.diff_files
+
+
+@patch("nemo_run.core.packaging.hybrid.Context", MockContext)
+def test_hybrid_packager_root_default(mock_subpackager_one, mock_subpackager_two, tmp_path):
+    hybrid = HybridPackager(
+        sub_packagers={
+            "": mock_subpackager_one,
+            "2": mock_subpackager_two,
+        }
+    )
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_tar = hybrid.package(Path(tmp_path), job_dir, "hybrid_test")
+
+        assert os.path.exists(output_tar)
+
+        # Extract the resulting tar to verify contents
+        extract_dir = os.path.join(job_dir, "hybrid_extracted")
+        os.makedirs(extract_dir, exist_ok=True)
+        subprocess.run(["tar", "-xzf", output_tar, "-C", extract_dir], check=True)
+
+        # Compare subfolder "1" for file1.txt
+        cmp = filecmp.dircmp(
+            os.path.dirname(mock_subpackager_one.package.return_value),
+            os.path.join(extract_dir, ""),
+        )
+        assert not cmp.diff_files
+
+        # Compare subfolder "2" for file2.txt
+        cmp = filecmp.dircmp(
+            os.path.dirname(mock_subpackager_two.package.return_value),
+            os.path.join(extract_dir, "2"),
+        )
+        assert not cmp.diff_files
+
+
+@patch("nemo_run.core.packaging.hybrid.Context", MockContext)
+def test_hybrid_packager_root_combined(mock_subpackager_one, mock_subpackager_two, tmp_path):
+    hybrid = HybridPackager(
+        sub_packagers={
+            "": [mock_subpackager_one, mock_subpackager_two],
+            "1": mock_subpackager_one,
+        }
+    )
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_tar = hybrid.package(Path(tmp_path), job_dir, "hybrid_test")
+
+        assert os.path.exists(output_tar)
+
+        # Extract the resulting tar to verify contents
+        extract_dir = os.path.join(job_dir, "hybrid_extracted")
+        os.makedirs(extract_dir, exist_ok=True)
+        subprocess.run(["tar", "-xzf", output_tar, "-C", extract_dir], check=True)
+
+        # Compare subfolder "1" for file1.txt
+        cmp = filecmp.dircmp(
+            os.path.dirname(mock_subpackager_one.package.return_value),
+            os.path.join(extract_dir, ""),
+        )
+        assert not cmp.diff_files
+
+        # Compare subfolder "2" for file2.txt
+        cmp = filecmp.dircmp(
+            os.path.dirname(mock_subpackager_two.package.return_value),
+            os.path.join(extract_dir,),
+        )
+        assert not cmp.diff_files
+
+        # Compare subfolder "1" for file1.txt
+        cmp = filecmp.dircmp(
+            os.path.dirname(mock_subpackager_one.package.return_value),
+            os.path.join(extract_dir, "1"),
+        )
+        assert not cmp.diff_files
