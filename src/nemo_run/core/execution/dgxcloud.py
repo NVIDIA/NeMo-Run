@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Type
 
@@ -18,7 +19,6 @@ from nemo_run.core.packaging.git import GitArchivePackager
 
 logger = logging.getLogger(__name__)
 
-from enum import Enum
 
 class DGXCloudState(Enum):
     CREATING = "Creating"
@@ -92,7 +92,9 @@ class DGXCloudExecutor(Executor):
                 break
         return project_id, cluster_id
 
-    def create_distributed_job(self, token: str, project_id: str, cluster_id: str, name:str, cmd: list[str]):
+    def create_distributed_job(
+        self, token: str, project_id: str, cluster_id: str, name: str, cmd: list[str]
+    ):
         """
         Creates a distributed PyTorch job using the provided project/cluster IDs.
         """
@@ -136,7 +138,7 @@ cd /nemo_run/code
         return response
 
     def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
-        name = name.replace("_", "-") # to meet K8s requirements
+        name = name.replace("_", "-")  # to meet K8s requirements
         token = self.get_auth_token()
         if not token:
             raise RuntimeError("Failed to get auth token")
@@ -184,20 +186,24 @@ cd /nemo_run/code
         if response.status_code >= 200 and response.status_code < 300:
             logger.info(
                 "Successfully cancelled job %s on DGX with response code %d",
-                job_id, response.status_code
+                job_id,
+                response.status_code,
             )
         else:
             logger.error(
                 "Failed to cancel job %s, response code=%d, reason=%s",
-                job_id, response.status_code, response.text
+                job_id,
+                response.status_code,
+                response.text,
             )
 
     @classmethod
     def logs(cls: Type["DGXCloudExecutor"], app_id: str, fallback_path: Optional[str]):
-        logger.warning("Logs not available for DGXCloudExecutor based jobs. Please visit the cluster UI to view the logs.")
+        logger.warning(
+            "Logs not available for DGXCloudExecutor based jobs. Please visit the cluster UI to view the logs."
+        )
 
-    def cleanup(self, handle: str):
-        ...
+    def cleanup(self, handle: str): ...
 
     def assign(
         self,
@@ -212,7 +218,13 @@ cd /nemo_run/code
         self.experiment_id = exp_id
         os.makedirs(self.job_dir, exist_ok=True)
         assert any(
-            map(lambda x: os.path.commonpath([os.path.abspath(x["path"]), os.path.abspath(self.job_dir)]) == os.path.abspath(x["path"]), self.pvcs)
+            map(
+                lambda x: os.path.commonpath(
+                    [os.path.abspath(x["path"]), os.path.abspath(self.job_dir)]
+                )
+                == os.path.abspath(x["path"]),
+                self.pvcs,
+            )
         ), f"Need to specify atleast one PVC containing {self.job_dir}.\nTo update job dir to a PVC path, you can set the NEMORUN_HOME env var."
 
     def package(self, packager: Packager, job_name: str):

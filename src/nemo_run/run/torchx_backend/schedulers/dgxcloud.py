@@ -60,13 +60,14 @@ class DGXRequest:
     Wrapper around the torchx AppDef and the DGX executor.
     This object is used to store job submission info for the scheduler.
     """
+
     app: AppDef
     executor: DGXCloudExecutor
     cmd: list[str]
     name: str
 
 
-class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]): # type: ignore
+class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ignore
     def __init__(self, session_name: str) -> None:
         super().__init__("dgx", session_name)
 
@@ -76,11 +77,11 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]): # type: igno
             "job_dir",
             type_=str,
             help="The directory to place the job code and outputs."
-                 " The directory must not exist and will be created.",
+            " The directory must not exist and will be created.",
         )
         return opts
 
-    def _submit_dryrun( # type: ignore
+    def _submit_dryrun(  # type: ignore
         self,
         app: AppDef,
         cfg: Executor,
@@ -100,7 +101,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]): # type: igno
         return AppDryRunInfo(
             DGXRequest(app=app, executor=executor, cmd=cmd, name=role.name),
             # Minimal function to show the config, if any
-            lambda req: f"DGX job for app: {req.app.name}, cmd: {' '.join(cmd)}, executor: {executor}"
+            lambda req: f"DGX job for app: {req.app.name}, cmd: {' '.join(cmd)}, executor: {executor}",
         )
 
     def schedule(self, dryrun_info: AppDryRunInfo[DGXRequest]) -> str:
@@ -148,12 +149,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]): # type: igno
             RoleStatus(
                 role_name,
                 replicas=[
-                    ReplicaStatus(
-                        id=0,
-                        role=role_name,
-                        state=AppState.SUBMITTED,
-                        hostname=""
-                    )
+                    ReplicaStatus(id=0, role=role_name, state=AppState.SUBMITTED, hostname="")
                 ],
             )
         ]
@@ -161,7 +157,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]): # type: igno
         if not job_info:
             return None
 
-        executor: DGXCloudExecutor = job_info.get("executor", None) # type: ignore
+        executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
         if not executor:
             return None
 
@@ -175,7 +171,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]): # type: igno
             roles_statuses=roles_statuses,
             state=app_state,
             msg="",
-            ui_url=f"{executor.base_url}/workloads/distributed/{job_id}"
+            ui_url=f"{executor.base_url}/workloads/distributed/{job_id}",
         )
 
     def _cancel_existing(self, app_id: str) -> None:
@@ -185,7 +181,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]): # type: igno
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)
         _, _, job_id = app_id.split("___")
-        executor: DGXCloudExecutor = job_info.get("executor", None) # type: ignore
+        executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
         if not executor:
             return None
         executor.delete(job_id)
@@ -219,7 +215,9 @@ def _save_job_dir(app_id: str, job_status: str, executor: DGXCloudExecutor) -> N
 
         app = {
             "job_status": job_status,
-            "executor": serializer.serialize(fdl_dc.convert_dataclasses_to_configs(executor, allow_post_init=True)),
+            "executor": serializer.serialize(
+                fdl_dc.convert_dataclasses_to_configs(executor, allow_post_init=True)
+            ),
         }
         original_apps[app_id] = app
 
