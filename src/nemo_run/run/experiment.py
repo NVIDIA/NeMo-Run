@@ -49,6 +49,7 @@ from nemo_run.config import (
     get_type_namespace,
 )
 from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
@@ -182,8 +183,8 @@ nemo experiment status {exp_id}
 nemo experiment logs {exp_id} 0
 nemo experiment cancel {exp_id} 0
 """
-    _PARALLEL_SUPPORTED_EXECUTORS = (SlurmExecutor, LocalExecutor, SkypilotExecutor, DockerExecutor)
-    _DETACH_SUPPORTED_EXECUTORS = (SlurmExecutor, SkypilotExecutor)
+    _PARALLEL_SUPPORTED_EXECUTORS = (SlurmExecutor, LocalExecutor, SkypilotExecutor, DockerExecutor, DGXCloudExecutor)
+    _DETACH_SUPPORTED_EXECUTORS = (SlurmExecutor, SkypilotExecutor, DGXCloudExecutor)
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)
     _RUNNER_DEPENDENT_EXECUTORS = (LocalExecutor,)
     _CONFIG_FILE = "_CONFIG"

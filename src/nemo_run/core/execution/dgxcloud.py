@@ -4,7 +4,7 @@ import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 import requests
 from invoke.context import Context
@@ -18,6 +18,24 @@ from nemo_run.core.packaging.git import GitArchivePackager
 
 logger = logging.getLogger(__name__)
 
+from enum import Enum
+
+class DGXCloudState(Enum):
+    CREATING = "Creating"
+    INITIALIZING = "Initializing"
+    RESUMING = "Resuming"
+    PENDING = "Pending"
+    DELETING = "Deleting"
+    RUNNING = "Running"
+    UPDATING = "Updating"
+    STOPPED = "Stopped"
+    STOPPING = "Stopping"
+    DEGRADED = "Degraded"
+    FAILED = "Failed"
+    COMPLETED = "Completed"
+    TERMINATING = "Terminating"
+    UNKNOWN = "Unknown"
+
 
 @dataclass(kw_only=True)
 class DGXCloudExecutor(Executor):
@@ -28,17 +46,12 @@ class DGXCloudExecutor(Executor):
     via a REST API. It acquires an auth token, identifies the project/cluster,
     and launches jobs with a specified command. It can be adapted to meet user
     authentication and job-submission requirements on DGX.
-
-    Example usage might include specifying the environment variables or secrets
-    needed to create new distributed training jobs and storing user-specified
-    configuration (cluster URL, project name, application secrets, etc.).
     """
 
     base_url: str
     app_id: str
     app_secret: str
     project_name: str
-    job_name: str
     container_image: str
     nodes: int = 1
     gpus_per_node: int = 8
@@ -46,14 +59,7 @@ class DGXCloudExecutor(Executor):
     distributed_framework: str = "PyTorch"
     custom_spec: dict[str, Any] = field(default_factory=dict)
 
-    def __post_init__(self):
-        self.job_name = self.job_name.replace("_", "-")
-
     def get_auth_token(self) -> Optional[str]:
-        """
-        Retrieves the authorization token from the endpoint. Required for subsequent
-        calls to create distributed jobs on the DGX platform.
-        """
         url = f"{self.base_url}/token"
         payload = {
             "grantType": "app_token",
@@ -72,10 +78,6 @@ class DGXCloudExecutor(Executor):
         return auth_token
 
     def get_project_and_cluster_id(self, token: str) -> tuple[Optional[str], Optional[str]]:
-        """
-        Retrieves the project ID and cluster ID by matching the user-provided
-        project_name to the result from the DGX API. Returns (project_id, cluster_id).
-        """
         url = f"{self.base_url}/org-unit/projects"
         headers = self._default_headers(token=token)
         response = requests.get(url, headers=headers)
@@ -90,27 +92,28 @@ class DGXCloudExecutor(Executor):
                 break
         return project_id, cluster_id
 
-    def create_distributed_job(self, token: str, project_id: str, cluster_id: str):
+    def create_distributed_job(self, token: str, project_id: str, cluster_id: str, name:str, cmd: list[str]):
         """
         Creates a distributed PyTorch job using the provided project/cluster IDs.
         """
         url = f"{self.base_url}/workloads/distributed"
         headers = self._default_headers(token=token)
+        launch_script = f"""
+ln -s {self.job_dir} /nemo_run
+cd /nemo_run/code
+{" ".join(cmd)}
+"""
+        with open(os.path.join(self.job_dir, "launch_script.sh"), "w+") as f:
+            f.write(launch_script)
+
         payload = {
-            "name": self.job_name,
+            "name": name,
             "useGivenNameAsPrefix": True,
             "projectId": project_id,
             "clusterId": cluster_id,
             "spec": {
-                "command": "echo 'hello' && sleep 60 && echo 'goodbye'",
-                #                 "args": f"""
-                # # ln -s {self.job_dir} /nemo_run
-                # echo "Hello"
-                # sleep 600
-                # echo "Goodbye"
-                # """,
+                "command": f"/bin/bash {self.job_dir}/launch_script.sh",
                 "image": self.container_image,
-                # "workingDir": "/nemo_run/code",
                 "distributedFramework": self.distributed_framework,
                 "minReplicas": self.nodes,
                 "maxReplicas": self.nodes,
@@ -132,67 +135,69 @@ class DGXCloudExecutor(Executor):
         )
         return response
 
-    def launch(self, *args, **kwargs) -> tuple[Optional[str], Optional[str]]:
-        """
-        Core entry point to create a token, get the project/cluster, and launch
-        the distributed job on the DGX platform.
-        Returns (job_id, handle) to align with the typical Nemo-Run Executor pattern.
-        """
+    def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
+        name = name.replace("_", "-") # to meet K8s requirements
         token = self.get_auth_token()
         if not token:
-            logger.error("Cannot proceed without auth token")
-            return None, None
+            raise RuntimeError("Failed to get auth token")
 
         project_id, cluster_id = self.get_project_and_cluster_id(token)
         if not project_id or not cluster_id:
-            logger.error("Unable to determine project/cluster IDs for job submission")
-            return None, None
+            raise RuntimeError("Unable to determine project/cluster IDs for job submission")
 
-        resp = self.create_distributed_job(token, project_id, cluster_id)
+        resp = self.create_distributed_job(token, project_id, cluster_id, name, cmd)
         if resp.status_code not in [200, 202]:
-            logger.error("Failed to create job, status_code=%s", resp.status_code)
-            return None, None
+            raise RuntimeError(f"Failed to create job, status_code={resp.status_code}")
 
-        # For demonstration, parse out some job ID from the response if available
-        try:
-            r_json = resp.json()
-            job_id = r_json.get("id", "dgx_job_id")  # Example ID key
-        except Exception:  # If the response is not valid JSON or no "id"
-            job_id = "dgx_job_id"
+        r_json = resp.json()
+        job_id = r_json["workloadId"]
+        status = r_json["actualPhase"]
+        return job_id, status
 
-        # Typically in Nemo-Run, "handle" can store information for references
-        handle = f"dgx://{job_id}"
-        return job_id, handle
+    def status(self, job_id: str) -> Optional[DGXCloudState]:
+        url = f"{self.base_url}/workloads/distributed/{job_id}"
+        token = self.get_auth_token()
+        if not token:
+            logger.error("Failed to retrieve auth token for cancellation request.")
+            return None
 
-    def status(self, app_id: str) -> tuple[Optional[str], Optional[dict]]:
-        """
-        Return the job status from the DGX platform. The app_id might be used
-        to query the job ID stored at creation time. For demonstration, this is
-        left abstract, as the API for status queries can be matched to user needs.
-        """
-        logger.debug("Getting status for app_id=%s", app_id)  # [1]
-        # If a specialized endpoint exists, you would call it here, e.g.:
-        # GET <base_url>/workloads/<job_id>
-        return None, None
+        headers = self._default_headers(token=token)
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            return DGXCloudState("Unknown")
 
-    def cancel(self, app_id: str):
-        """
-        Cancels the job on the DGX platform. Typically, you'd parse the job_id
-        from app_id and call the relevant REST endpoint to delete/cancel the job.
-        """
-        logger.debug("Attempt to cancel job for app_id=%s", app_id)
+        r_json = response.json()
+        return DGXCloudState(r_json["actualPhase"])
 
-    def logs(self, app_id: str, fallback_path: Optional[str]):
-        """
-        Prints or fetches logs for the job. Typically, you'd parse the job_id
-        from app_id and query a logs endpoint. Fallback logic can be implemented
-        if logs must be fetched from a known file path.
-        """
+    def cancel(self, job_id: str):
+        # Retrieve the authentication token for the REST calls
+        token = self.get_auth_token()
+        if not token:
+            logger.error("Failed to retrieve auth token for cancellation request.")
+            return
+
+        # Build the DELETE request to cancel the job
+        url = f"{self.base_url}/workloads/distributed/{job_id}/suspend"
+        headers = self._default_headers(token=token)
+
+        response = requests.get(url, headers=headers)
+        if response.status_code >= 200 and response.status_code < 300:
+            logger.info(
+                "Successfully cancelled job %s on DGX with response code %d",
+                job_id, response.status_code
+            )
+        else:
+            logger.error(
+                "Failed to cancel job %s, response code=%d, reason=%s",
+                job_id, response.status_code, response.text
+            )
+
+    @classmethod
+    def logs(cls: Type["DGXCloudExecutor"], app_id: str, fallback_path: Optional[str]):
+        logger.warning("Logs not available for DGXCloudExecutor based jobs. Please visit the cluster UI to view the logs.")
 
     def cleanup(self, handle: str):
-        """
-        Performs any necessary cleanup after the job has completed.
-        """
+        ...
 
     def assign(
         self,
@@ -201,17 +206,14 @@ class DGXCloudExecutor(Executor):
         task_id: str,
         task_dir: str,
     ):
-        """
-        Assigns the job to a specific experiment run directory in Nemo-Run.
-        """
         self.job_name = task_id
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
         self.experiment_id = exp_id
         os.makedirs(self.job_dir, exist_ok=True)
         assert any(
-            map(lambda x: Path(self.job_dir).relative_to(Path(x["path"])), self.pvcs)
-        ), f"Need to specify atleast one PVC matching {self.job_dir}"
+            map(lambda x: os.path.commonpath([os.path.abspath(x["path"]), os.path.abspath(self.job_dir)]) == os.path.abspath(x["path"]), self.pvcs)
+        ), f"Need to specify atleast one PVC containing {self.job_dir}.\nTo update job dir to a PVC path, you can set the NEMORUN_HOME env var."
 
     def package(self, packager: Packager, job_name: str):
         assert self.experiment_id, "Executor not assigned to an experiment."
@@ -242,10 +244,6 @@ class DGXCloudExecutor(Executor):
             )
 
     def macro_values(self) -> Optional[ExecutorMacros]:
-        """
-        Returns environment macros for distributed training. Not strictly used in this
-        example, but can configure advanced key-value pairs for the job environment.
-        """
         return None
 
     def _default_headers(self, token: Optional[str] = None) -> dict:
