@@ -122,10 +122,15 @@ class LazyEntrypoint(Buildable):
             if isinstance(fn, LazyTarget):
                 fn = fn.target
 
-        dotlist = dictconfig_to_dot_list(
-            _args_to_dictconfig(self._args_), has_factory=self._factory_ is not None
-        )
-        args = [f"{name}{op}{value}" for name, op, value in dotlist]
+        # This didn't seem to work, the transformation of self._args_ -> dotlist converts
+        #  factories on the command line incorrectly. So if I did executor=local_executor_config,
+        #  the dotlist entry was executor=Config
+
+        #dotlist = dictconfig_to_dot_list(
+        #    _args_to_dictconfig(self._args_), has_factory=self._factory_ is not None
+        #)
+        #args = [f"{name}{op}{value}" for name, op, value in dotlist]
+        args = [f"{name}{op}{value}" for name, op, value in self._args_]
 
         return parse_cli_args(fn, args)
 
