@@ -55,6 +55,7 @@ from typing_extensions import ParamSpec
 
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
+from nemo_run.cli.load import load_modules
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
 from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, get_underlying_types
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
@@ -806,8 +807,8 @@ class RunContext:
             factory: Optional[str] = typer.Option(
                 None, "--factory", "-f", help="Predefined factory to use"
             ),
-            load: Optional[str] = typer.Option(
-                None, "--load", "-l", help="Load a factory from a directory"
+            load: Optional[list[str]] = typer.Option(
+                None, "--load", "-l", help="Load factories from python modules. --load can be specified multiple times."
             ),
             yaml: Optional[str] = typer.Option(
                 None, "--yaml", "-y", help="Path to a YAML file to load"
@@ -901,7 +902,7 @@ class RunContext:
         self.parse_args(run_args)
 
         if self.load:
-            raise NotImplementedError("Load is not implemented yet")
+            load_modules(self.load)
 
         if entrypoint_type == "task":
             self._execute_task(fn, filtered_args)
