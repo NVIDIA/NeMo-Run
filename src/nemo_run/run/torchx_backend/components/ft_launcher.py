@@ -48,6 +48,7 @@ def ft_launcher(
     rank_termination_signal: Optional[str] = None,
     log_level: Optional[str] = None,
     max_restarts: Optional[int] = None,
+    use_env: bool = False,
 ) -> specs.AppDef:
     torchrun_component = torchrun.torchrun(
         *script_args,
@@ -67,6 +68,7 @@ def ft_launcher(
         mounts=mounts,
         debug=debug,
         max_retries=max_retries,
+        use_env=use_env,
     )
 
     ft_args = []
