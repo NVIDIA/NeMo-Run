@@ -24,6 +24,7 @@ from torchx import specs
 from nemo_run.config import SCRIPTS_DIR, Partial, Script
 from nemo_run.core.execution.base import Executor, FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
+from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.components import ft_launcher, torchrun
@@ -120,6 +121,7 @@ def package(
         entrypoint = fn_or_script.entrypoint
 
     launcher = executor.get_launcher()
+    use_env = not isinstance(executor, SlurmExecutor)
     if launcher and isinstance(launcher, Torchrun):
         app_def = torchrun.torchrun(
             *args,
@@ -139,6 +141,7 @@ def package(
             mounts=mounts,
             debug=executor.packager.debug,
             max_retries=executor.retries,
+            use_env=use_env,
         )
     elif launcher and isinstance(launcher, FaultTolerance):
         app_def = ft_launcher.ft_launcher(
@@ -165,6 +168,7 @@ def package(
             log_level=launcher.log_level,
             max_retries=executor.retries,
             max_restarts=launcher.max_restarts,
+            use_env=use_env,
         )
     else:
         app_def = specs.AppDef(
