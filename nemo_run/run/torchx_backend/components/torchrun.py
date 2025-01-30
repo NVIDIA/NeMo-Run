@@ -60,6 +60,7 @@ def torchrun(
     mounts: Optional[list[str]] = None,
     debug: bool = False,
     dgxc: bool = False,
+    use_env: bool = False,
 ) -> specs.AppDef:
     """
     Distributed data parallel style application (one role, multi-replica).
@@ -113,17 +114,20 @@ def torchrun(
         nproc_per_node = str(nproc_per_node)
         node_rank = "0"
     else:
-        # for multi-node, rely on the rank0_env environment variable set by
-        # the schedulers (see scheduler implementation for the actual env var this maps to)
-        # some schedulers (e.g. aws batch) make the rank0's ip-addr available on all BUT on rank0
-        # so default to "localhost" if the env var is not set or is empty
-        # rdzv_endpoint bash resolves to something to the effect of
-        # ${TORCHX_RANK0_HOST:=localhost}:29500
-        # use $$ in the prefix to escape the '$' literal (rather than a string Template substitution argument)
-        rdzv_endpoint = torchx_dist._noquote(f"$${ExecutorMacros.HEAD_NODE_IP_VAR}:{rdzv_port}")
-        num_nodes = torchx_dist._noquote(f"$${ExecutorMacros.NUM_NODES_VAR}")
+        if use_env and os.getenv("MASTER_ADDR") and os.getenv("MASTER_PORT"):
+            master_addr = os.environ["MASTER_ADDR"]
+            master_port = os.environ["MASTER_PORT"]
+            rdzv_endpoint = torchx_dist._noquote(master_addr + ":" + master_port)
+        else:
+            rdzv_endpoint = torchx_dist._noquote(f"$${ExecutorMacros.HEAD_NODE_IP_VAR}:{rdzv_port}")
+
+        num_nodes = nnodes_rep
         nproc_per_node = str(nproc_per_node)
-        node_rank = torchx_dist._noquote(f"$${ExecutorMacros.NODE_RANK_VAR}")
+
+        if use_env and os.getenv("NODE_RANK"):
+            node_rank = os.environ["NODE_RANK"]
+        else:
+            node_rank = torchx_dist._noquote(f"$${ExecutorMacros.NODE_RANK_VAR}")
 
     if env is None:
         env = {}
