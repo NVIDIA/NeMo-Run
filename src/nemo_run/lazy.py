@@ -2,6 +2,7 @@ import ast
 import builtins
 import contextlib
 import importlib
+import inspect
 import os
 import re
 import shlex
@@ -105,23 +106,9 @@ class LazyEntrypoint(Buildable):
             self._parse_yaml(yaml)
 
     def resolve(self) -> Partial:
-        from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
+        from nemo_run.cli.cli_parser import parse_cli_args
 
-        fn = self._target_
-        if self._factory_:
-            if isinstance(self._factory_, str):
-                if isinstance(self._target_, LazyTarget):
-                    target = self._target_.target
-                else:
-                    target = self._target_
-
-                fn = parse_factory(target, "", target, self._factory_)
-            else:
-                fn = self._factory_()
-        else:
-            if isinstance(fn, LazyTarget):
-                fn = fn.target
-
+        fn = self.__fn_or_cls__
         dotlist = dictconfig_to_dot_list(
             _args_to_dictconfig(self._args_), has_factory=self._factory_ is not None
         )
@@ -187,12 +174,14 @@ class LazyEntrypoint(Buildable):
         return self
 
     def _add_overwrite(self, *overwrites: str):
-        for overwrite in overwrites:
+        argument_names = list(inspect.signature(self.__fn_or_cls__).parameters.keys())
+        for i, overwrite in enumerate(overwrites):
             # Split into key, op, value
             match = re.match(r"([^=]+)([*+-]?=)(.*)", overwrite)
             if not match:
-                raise ValueError(f"Invalid overwrite format: {overwrite}")
-            key, op, value = match.groups()
+                key, op, value = argument_names[i], "=", overwrite
+            else:
+                key, op, value = match.groups()
             self._args_.append((key, op, value))
 
     def _parse_yaml(self, yaml: str | DictConfig | Path):
@@ -256,7 +245,23 @@ class LazyEntrypoint(Buildable):
 
     @property
     def __fn_or_cls__(self):
-        return _dummy_fn
+        from nemo_run.cli.cli_parser import parse_factory
+
+        fn = self._target_
+        if self._factory_:
+            if isinstance(self._factory_, str):
+                if isinstance(self._target_, LazyTarget):
+                    target = self._target_.target
+                else:
+                    target = self._target_
+
+                fn = parse_factory(target, "", target, self._factory_)
+            else:
+                fn = self._factory_()
+        else:
+            if isinstance(fn, LazyTarget):
+                fn = fn.target
+        return fn
 
     @property
     def __arguments__(self):
