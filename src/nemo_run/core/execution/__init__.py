@@ -16,5 +16,6 @@
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
+from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 
-__all__ = ["LocalExecutor", "SlurmExecutor", "SkypilotExecutor"]
+__all__ = ["LocalExecutor", "SlurmExecutor", "SkypilotExecutor", "DGXCloudExecutor"]

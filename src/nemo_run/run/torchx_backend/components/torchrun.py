@@ -59,6 +59,7 @@ def torchrun(
     rdzv_backend: str = "c10d",
     mounts: Optional[list[str]] = None,
     debug: bool = False,
+    dgxc: bool = False,
 ) -> specs.AppDef:
     """
     Distributed data parallel style application (one role, multi-replica).
@@ -92,6 +93,7 @@ def torchrun(
         mounts: mounts to mount into the worker environment/container (ex. type=<bind/volume>,src=/host,dst=/job[,readonly]).
                 See scheduler documentation for more info.
         debug: whether to run with preset debug flags enabled
+        dgxc: whether to use a subset of settings for DGX Cloud
     """
     if (script is None) == (m is None):
         raise ValueError("exactly one of --script and -m must be specified")
@@ -130,24 +132,27 @@ def torchrun(
     if debug:
         env.update(_TORCH_DEBUG_FLAGS)
 
-    cmd = [
-        "--rdzv-backend",
-        rdzv_backend,
-        "--rdzv-endpoint",
-        rdzv_endpoint,
-        "--rdzv-id",
-        f"{random.randint(1, 10000)}",
-        "--nnodes",
-        num_nodes,
-        "--nproc-per-node",
-        nproc_per_node,
-        "--node-rank",
-        node_rank,
-        "--tee",
-        "3",
-        # "--role",
-        # "",
-    ]
+    if dgxc:
+        cmd = ["--nnodes", nnodes_rep, "--nproc-per-node", nproc_per_node]
+    else:
+        cmd = [
+            "--rdzv-backend",
+            rdzv_backend,
+            "--rdzv-endpoint",
+            rdzv_endpoint,
+            "--rdzv-id",
+            f"{random.randint(1, 10000)}",
+            "--nnodes",
+            num_nodes,
+            "--nproc-per-node",
+            nproc_per_node,
+            "--node-rank",
+            node_rank,
+            "--tee",
+            "3",
+            # "--role",
+            # "",
+        ]
     if script is not None:
         if no_python:
             cmd += ["--no-python"]
