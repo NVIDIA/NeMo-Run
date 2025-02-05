@@ -23,6 +23,7 @@ from torchx import specs
 
 from nemo_run.config import SCRIPTS_DIR, Partial, Script
 from nemo_run.core.execution.base import Executor, FaultTolerance, Torchrun
+from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
@@ -139,6 +140,7 @@ def package(
             mounts=mounts,
             debug=executor.packager.debug,
             max_retries=executor.retries,
+            dgxc=isinstance(executor, DGXCloudExecutor),
         )
     elif launcher and isinstance(launcher, FaultTolerance):
         app_def = ft_launcher.ft_launcher(

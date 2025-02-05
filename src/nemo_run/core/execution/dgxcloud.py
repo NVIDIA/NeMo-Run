@@ -138,7 +138,7 @@ cd /nemo_run/code
         return response
 
     def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
-        name = name.replace("_", "-")  # to meet K8s requirements
+        name = name.replace("_", "-").replace(".", "-")  # to meet K8s requirements
         token = self.get_auth_token()
         if not token:
             raise RuntimeError("Failed to get auth token")
@@ -155,6 +155,12 @@ cd /nemo_run/code
         job_id = r_json["workloadId"]
         status = r_json["actualPhase"]
         return job_id, status
+
+    def nnodes(self) -> int:
+        return self.nodes
+
+    def nproc_per_node(self) -> int:
+        return self.gpus_per_node
 
     def status(self, job_id: str) -> Optional[DGXCloudState]:
         url = f"{self.base_url}/workloads/distributed/{job_id}"
