@@ -691,3 +691,28 @@ class TestSlurmBatchRequest:
         for job in het_request.jobs:
             expected = f"prefix_{job}"
             assert expected in sbatch_script, f"Expected job name '{expected}' not found in script"
+
+    def test_het_job_custom_details_job_name(self, het_slurm_request_with_artifact):
+        # Test that the job name from CustomJobDetails is used for heterogeneous slurm requests
+        from nemo_run.core.execution.slurm import SlurmJobDetails
+
+        het_request, _ = het_slurm_request_with_artifact
+
+        class CustomJobDetails(SlurmJobDetails):
+            @property
+            def stdout(self):
+                assert self.folder
+                return Path(self.folder) / "sbatch_job.out"
+
+            @property
+            def srun_stdout(self):
+                assert self.folder
+                return Path(self.folder) / "log_job.out"
+
+        custom_name = "custom_het_job"
+        het_request.slurm_config.job_details = CustomJobDetails(
+            job_name=custom_name, folder="/custom_folder"
+        )
+        sbatch_script = het_request.materialize()
+        for i in range(len(het_request.jobs)):
+            assert f"#SBATCH --job-name={custom_name}-{i}" in sbatch_script
