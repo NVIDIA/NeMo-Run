@@ -15,9 +15,6 @@ set -evx
 export PYTHONUNBUFFERED=1
 export SLURM_UNBUFFEREDIO=1
 export TORCHX_MAX_RETRIES={{max_retries}}
-{%- for env_var in env_vars %}
-{{env_var}}
-{%- endfor %}
 
 set +e
 
@@ -32,6 +29,10 @@ head_node=${nodes_array[0]}
 {{het_group_host_var}}_{{i}}=$(scontrol show hostnames=$SLURM_JOB_NODELIST_HET_GROUP_{{i}} | head -n1)
 {%- endfor %}
 {% endif %}
+
+{%- for env_var in env_vars %}
+{{env_var}}
+{%- endfor %}
 
 {%- if setup_lines %}
 {{setup_lines}}
