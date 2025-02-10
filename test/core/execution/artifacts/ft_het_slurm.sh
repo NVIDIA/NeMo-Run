@@ -26,7 +26,6 @@ set -evx
 export PYTHONUNBUFFERED=1
 export SLURM_UNBUFFEREDIO=1
 export TORCHX_MAX_RETRIES=3
-export ENV_VAR=value
 
 set +e
 
@@ -41,6 +40,7 @@ head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 het_group_host_0=$(scontrol show hostnames=$SLURM_JOB_NODELIST_HET_GROUP_0 | head -n1)
 het_group_host_1=$(scontrol show hostnames=$SLURM_JOB_NODELIST_HET_GROUP_1 | head -n1)
 
+export ENV_VAR=value
 # This script uses experimental fault tolerance launcher
 # Fault tolerance related items
 export FAULT_TOL_CFG_PATH="/root/experiment/sample_job/sample_job_ft_cfg.yml"
