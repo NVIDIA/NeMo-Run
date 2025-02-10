@@ -647,9 +647,9 @@ class TestSlurmBatchRequest:
         group_resource_req_slurm_request.slurm_config.resource_group[0].job_details = copy.deepcopy(
             group_resource_req_slurm_request.slurm_config.job_details
         )
-        group_resource_req_slurm_request.slurm_config.resource_group[1].job_details = CustomJobDetails(
-            job_name="custom_sample_job_2", folder="/custom_folder_2"
-        )
+        group_resource_req_slurm_request.slurm_config.resource_group[
+            1
+        ].job_details = CustomJobDetails(job_name="custom_sample_job_2", folder="/custom_folder_2")
 
         sbatch_script = group_resource_req_slurm_request.materialize()
         assert "#SBATCH --job-name=custom_sample_job" in sbatch_script
