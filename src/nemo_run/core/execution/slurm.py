@@ -816,7 +816,7 @@ class SlurmBatchRequest:
                     )
                 het_parameters.update(
                     {
-                        "job_name": f"{self.slurm_config.account}-{self.slurm_config.account.split('_')[-1]}.{self.jobs[i]}",
+                        "job_name": f"{job_name_prefix}{self.jobs[i]}",
                         "nodes": resource_req.nodes,
                         "ntasks_per_node": resource_req.ntasks_per_node,
                         "gpus_per_node": resource_req.gpus_per_node,

@@ -473,16 +473,16 @@ class TestSlurmBatchRequest:
             @property
             def stdout(self) -> Path:
                 assert self.folder
-                return Path(self.folder / "sbatch_job.out")
+                return Path(self.folder) / "sbatch_job.out"
 
             @property
             def srun_stdout(self) -> Path:
                 assert self.folder
-                return Path(self.folder / "log_job.out")
+                return Path(self.folder) / "log_job.out"
 
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
         dummy_slurm_request.slurm_config.job_details = CustomJobDetails(
-            job_name="custom_sample_job", folder=Path("/custom_folder")
+            job_name="custom_sample_job", folder="/custom_folder"
         )
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --job-name=custom_sample_job" in sbatch_script
@@ -633,24 +633,22 @@ class TestSlurmBatchRequest:
             @property
             def stdout(self) -> Path:
                 assert self.folder
-                return Path(self.folder / "sbatch_job.out")
+                return Path(self.folder) / "sbatch_job.out"
 
             @property
             def srun_stdout(self) -> Path:
                 assert self.folder
-                return Path(self.folder / f"log_{self.job_name}.out")
+                return Path(self.folder) / f"log_{self.job_name}.out"
 
         group_resource_req_slurm_request, _ = group_resource_req_slurm_request_with_artifact
         group_resource_req_slurm_request.slurm_config.job_details = CustomJobDetails(
-            job_name="custom_sample_job", folder=Path("/custom_folder")
+            job_name="custom_sample_job", folder="/custom_folder"
         )
         group_resource_req_slurm_request.slurm_config.resource_group[0].job_details = copy.deepcopy(
             group_resource_req_slurm_request.slurm_config.job_details
         )
-        group_resource_req_slurm_request.slurm_config.resource_group[
-            1
-        ].job_details = CustomJobDetails(
-            job_name="custom_sample_job_2", folder=Path("/custom_folder_2")
+        group_resource_req_slurm_request.slurm_config.resource_group[1].job_details = CustomJobDetails(
+            job_name="custom_sample_job_2", folder="/custom_folder_2"
         )
 
         sbatch_script = group_resource_req_slurm_request.materialize()
@@ -680,3 +678,16 @@ class TestSlurmBatchRequest:
         sbatch_script = re.sub(r"--rdzv-id \d+", "--rdzv-id 1", sbatch_script)
         expected = re.sub(r"--rdzv-id \d+", "--rdzv-id 1", expected)
         assert sbatch_script.strip() == expected.strip()
+
+    def test_het_job_name_prefix(self, het_slurm_request_with_artifact):
+        # Set the job_name_prefix to a custom value
+        het_request, _ = het_slurm_request_with_artifact
+        het_request.slurm_config.job_name_prefix = "prefix_"
+
+        # Materialize the batch request script
+        sbatch_script = het_request.materialize()
+
+        # For each job in the heterogeneous request, verify the job name uses the prefix
+        for job in het_request.jobs:
+            expected = f"prefix_{job}"
+            assert expected in sbatch_script, f"Expected job name '{expected}' not found in script"
