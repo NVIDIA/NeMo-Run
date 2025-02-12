@@ -10,10 +10,7 @@ from typing import Any, Optional, Type
 import requests
 from invoke.context import Context
 
-from nemo_run.core.execution.base import (
-    Executor,
-    ExecutorMacros,
-)
+from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
@@ -54,7 +51,8 @@ class DGXCloudExecutor(Executor):
     project_name: str
     container_image: str
     nodes: int = 1
-    gpus_per_node: int = 8
+    gpus_per_node: int = 0
+    nprocs_per_node: int = 1
     pvcs: list[dict[str, Any]] = field(default_factory=list)
     distributed_framework: str = "PyTorch"
     custom_spec: dict[str, Any] = field(default_factory=dict)
@@ -160,7 +158,13 @@ cd /nemo_run/code
         return self.nodes
 
     def nproc_per_node(self) -> int:
-        return self.gpus_per_node
+        # Default to the number of GPUs specified per node
+        # If user doesn't want GPUs, can run multiple processes with CPU only
+        if self.gpus_per_node:
+            return self.gpus_per_node
+        elif self.nprocs_per_node:
+            return self.nprocs_per_node
+        return 1
 
     def status(self, job_id: str) -> Optional[DGXCloudState]:
         url = f"{self.base_url}/workloads/distributed/{job_id}"
