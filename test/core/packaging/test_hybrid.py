@@ -78,3 +78,35 @@ def test_hybrid_packager(mock_subpackager_one, mock_subpackager_two, tmp_path):
             os.path.join(extract_dir, "2"),
         )
         assert not cmp.diff_files
+
+
+@patch("nemo_run.core.packaging.hybrid.Context", MockContext)
+def test_hybrid_packager_extract_at_root(mock_subpackager_one, mock_subpackager_two, tmp_path):
+    hybrid = HybridPackager(
+        sub_packagers={
+            "1": mock_subpackager_one,
+            "2": mock_subpackager_two,
+        },
+        extract_at_root=True,
+    )
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_tar = hybrid.package(Path(tmp_path), job_dir, "hybrid_test_extract")
+        assert os.path.exists(output_tar)
+
+        # Extract the tar and verify that files are extracted at the root
+        extract_dir = os.path.join(job_dir, "hybrid_extracted")
+        os.makedirs(extract_dir, exist_ok=True)
+        subprocess.run(["tar", "-xzf", output_tar, "-C", extract_dir], check=True)
+
+        file1 = os.path.join(extract_dir, "file1.txt")
+        file2 = os.path.join(extract_dir, "file2.txt")
+        assert os.path.exists(file1), f"Expected {file1} to exist, but it does not."
+        assert os.path.exists(file2), f"Expected {file2} to exist, but it does not."
+
+        with open(file1, "r") as f:
+            content1 = f.read()
+        with open(file2, "r") as f:
+            content2 = f.read()
+
+        assert content1 == "Content from packager one", f"Unexpected content in {file1}: {content1}"
+        assert content2 == "Content from packager two", f"Unexpected content in {file2}: {content2}"
