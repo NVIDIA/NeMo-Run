@@ -310,10 +310,7 @@ nemo experiment cancel {exp_id} 0
         self._runner = get_runner()
 
         if not _reconstruct:
-            os.makedirs(self._exp_dir, exist_ok=False)
-
             self.executor = executor if executor else LocalExecutor()
-            self._save_config()
         else:
             assert isinstance(executor, Executor)
             self.executor = executor
@@ -333,6 +330,10 @@ nemo experiment cancel {exp_id} 0
             executor=self.executor.to_config(),
             log_level=self.log_level,
         )
+
+    def _save_experiment(self):
+        os.makedirs(self._exp_dir, exist_ok=False)
+        self._save_config()
 
     def _save_config(self):
         with open(os.path.join(self._exp_dir, self.__class__._CONFIG_FILE), "w+") as f:
@@ -389,6 +390,13 @@ nemo experiment cancel {exp_id} 0
 
         return jobs
 
+    def _prepare(self):
+        self._save_experiment()
+        for job in self.jobs:
+            job.prepare()
+
+        self._save_jobs()
+
     def _add_single_job(
         self,
         task: Union[Partial, Script],
@@ -434,7 +442,6 @@ nemo experiment cancel {exp_id} 0
             plugin.assign(self._id)
             plugin.setup(cloned, executor)
 
-        job.prepare()
         self._jobs.append(job)
         return job.id
 
@@ -482,7 +489,6 @@ nemo experiment cancel {exp_id} 0
                 assert isinstance(_executor, Executor)
                 plugin.setup(task, _executor)
 
-        job_group.prepare()
         self._jobs.append(job_group)
         return job_group.id
 
@@ -552,7 +558,6 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 dependencies=dependencies.copy() if dependencies else None,
             )
 
-        self._save_jobs()
         return job_id
 
     def dryrun(self, log: bool = True):
@@ -561,6 +566,8 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         """
         if log:
             self.console.log(f"[bold magenta]Experiment {self._id} dryrun...")
+
+        self._prepare()
 
         for job in self.jobs:
             if isinstance(job, Job):
@@ -614,6 +621,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             self.console.log("[bold magenta]Experiment in inspection mode...")
             return
 
+        # Prepare experiment before running
+        self._prepare()
+
         if direct:
             self.console.log(
                 "[bold magenta]Running the experiment with direct=True. "
@@ -637,8 +647,8 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     os.path.join(job.executor.job_dir, f"log_{job.id}_direct_run.out")
                 ):
                     job.launch(wait=True, direct=True, runner=self._runner)
-                self._save_jobs()
 
+            self._save_jobs()
             self._launched = any(map(lambda job: job.launched, self.jobs))
             self._direct = True
             return
@@ -746,7 +756,6 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                         job.executor.dependencies = deps  # type: ignore
                     job.launch(wait=False, runner=self._runner)
 
-                    self._save_jobs()
                 except Exception as e:
                     self.console.log(f"Error running job {job.id}: {e}")
                     raise e
@@ -754,6 +763,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             if wait:
                 self._wait_for_jobs(jobs=[job_map[node] for node in level])
 
+        self._save_jobs()
         self._launched = any(map(lambda job: job.launched, self.jobs))
         self._waited = wait
 
@@ -955,7 +965,6 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         old_id, old_exp_dir, old_launched = self._id, self._exp_dir, self._launched
         self._id = f"{self._title}_{int(time.time())}"
         self._exp_dir = os.path.join(NEMORUN_HOME, "experiments", self._title, self._id)
-        os.makedirs(self._exp_dir, exist_ok=False)
         self._launched = False
         self._live_progress = None
 
@@ -1022,8 +1031,6 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 self._current_experiment_token = None
 
         self._reconstruct = False
-        self._save_config()
-
         return self
 
     def _initialize_live_progress(self):

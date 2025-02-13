@@ -227,6 +227,9 @@ class Executor(ConfigurableMixin):
             filenames.append(filename)
         return filenames
 
+    def create_job_dir(self):
+        os.makedirs(self.job_dir, exist_ok=True)
+
     def cleanup(self, handle: str): ...
 
 

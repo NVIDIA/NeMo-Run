@@ -226,7 +226,6 @@ cd /nemo_run/code
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
         self.experiment_id = exp_id
-        os.makedirs(self.job_dir, exist_ok=True)
         assert any(
             map(
                 lambda x: os.path.commonpath(

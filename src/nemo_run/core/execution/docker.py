@@ -162,7 +162,6 @@ class DockerExecutor(Executor):
         self.experiment_id = exp_id
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
-        os.makedirs(self.job_dir, exist_ok=True)
 
     def nnodes(self) -> int:
         return 1

@@ -92,6 +92,7 @@ class Job(ConfigurableMixin):
         )
 
     def prepare(self):
+        self.executor.create_job_dir()
         self._executable = package(
             self.id, self.task, executor=self.executor, serialize_to_file=True
         )
@@ -306,6 +307,7 @@ class JobGroup(ConfigurableMixin):
         )
 
     def prepare(self):
+        self.executor.create_job_dir()
         self._executables: list[tuple[AppDef, Executor]] = []
         for i, task in enumerate(self.tasks):
             executor = self.executors if self._merge else self.executors[i]  # type: ignore
