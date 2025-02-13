@@ -331,8 +331,8 @@ nemo experiment cancel {exp_id} 0
             log_level=self.log_level,
         )
 
-    def _save_experiment(self):
-        os.makedirs(self._exp_dir, exist_ok=False)
+    def _save_experiment(self, exist_ok: bool = False):
+        os.makedirs(self._exp_dir, exist_ok=exist_ok)
         self._save_config()
 
     def _save_config(self):
@@ -390,8 +390,8 @@ nemo experiment cancel {exp_id} 0
 
         return jobs
 
-    def _prepare(self):
-        self._save_experiment()
+    def _prepare(self, exist_ok: bool = False):
+        self._save_experiment(exist_ok=exist_ok)
         for job in self.jobs:
             job.prepare()
 
@@ -560,14 +560,14 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
         return job_id
 
-    def dryrun(self, log: bool = True):
+    def dryrun(self, log: bool = True, exist_ok: bool = False, delete_exp_dir: bool = True):
         """
         Logs the raw scripts that will be executed for each task.
         """
         if log:
             self.console.log(f"[bold magenta]Experiment {self._id} dryrun...")
 
-        self._prepare()
+        self._prepare(exist_ok=exist_ok)
 
         for job in self.jobs:
             if isinstance(job, Job):
@@ -578,7 +578,8 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     self.console.log(f"[bold magenta]Task Group {job.id}\n")
             job.launch(wait=False, runner=self._runner, dryrun=True, direct=False, log_dryrun=log)
 
-        shutil.rmtree(self._exp_dir)
+        if delete_exp_dir:
+            shutil.rmtree(self._exp_dir)
 
     def run(
         self,
@@ -681,7 +682,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             for i in range(1, len(self.jobs)):
                 self.jobs[i].dependencies.append(self.jobs[i - 1].id)
 
-        self.dryrun(log=False)
+        self.dryrun(log=False, exist_ok=True, delete_exp_dir=False)
         for tunnel in self.tunnels.values():
             if isinstance(tunnel, SSHTunnel):
                 tunnel.connect()
@@ -978,12 +979,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             _current_experiment.set(self)
             _set_current_experiment = True
 
-        if "__main__.py" in os.listdir(old_exp_dir):
-            shutil.copy(os.path.join(old_exp_dir, "__main__.py"), self._exp_dir)
-
         try:
             if "__external_main__" not in sys.modules:
-                maybe_load_external_main(self._exp_dir)
+                maybe_load_external_main(old_exp_dir)
 
             for job in jobs:
                 if isinstance(job, Job):
