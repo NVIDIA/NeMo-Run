@@ -578,6 +578,8 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     self.console.log(f"[bold magenta]Task Group {job.id}\n")
             job.launch(wait=False, runner=self._runner, dryrun=True, direct=False, log_dryrun=log)
 
+        shutil.rmtree(self._exp_dir)
+
     def run(
         self,
         sequential: bool = False,
