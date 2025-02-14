@@ -280,8 +280,6 @@ class SkypilotExecutor(Executor):
         self.job_dir = os.path.join(exp_dir, task_dir)
         self.experiment_id = exp_id
 
-        os.makedirs(self.job_dir, exist_ok=True)
-
     def package(self, packager: Packager, job_name: str):
         assert self.experiment_id, "Executor not assigned to an experiment."
         if isinstance(packager, GitArchivePackager):

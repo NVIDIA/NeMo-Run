@@ -37,7 +37,7 @@ def test_local_executor_assign():
 
         assert executor.experiment_id == "test_exp"
         assert executor.job_dir == os.path.join(tmp_dir, "test_task")
-        assert os.path.exists(executor.job_dir)
+        assert not os.path.exists(executor.job_dir)
 
 
 def test_local_executor_nnodes():

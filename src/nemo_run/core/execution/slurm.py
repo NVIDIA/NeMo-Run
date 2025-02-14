@@ -514,7 +514,6 @@ class SlurmExecutor(Executor):
         self.job_dir = os.path.join(exp_dir, task_dir)
         self.experiment_id = exp_id
 
-        os.makedirs(self.job_dir, exist_ok=True)
         self.tunnel._set_job_dir(self.experiment_id)
 
     def get_launcher_prefix(self) -> Optional[list[str]]:
