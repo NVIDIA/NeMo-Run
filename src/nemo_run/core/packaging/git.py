@@ -161,13 +161,18 @@ class GitArchivePackager(Packager):
                 ctx.run(include_pattern_cmd)
 
             with ctx.cd(git_base_path):
-                # Extract and repack approach that works on all platforms
-                temp_dir = f"temp_extract_{pattern_file_id}"
-                ctx.run(f"mkdir -p {temp_dir}")
-                ctx.run(f"tar xf {output_file}.tmp -C {temp_dir}")
-                ctx.run(f"tar xf {pattern_tar_file_name} -C {temp_dir}")
-                ctx.run(f"tar cf {output_file}.tmp -C {temp_dir} .")
-                ctx.run(f"rm -rf {temp_dir} {pattern_tar_file_name}")
+                if os.uname().sysname == 'Linux':
+                    # On Linux, directly concatenate tar files
+                    ctx.run(f"tar Af {output_file}.tmp {pattern_tar_file_name}")
+                    ctx.run(f"rm {pattern_tar_file_name}")
+                else:
+                    # Extract and repack approach for other platforms
+                    temp_dir = f"temp_extract_{pattern_file_id}"
+                    ctx.run(f"mkdir -p {temp_dir}")
+                    ctx.run(f"tar xf {output_file}.tmp -C {temp_dir}")
+                    ctx.run(f"tar xf {pattern_tar_file_name} -C {temp_dir}")
+                    ctx.run(f"tar cf {output_file}.tmp -C {temp_dir} .")
+                    ctx.run(f"rm -rf {temp_dir} {pattern_tar_file_name}")
 
         gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
         rm_cmd = f"rm {output_file}.tmp"
