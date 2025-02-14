@@ -161,7 +161,7 @@ class GitArchivePackager(Packager):
                 ctx.run(include_pattern_cmd)
 
             with ctx.cd(git_base_path):
-                if os.uname().sysname == 'Linux':
+                if os.uname().sysname == "Linux":
                     # On Linux, directly concatenate tar files
                     ctx.run(f"tar Af {output_file}.tmp {pattern_tar_file_name}")
                     ctx.run(f"rm {pattern_tar_file_name}")
