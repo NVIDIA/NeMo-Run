@@ -18,7 +18,6 @@ set -evx
 export PYTHONUNBUFFERED=1
 export SLURM_UNBUFFEREDIO=1
 export TORCHX_MAX_RETRIES=3
-export ENV_VAR=value
 
 set +e
 
@@ -29,6 +28,7 @@ nodes_array=($nodes)
 head_node=${nodes_array[0]}
 head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
+export ENV_VAR=value
 
 
 # Command 1

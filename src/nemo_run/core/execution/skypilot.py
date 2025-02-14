@@ -280,8 +280,6 @@ class SkypilotExecutor(Executor):
         self.job_dir = os.path.join(exp_dir, task_dir)
         self.experiment_id = exp_id
 
-        os.makedirs(self.job_dir, exist_ok=True)
-
     def package(self, packager: Packager, job_name: str):
         assert self.experiment_id, "Executor not assigned to an experiment."
         if isinstance(packager, GitArchivePackager):
@@ -302,7 +300,7 @@ class SkypilotExecutor(Executor):
 
         if self.get_launcher().nsys_profile:
             remote_nsys_extraction_path = os.path.join(
-                self.job_dir, job_name, self.get_launcher().nsys_folder
+                self.job_dir, self.get_launcher().nsys_folder
             )
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
         if local_pkg:

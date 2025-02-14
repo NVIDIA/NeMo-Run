@@ -514,7 +514,6 @@ class SlurmExecutor(Executor):
         self.job_dir = os.path.join(exp_dir, task_dir)
         self.experiment_id = exp_id
 
-        os.makedirs(self.job_dir, exist_ok=True)
         self.tunnel._set_job_dir(self.experiment_id)
 
     def get_launcher_prefix(self) -> Optional[list[str]]:
@@ -595,7 +594,7 @@ class SlurmExecutor(Executor):
 
         if self.get_launcher().nsys_profile:
             remote_nsys_extraction_path = os.path.join(
-                self.job_dir, job_name, self.get_launcher().nsys_folder
+                self.job_dir, self.get_launcher().nsys_folder
             )
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
             # Touch hidden init file
@@ -816,7 +815,7 @@ class SlurmBatchRequest:
                     )
                 het_parameters.update(
                     {
-                        "job_name": f"{self.slurm_config.account}-{self.slurm_config.account.split('_')[-1]}.{self.jobs[i]}",
+                        "job_name": f"{job_details.job_name[:-2] if job_details.job_name.endswith('-0') else job_details.job_name}-{i}",
                         "nodes": resource_req.nodes,
                         "ntasks_per_node": resource_req.ntasks_per_node,
                         "gpus_per_node": resource_req.gpus_per_node,
@@ -995,7 +994,7 @@ class SlurmBatchRequest:
         return sbatch_script
 
     def __repr__(self) -> str:
-        return f"""{' '.join(self.cmd + ['$SBATCH_SCRIPT'])}
+        return f"""{" ".join(self.cmd + ["$SBATCH_SCRIPT"])}
 
 #----------------
 # SBATCH_SCRIPT

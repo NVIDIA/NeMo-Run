@@ -162,7 +162,6 @@ class DockerExecutor(Executor):
         self.experiment_id = exp_id
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
-        os.makedirs(self.job_dir, exist_ok=True)
 
     def nnodes(self) -> int:
         return 1
@@ -209,7 +208,7 @@ class DockerExecutor(Executor):
 
         if self.get_launcher().nsys_profile:
             remote_nsys_extraction_path = os.path.join(
-                self.job_dir, job_name, self.get_launcher().nsys_folder
+                self.job_dir, self.get_launcher().nsys_folder
             )
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
         if local_pkg:
