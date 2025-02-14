@@ -156,7 +156,6 @@ class GitArchivePackager(Packager):
                 f"find {relative_include_pattern} -type f | "
                 f"tar -cf {pattern_tar_file_name} -T -"
             )
-            tar_concatenate_cmd = f"cat {pattern_tar_file_name} >> {output_file}.tmp && rm {pattern_tar_file_name}"
 
             with ctx.cd(include_pattern_relative_path):
                 ctx.run(include_pattern_cmd)
