@@ -14,15 +14,17 @@
 # limitations under the License.
 
 import os
+<<<<<<< HEAD
 import sys
 from configparser import ConfigParser
 from dataclasses import dataclass, field
 from typing import Annotated, List, Optional, Union
 import subprocess
 import sys
+=======
+>>>>>>> 158bffa (Run linting)
 from configparser import ConfigParser
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Annotated, List, Optional, Tuple, Union
 from unittest.mock import Mock, patch
 
@@ -908,7 +910,6 @@ class TestGlobalOptions:
         """Test verbose logging functionality"""
         with patch("nemo_run.cli.api.configure_logging") as mock_configure:
             # Test enabled
-            runner.invoke(app, ["-v", "error-command"])
             result = runner.invoke(app, ["-v", "error-command"])
             mock_configure.assert_called_once_with(True)
 
