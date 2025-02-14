@@ -14,11 +14,8 @@
 # limitations under the License.
 
 import os
-import subprocess
-import sys
 from configparser import ConfigParser
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Annotated, List, Optional, Tuple, Union
 from unittest.mock import Mock, patch
 
@@ -771,7 +768,7 @@ class TestGlobalOptions:
         """Test verbose logging functionality"""
         with patch("nemo_run.cli.api.configure_logging") as mock_configure:
             # Test enabled
-            result = runner.invoke(app, ["-v", "error-command"])
+            runner.invoke(app, ["-v", "error-command"])
             mock_configure.assert_called_once_with(True)
 
             # Test disabled
