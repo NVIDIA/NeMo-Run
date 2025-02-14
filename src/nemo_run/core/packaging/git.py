@@ -137,11 +137,12 @@ class GitArchivePackager(Packager):
                 "include_pattern and include_pattern_relative_path should have the same length"
             )
 
-        pattern_file_id = uuid.uuid4()
-        pattern_tar_file_name = f"additional_{pattern_file_id}.tmp"
         for include_pattern, include_pattern_relative_path in zip(
             self.include_pattern, self.include_pattern_relative_path
         ):
+            pattern_file_id = uuid.uuid4()
+            pattern_tar_file_name = f"additional_{pattern_file_id}.tmp"
+
             if include_pattern == "":
                 continue
             include_pattern_relative_path = include_pattern_relative_path or shlex.quote(
@@ -150,17 +151,28 @@ class GitArchivePackager(Packager):
             relative_include_pattern = os.path.relpath(
                 include_pattern, include_pattern_relative_path
             )
+            pattern_tar_file_name = os.path.join(git_base_path, pattern_tar_file_name)
             include_pattern_cmd = (
                 f"find {relative_include_pattern} -type f | "
-                f"tar -cf {os.path.join(git_base_path, pattern_tar_file_name)} -T -"
+                f"tar -cf {pattern_tar_file_name} -T -"
             )
-            tar_concatenate_cmd = f"cat {os.path.join(git_base_path, pattern_tar_file_name)} >> {output_file}.tmp && rm {pattern_tar_file_name}"
 
             with ctx.cd(include_pattern_relative_path):
                 ctx.run(include_pattern_cmd)
 
             with ctx.cd(git_base_path):
-                ctx.run(tar_concatenate_cmd)
+                if os.uname().sysname == "Linux":
+                    # On Linux, directly concatenate tar files
+                    ctx.run(f"tar Af {output_file}.tmp {pattern_tar_file_name}")
+                    ctx.run(f"rm {pattern_tar_file_name}")
+                else:
+                    # Extract and repack approach for other platforms
+                    temp_dir = f"temp_extract_{pattern_file_id}"
+                    ctx.run(f"mkdir -p {temp_dir}")
+                    ctx.run(f"tar xf {output_file}.tmp -C {temp_dir}")
+                    ctx.run(f"tar xf {pattern_tar_file_name} -C {temp_dir}")
+                    ctx.run(f"tar cf {output_file}.tmp -C {temp_dir} .")
+                    ctx.run(f"rm -rf {temp_dir} {pattern_tar_file_name}")
 
         gzip_cmd = f"gzip -c {output_file}.tmp > {output_file}"
         rm_cmd = f"rm {output_file}.tmp"
