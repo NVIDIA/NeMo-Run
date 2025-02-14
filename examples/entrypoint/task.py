@@ -70,4 +70,4 @@ def train_model(
 
 
 if __name__ == "__main__":
-    run.cli.main(train_model)
+    run.cli.main(train_model, cmd_defaults={"skip_confirmation": True})

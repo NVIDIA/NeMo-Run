@@ -13,20 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import subprocess
+import sys
 from configparser import ConfigParser
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Annotated, List, Optional, Tuple, Union
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
 import pytest
+import typer
 from importlib_metadata import EntryPoint, EntryPoints
 from typer.testing import CliRunner
 
 import nemo_run as run
 from nemo_run import cli, config
 from nemo_run.cli import api as cli_api
-from nemo_run.cli.api import Entrypoint, RunContext, create_cli
+from nemo_run.cli.api import Entrypoint, RunContext, add_global_options, create_cli
 from test.dummy_factory import DummyModel, dummy_entrypoint
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
@@ -730,3 +735,46 @@ class TestDefaultFactory:
         assert isinstance(result["optimizer"], Optimizer)
         assert result["epochs"] == 40
         assert result["batch_size"] == 1024
+
+
+@pytest.fixture
+def runner():
+    return CliRunner()
+
+
+class TestGlobalOptions:
+    @pytest.fixture(autouse=True)
+    def _setup(self):
+        """Setup for all test cases"""
+        # Store original environment for cleanup
+        self.original_env = os.environ.copy()
+        yield
+        # Restore environment after each test
+        os.environ.clear()
+        os.environ.update(self.original_env)
+
+    @pytest.fixture
+    def app(self):
+        app = typer.Typer()
+
+        # Add test command that throws an error
+        @app.command()
+        def error_command():
+            """Command that throws a test exception"""
+            raise ValueError("Test error for exception handling")
+
+        # Add global options to test app
+        add_global_options(app)
+        return app
+
+    def test_verbose_logging(self, runner, app):
+        """Test verbose logging functionality"""
+        with patch("nemo_run.cli.api.configure_logging") as mock_configure:
+            # Test enabled
+            result = runner.invoke(app, ["-v", "error-command"])
+            mock_configure.assert_called_once_with(True)
+
+            # Test disabled
+            mock_configure.reset_mock()
+            runner.invoke(app, ["error-command"])
+            mock_configure.assert_called_once_with(False)
