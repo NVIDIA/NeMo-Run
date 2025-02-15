@@ -120,8 +120,14 @@ class GitArchivePackager(Packager):
         git_archive_cmd = (
             f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
         )
+        if os.uname().sysname == "Linux":
+            tar_submodule_cmd = f"tar Af {output_file}.tmp $sha1.tmp && rm $sha1.tmp"
+        else:
+            tar_submodule_cmd = f"cat $sha1.tmp >> {output_file}.tmp && rm $sha1.tmp"
+
         git_submodule_cmd = f"""git submodule foreach --recursive \
-'git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && cat $sha1.tmp >> {output_file}.tmp && rm $sha1.tmp'"""
+'git archive --format=tar --prefix=$sm_path/ --output=$sha1.tmp HEAD && {tar_submodule_cmd}'"""
+
         with ctx.cd(git_base_path):
             ctx.run(git_archive_cmd)
             if self.include_submodules:
