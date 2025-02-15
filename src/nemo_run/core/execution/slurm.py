@@ -865,6 +865,10 @@ class SlurmBatchRequest:
             _container_flags = ["--container-image", container_image] if container_image else []
 
             new_mounts = copy.deepcopy(base_mounts)
+            for i, mount in enumerate(new_mounts):
+                if mount.startswith("/$nemo_run"):
+                    new_mounts[i] = mount.replace("$nemo_run", src_job_dir)
+
             new_mounts.append(f"{src_job_dir}:/{RUNDIR_NAME}")
             _mount_arg = ",".join(new_mounts)
             _container_flags += ["--container-mounts", _mount_arg]
