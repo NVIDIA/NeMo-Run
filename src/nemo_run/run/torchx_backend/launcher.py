@@ -109,9 +109,7 @@ def launch(
             parent_run_id=parent_run_id,
         )
         logger.info(f"Launched app: {app_handle}")
-        app_status = runner.status(app_handle)
-        if app_status:
-            logger.info(app_status.format())
+        app_status = specs.AppStatus(state=specs.AppState.SUBMITTED)
         if wait:
             app_status = wait_and_exit(runner=runner, app_handle=app_handle, log=log)
 
