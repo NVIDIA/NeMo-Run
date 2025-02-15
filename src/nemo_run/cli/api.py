@@ -51,7 +51,7 @@ from rich.table import Table
 from typer import Option, Typer, rich_utils
 from typer.core import TyperCommand, TyperGroup
 from typer.models import OptionInfo
-from typing_extensions import ParamSpec
+from typing_extensions import NotRequired, ParamSpec, TypedDict
 
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
@@ -77,6 +77,7 @@ PLUGIN_CLASSES = [Plugin, List[Plugin]]
 NEMORUN_SKIP_CONFIRMATION: Optional[bool] = None
 
 INCLUDE_WORKSPACE_FILE = os.environ.get("INCLUDE_WORKSPACE_FILE", "true").lower() == "true"
+NEMORUN_PRETTY_EXCEPTIONS = os.environ.get("NEMORUN_PRETTY_EXCEPTIONS", "false").lower() == "true"
 
 logger = logging.getLogger(__name__)
 MAIN_ENTRYPOINT = None
@@ -211,11 +212,28 @@ def entrypoint(
     return wrapper(fn)
 
 
+class CommandDefaults(TypedDict, total=False):
+    direct: NotRequired[bool]
+    dryrun: NotRequired[bool]
+    load: NotRequired[str]
+    yaml: NotRequired[str]
+    repl: NotRequired[bool]
+    detach: NotRequired[bool]
+    skip_confirmation: NotRequired[bool]
+    tail_logs: NotRequired[bool]
+    rich_exceptions: NotRequired[bool]
+    rich_traceback: NotRequired[bool]
+    rich_locals: NotRequired[bool]
+    rich_theme: NotRequired[str]
+    verbose: NotRequired[bool]
+
+
 def main(
     fn: F,
     default_factory: Optional[Callable] = None,
     default_executor: Optional[Config[Executor]] = None,
     default_plugins: Optional[List[Config[Plugin]] | Config[Plugin]] = None,
+    cmd_defaults: Optional[CommandDefaults] = None,
     **kwargs,
 ):
     """
@@ -280,7 +298,7 @@ def main(
         MAIN_ENTRYPOINT = fn.cli_entrypoint
         return
 
-    fn.cli_entrypoint.main()
+    fn.cli_entrypoint.main(cmd_defaults)
 
     fn.cli_entrypoint.default_factory = _original_default_factory
     fn.cli_entrypoint.default_executor = _original_default_executor
@@ -507,7 +525,7 @@ def list_factories(type_or_namespace: Type | str) -> list[Callable]:
 
 
 def create_cli(
-    add_verbose_callback: bool = True,
+    add_verbose_callback: bool = False,
     nested_entrypoints_creation: bool = True,
 ) -> Typer:
     app: Typer = Typer(pretty_exceptions_enable=False)
@@ -558,7 +576,7 @@ def create_cli(
         )
 
     if add_verbose_callback:
-        app.callback()(global_options)
+        add_global_options(app)
 
     return app
 
@@ -577,8 +595,52 @@ class FactoryProtocol(Protocol):
     def __factory__(self) -> bool: ...
 
 
-def global_options(verbose: bool = Option(False, "-v", "--verbose")):
+def add_global_options(app: Typer):
+    @app.callback()
+    def global_options(
+        verbose: bool = Option(False, "-v", "--verbose"),
+        rich_exceptions: bool = typer.Option(
+            False, "--rich-exceptions/--no-rich-exceptions", help="Enable rich exception formatting"
+        ),
+        rich_traceback: bool = typer.Option(
+            False,
+            "--rich-traceback-short/--rich-traceback-full",
+            help="Control traceback verbosity",
+        ),
+        rich_locals: bool = typer.Option(
+            True,
+            "--rich-show-locals/--rich-hide-locals",
+            help="Toggle local variables in exceptions",
+        ),
+        rich_theme: Optional[str] = typer.Option(
+            None, "--rich-theme", help="Color theme (dark/light/monochrome)"
+        ),
+    ):
+        _configure_global_options(
+            app, rich_exceptions, rich_traceback, rich_locals, rich_theme, verbose
+        )
+
+    return global_options
+
+
+def _configure_global_options(
+    app: Typer,
+    rich_exceptions=False,
+    rich_traceback=True,
+    rich_locals=True,
+    rich_theme=None,
+    verbose=False,
+):
     configure_logging(verbose)
+
+    app.pretty_exceptions_enable = rich_exceptions
+    app.pretty_exceptions_short = False if rich_exceptions else rich_traceback
+    app.pretty_exceptions_show_locals = True if rich_exceptions else rich_locals
+
+    if rich_theme:
+        from rich.traceback import Traceback
+
+        Traceback.theme = rich_theme
 
 
 def configure_logging(verbose: bool):
@@ -682,7 +744,10 @@ def _get_return_type(fn: Callable) -> Type:
 def _load_entrypoints():
     entrypoints = metadata.entry_points().select(group="nemo_run.cli")
     for ep in entrypoints:
-        ep.load()
+        try:
+            ep.load()
+        except Exception as e:
+            print(f"Couldn't load entrypoint {ep.name}: {e}")
 
 
 def _search_workspace_file() -> str | None:
@@ -775,6 +840,7 @@ class RunContext:
         type: Literal["task", "experiment"] = "task",
         command_kwargs: Dict[str, Any] = {},
         is_main: bool = False,
+        cmd_defaults: Optional[Dict[str, Any]] = None,
     ):
         """
         Create a CLI command for the given function.
@@ -820,19 +886,50 @@ class RunContext:
             tail_logs: bool = typer.Option(
                 False, "--tail-logs/--no-tail-logs", help="Tail logs after execution"
             ),
+            verbose: bool = Option(False, "-v", "--verbose", help="Enable verbose logging"),
+            rich_exceptions: bool = typer.Option(
+                False,
+                "--rich-exceptions/--no-rich-exceptions",
+                help="Enable rich exception formatting",
+            ),
+            rich_traceback: bool = typer.Option(
+                False,
+                "--rich-traceback-short/--rich-traceback-full",
+                help="Control traceback verbosity",
+            ),
+            rich_locals: bool = typer.Option(
+                True,
+                "--rich-show-locals/--rich-hide-locals",
+                help="Toggle local variables in exceptions",
+            ),
+            rich_theme: Optional[str] = typer.Option(
+                None, "--rich-theme", help="Color theme (dark/light/monochrome)"
+            ),
             ctx: typer.Context = typer.Context,
         ):
+            _cmd_defaults = cmd_defaults or {}
             self = cls(
                 name=run_name or name,
-                direct=direct,
-                dryrun=dryrun,
+                direct=direct or _cmd_defaults.get("direct", False),
+                dryrun=dryrun or _cmd_defaults.get("dryrun", False),
                 factory=factory or default_factory,
-                load=load,
-                yaml=yaml,
-                repl=repl,
-                detach=detach,
-                skip_confirmation=skip_confirmation,
-                tail_logs=tail_logs,
+                load=load or _cmd_defaults.get("load", None),
+                yaml=yaml or _cmd_defaults.get("yaml", None),
+                repl=repl or _cmd_defaults.get("repl", False),
+                detach=detach or _cmd_defaults.get("detach", False),
+                skip_confirmation=skip_confirmation
+                or _cmd_defaults.get("skip_confirmation", False),
+                tail_logs=tail_logs or _cmd_defaults.get("tail_logs", False),
+            )
+
+            print("Configuring global options")
+            _configure_global_options(
+                parent,
+                rich_exceptions or _cmd_defaults.get("rich_exceptions", False),
+                rich_traceback or _cmd_defaults.get("rich_traceback", True),
+                rich_locals or _cmd_defaults.get("rich_locals", True),
+                rich_theme or _cmd_defaults.get("rich_theme", None),
+                verbose or _cmd_defaults.get("verbose", False),
             )
 
             if default_executor:
@@ -851,8 +948,15 @@ class RunContext:
                 _load_workspace()
                 self.cli_execute(fn, ctx.args, type)
             except RunContextError as e:
-                typer.echo(f"Error: {str(e)}", err=True, color=True)
-                raise typer.Exit(code=1)
+                if not verbose:
+                    typer.echo(f"Error: {str(e)}", err=True, color=True)
+                    raise typer.Exit(code=1)
+                raise  # Re-raise the exception for verbose mode
+            except Exception as e:
+                if not verbose:
+                    typer.echo(f"Unexpected error: {str(e)}", err=True, color=True)
+                    raise typer.Exit(code=1)
+                raise  # Re-raise the exception for verbose mode
 
         return command
 
@@ -1285,9 +1389,14 @@ class Entrypoint(Generic[Params, ReturnType]):
     def cli(self, parent: typer.Typer):
         self._add_command(parent)
 
-    def _add_command(self, typer_instance: typer.Typer, is_main: bool = False):
+    def _add_command(
+        self,
+        typer_instance: typer.Typer,
+        is_main: bool = False,
+        cmd_defaults: Optional[Dict[str, Any]] = None,
+    ):
         if self.enable_executor:
-            self._add_executor_command(typer_instance, is_main=is_main)
+            self._add_executor_command(typer_instance, is_main=is_main, cmd_defaults=cmd_defaults)
         else:
             self._add_simple_command(typer_instance, is_main=is_main)
 
@@ -1307,7 +1416,12 @@ class Entrypoint(Generic[Params, ReturnType]):
                 console.print(f"[bold red]Error: {str(e)}[/bold red]")
                 sys.exit(1)
 
-    def _add_executor_command(self, parent: typer.Typer, is_main: bool = False):
+    def _add_executor_command(
+        self,
+        parent: typer.Typer,
+        is_main: bool = False,
+        cmd_defaults: Optional[Dict[str, Any]] = None,
+    ):
         help = self.help_str
         colored_help = None
         if help:
@@ -1329,6 +1443,7 @@ class Entrypoint(Generic[Params, ReturnType]):
                 cls=CLITaskCommand,
             ),
             is_main=is_main,
+            cmd_defaults=cmd_defaults,
         )
 
     def _add_options_to_command(self, command: Callable):
@@ -1345,9 +1460,9 @@ class Entrypoint(Generic[Params, ReturnType]):
         fn.func.__io__ = config
         fn()
 
-    def main(self):
-        app = typer.Typer(help=self.help_str, pretty_exceptions_enable=False)
-        self._add_command(app, is_main=True)
+    def main(self, cmd_defaults: Optional[Dict[str, Any]] = None):
+        app = typer.Typer(help=self.help_str, pretty_exceptions_enable=NEMORUN_PRETTY_EXCEPTIONS)
+        self._add_command(app, is_main=True, cmd_defaults=cmd_defaults)
         app(standalone_mode=False)
 
     def help(self, console=Console(), with_docs: bool = True):
