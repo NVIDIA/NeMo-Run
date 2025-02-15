@@ -342,7 +342,7 @@ def test_untracked_files_raises_exception(temp_repo):
 @patch("nemo_run.core.packaging.git.Context", MockContext)
 def test_package_with_include_submodules(packager, temp_repo):
     temp_repo = Path(temp_repo)
-    # Create a submodule
+    # Create first submodule
     submodule_path = temp_repo / "submodule"
     submodule_path.mkdir()
     os.chdir(str(submodule_path))
@@ -350,9 +350,20 @@ def test_package_with_include_submodules(packager, temp_repo):
     open("submodule_file.txt", "w").write("Submodule file")
     subprocess.check_call(["git", "add", "."])
     subprocess.check_call(["git", "commit", "-m", "Initial submodule commit"])
+
+    # Create second submodule
+    submodule2_path = temp_repo / "submodule2"
+    submodule2_path.mkdir()
+    os.chdir(str(submodule2_path))
+    subprocess.check_call(["git", "init", "--initial-branch=main"])
+    open("submodule2_file.txt", "w").write("Second submodule file")
+    subprocess.check_call(["git", "add", "."])
+    subprocess.check_call(["git", "commit", "-m", "Initial submodule2 commit"])
+
     os.chdir(str(temp_repo))
     subprocess.check_call(["git", "submodule", "add", str(submodule_path)])
-    subprocess.check_call(["git", "commit", "-m", "Add submodule"])
+    subprocess.check_call(["git", "submodule", "add", str(submodule2_path)])
+    subprocess.check_call(["git", "commit", "-m", "Add submodules"])
 
     packager = GitArchivePackager(ref="HEAD", include_submodules=True)
     with tempfile.TemporaryDirectory() as job_dir:
@@ -364,12 +375,21 @@ def test_package_with_include_submodules(packager, temp_repo):
                 f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
             ),
         )
+        # Check first submodule
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "submodule"),
             os.path.join(job_dir, "extracted_output", "submodule"),
         )
         assert cmp.left_list == cmp.right_list
         assert not cmp.diff_files
+
+        # Check second submodule
+        cmp2 = filecmp.dircmp(
+            os.path.join(temp_repo, "submodule2"),
+            os.path.join(job_dir, "extracted_output", "submodule2"),
+        )
+        assert cmp2.left_list == cmp2.right_list
+        assert not cmp2.diff_files
 
 
 @patch("nemo_run.core.packaging.git.Context", MockContext)
