@@ -18,7 +18,7 @@ import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Type, Union
+from typing import Any, Optional, Type, Union
 
 from invoke.context import Context
 
@@ -104,6 +104,7 @@ class SkypilotExecutor(Executor):
     autodown: bool = False
     idle_minutes_to_autostop: Optional[int] = None
     torchrun_nproc_per_node: Optional[int] = None
+    cluster_config_overrides: Optional[dict[str, Any]] = None
     packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     def __post_init__(self):
@@ -153,12 +154,12 @@ class SkypilotExecutor(Executor):
                         if len(any_of) < i + 1:
                             any_of.append({})
 
-                        if val.lower() == "none":
-                            any_of[i][attr] = val
+                        if isinstance(val, str) and val.lower() == "none":
+                            any_of[i][attr] = None
                         else:
                             any_of[i][attr] = val
                 else:
-                    if value.lower() == "none":
+                    if isinstance(value, str) and value.lower() == "none":
                         resources_cfg[attr] = None
                     else:
                         resources_cfg[attr] = value
@@ -182,6 +183,9 @@ class SkypilotExecutor(Executor):
             parse_attr(attr)
 
         resources_cfg["any_of"] = any_of
+        if self.cluster_config_overrides:
+            resources_cfg["_cluster_config_overrides"] = self.cluster_config_overrides
+
         resources = Resources.from_yaml_config(resources_cfg)
 
         return resources  # type: ignore
@@ -409,8 +413,8 @@ cd /nemo_run/code
             backend=backend,
             idle_minutes_to_autostop=self.idle_minutes_to_autostop,
             down=self.autodown,
+            fast=True,
             # retry_until_up=retry_until_up,
-            no_setup=True if (self.cluster_name and not self.setup) else False,
             # clone_disk_from=clone_disk_from,
         )
 
