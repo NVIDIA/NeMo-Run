@@ -29,7 +29,7 @@ from invoke.context import Context
 from rich.console import Console
 from rich.text import Text
 
-from nemo_run.config import RUNDIR_NAME
+from nemo_run.config import RUNDIR_NAME, RUNDIR_SPECIAL_NAME
 from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
@@ -866,8 +866,8 @@ class SlurmBatchRequest:
 
             new_mounts = copy.deepcopy(base_mounts)
             for i, mount in enumerate(new_mounts):
-                if mount.startswith("/$nemo_run"):
-                    new_mounts[i] = mount.replace("$nemo_run", src_job_dir)
+                if mount.startswith(RUNDIR_SPECIAL_NAME):
+                    new_mounts[i] = mount.replace(RUNDIR_SPECIAL_NAME, src_job_dir, 1)
 
             new_mounts.append(f"{src_job_dir}:/{RUNDIR_NAME}")
             _mount_arg = ",".join(new_mounts)
