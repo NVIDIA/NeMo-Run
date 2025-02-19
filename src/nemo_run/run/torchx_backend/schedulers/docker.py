@@ -42,7 +42,7 @@ from torchx.specs.api import (
     is_terminal,
 )
 
-from nemo_run.config import RUNDIR_NAME
+from nemo_run.config import RUNDIR_NAME, RUNDIR_SPECIAL_NAME
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.docker import (
     DockerContainer,
@@ -120,6 +120,11 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
                 log.warning(f"failed to pull image {image}, falling back to local: {e}")
 
         for container in req.containers:
+            for i, mount in enumerate(container.executor.volumes):
+                if mount.startswith(RUNDIR_SPECIAL_NAME):
+                    container.executor.volumes[i] = mount.replace(
+                        RUNDIR_SPECIAL_NAME, req.executor.job_dir, 1
+                    )
             container.executor.volumes.append(f"{req.executor.job_dir}:/{RUNDIR_NAME}")
 
         req.run(client=client)
