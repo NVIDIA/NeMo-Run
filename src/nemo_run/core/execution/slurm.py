@@ -826,6 +826,12 @@ class SlurmBatchRequest:
         sbatch_flags = []
         if self.slurm_config.heterogeneous:
             assert len(self.jobs) == len(self.slurm_config.resource_group)
+            final_group_index = len(self.slurm_config.resource_group) - 1
+            if self.slurm_config.het_group_indices:
+                final_group_index = self.slurm_config.het_group_indices.index(
+                    max(self.slurm_config.het_group_indices)
+                )
+
             for i in range(len(self.slurm_config.resource_group)):
                 resource_req = self.slurm_config.resource_group[i]
                 if resource_req.het_group_index:
@@ -858,7 +864,7 @@ class SlurmBatchRequest:
                 )
                 for k in sorted(parameters):
                     sbatch_flags.append(_as_sbatch_flag(k, het_parameters[k]))
-                if i != len(self.slurm_config.resource_group) - 1:
+                if i != final_group_index:
                     sbatch_flags.append("#SBATCH hetjob")
         else:
             for k in sorted(parameters):
