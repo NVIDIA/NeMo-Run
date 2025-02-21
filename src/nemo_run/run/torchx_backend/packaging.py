@@ -22,8 +22,9 @@ import fiddle._src.experimental.dataclasses as fdl_dc
 from torchx import specs
 
 from nemo_run.config import SCRIPTS_DIR, Partial, Script
-from nemo_run.core.execution.base import Executor, FaultTolerance, Torchrun
+from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
+from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
@@ -51,7 +52,7 @@ def package(
     env = env | executor.env_vars
     mounts = mounts or []
 
-    if isinstance(fn_or_script, Partial):
+    def _get_details_from_partial(fn_or_script: Partial):
         args = [
             "-n",
             name,
@@ -90,24 +91,30 @@ def package(
         no_python = False
         script = None
         entrypoint = "python"
-    else:
-        try:
-            yaml_cfgs = [
-                (
-                    f"{name}_executor.yaml",
-                    _serialize(executor.to_config(), serializer_cls=YamlSerializer),
-                ),
-                (
-                    f"{name}_config.yaml",
-                    _serialize(
-                        fdl_dc.convert_dataclasses_to_configs(fn_or_script, allow_post_init=True),
-                        serializer_cls=YamlSerializer,
+
+        return role_args, args, m, no_python, script, entrypoint
+
+    def _get_details_from_script(fn_or_script: Script, serialize_configs: bool):
+        if serialize_configs:
+            try:
+                yaml_cfgs = [
+                    (
+                        f"{name}_executor.yaml",
+                        _serialize(executor.to_config(), serializer_cls=YamlSerializer),
                     ),
-                ),
-            ]
-            executor.package_configs(*yaml_cfgs)
-        except Exception as e:
-            log.warning(f"Failed saving yaml configs due to: {e}")
+                    (
+                        f"{name}_config.yaml",
+                        _serialize(
+                            fdl_dc.convert_dataclasses_to_configs(
+                                fn_or_script, allow_post_init=True
+                            ),
+                            serializer_cls=YamlSerializer,
+                        ),
+                    ),
+                ]
+                executor.package_configs(*yaml_cfgs)
+            except Exception as e:
+                log.warning(f"Failed saving yaml configs due to: {e}")
 
         args = fn_or_script.args
         role_args = fn_or_script.to_command(
@@ -117,10 +124,27 @@ def package(
         m = fn_or_script.path if fn_or_script.m else None
         no_python = fn_or_script.entrypoint != "python"
         script = fn_or_script.path if not fn_or_script.m else None
-        env = env | fn_or_script.env
         entrypoint = fn_or_script.entrypoint
 
+        return role_args, args, m, no_python, script, entrypoint
+
+    if isinstance(fn_or_script, Partial):
+        role_args, args, m, no_python, script, entrypoint = _get_details_from_partial(fn_or_script)
+    else:
+        role_args, args, m, no_python, script, entrypoint = _get_details_from_script(
+            fn_or_script, serialize_configs=True
+        )
+        env = env | fn_or_script.env
+
     launcher = executor.get_launcher()
+    if executor.supports_launcher_transform():
+        cmd = [entrypoint] + role_args
+        transformed_script = launcher.transform(cmd)
+        if transformed_script:
+            role_args, args, m, no_python, script, entrypoint = _get_details_from_script(
+                transformed_script, serialize_configs=False
+            )
+
     if launcher and isinstance(launcher, Torchrun):
         app_def = torchrun.torchrun(
             *args,

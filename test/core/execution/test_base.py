@@ -16,16 +16,15 @@
 
 import fiddle as fdl
 import pytest
+from torchx.specs import Role
+
 from nemo_run.config import Config
 from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
-    FaultTolerance,
-    Launcher,
-    Torchrun,
 )
+from nemo_run.core.execution.launcher import FaultTolerance, Launcher, Torchrun
 from nemo_run.core.execution.slurm import SlurmExecutor
-from torchx.specs import Role
 
 
 class TestExecutorMacros:

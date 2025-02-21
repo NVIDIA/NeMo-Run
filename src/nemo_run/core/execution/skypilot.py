@@ -26,9 +26,8 @@ from nemo_run.config import RUNDIR_NAME
 from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
-    FaultTolerance,
-    Torchrun,
 )
+from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 

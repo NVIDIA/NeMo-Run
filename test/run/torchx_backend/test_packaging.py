@@ -19,7 +19,8 @@ import pytest
 from torchx import specs
 
 from nemo_run.config import Partial, Script
-from nemo_run.core.execution.base import Executor, FaultTolerance, Torchrun
+from nemo_run.core.execution.base import Executor
+from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.packaging.base import Packager
 from nemo_run.run.torchx_backend.packaging import (
