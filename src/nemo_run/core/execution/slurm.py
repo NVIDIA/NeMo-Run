@@ -33,10 +33,8 @@ from nemo_run.config import RUNDIR_NAME, RUNDIR_SPECIAL_NAME
 from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
-    FaultTolerance,
-    Launcher,
-    Torchrun,
 )
+from nemo_run.core.execution.launcher import FaultTolerance, Launcher, SlurmRay, Torchrun
 from nemo_run.core.execution.utils import fill_template
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.packaging.base import Packager
@@ -544,6 +542,9 @@ class SlurmExecutor(Executor):
         if launcher.nsys_profile:
             return launcher.get_nsys_prefix(profile_dir=f"/{RUNDIR_NAME}")
 
+    def supports_launcher_transform(self) -> bool:
+        return True if isinstance(self.get_launcher(), SlurmRay) else False
+
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
         filenames = []
         basepath = os.path.join(self.job_dir, "configs")
@@ -825,7 +826,9 @@ class SlurmBatchRequest:
 
         sbatch_flags = []
         if self.slurm_config.heterogeneous:
-            assert len(self.jobs) == len(self.slurm_config.resource_group)
+            assert (
+                len(self.jobs) == len(self.slurm_config.resource_group)
+            ), f"Number of jobs {len(self.jobs)} must match number of resource group requests {len(self.slurm_config.resource_group)}.\nIf you are just submitting a single job, make sure that heterogeneous=False in the executor."
             final_group_index = len(self.slurm_config.resource_group) - 1
             if self.slurm_config.het_group_indices:
                 final_group_index = self.slurm_config.het_group_indices.index(
