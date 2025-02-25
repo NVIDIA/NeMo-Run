@@ -73,10 +73,6 @@ class SlurmRay(Launcher):
         # Build the Ray launcher bash script. Braces in shell variables are escaped as {{ and }}
         ray_script = f"""
 # Check that a command was provided.
-if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 <command>"
-    exit 1
-fi
 
 # Function to start the Ray head node.
 start_head() {{
