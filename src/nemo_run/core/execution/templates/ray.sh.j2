@@ -1,0 +1,41 @@
+#!/bin/bash
+# Ray launcher script
+
+# Function to start the Ray head node.
+start_head() {
+    echo "Starting Ray head node on ${HEAD_IP}"
+    ray start --head --node-ip-address=${HEAD_IP} --port={{ port }}
+    export RAY_ADDRESS="${HEAD_IP}:{{ port }}"
+}
+
+# Function to start a Ray worker node.
+start_worker() {
+    # Obtain the head node's hostname from the SLURM_NODELIST.
+    echo "Starting Ray worker node. Connecting to head ${HEAD_IP}"
+    ray start --address=${HEAD_IP}:{{ port }}
+}
+
+# If this is the head node, start the head; otherwise, start a worker.
+if [ -z "$SLURM_NODEID" ] || [ "$SLURM_NODEID" == "0" ]; then
+    start_head
+else
+    start_worker
+fi
+
+# Only the head node executes the command.
+if [ -z "$SLURM_NODEID" ] || [ "$SLURM_NODEID" == "0" ]; then
+    echo "Running command: {{ command }}"
+    # Use eval so the given command is executed with its arguments.
+    eval "{{ command }}"
+    echo "Command finished. Shutting down Ray on head node."
+    ray stop
+    # Optionally, you could touch a file to signal the worker nodes to shut down.
+fi
+
+# For worker nodes, simply wait so that Ray stays active.
+if [ -n "$SLURM_NODEID" ] && [ "$SLURM_NODEID" != "0" ]; then
+    echo "Worker node running. Waiting for the Ray head to finish."
+    while true; do
+        sleep 15
+    done
+fi
