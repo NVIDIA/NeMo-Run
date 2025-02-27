@@ -279,6 +279,8 @@ class SlurmExecutor(Executor):
         "mem",
         "mem-per-gpu",
         "mem-per-cpu",
+        "gpus-per-node",
+        "gpus-per-task",
     ]
 
     @dataclass(kw_only=True)
