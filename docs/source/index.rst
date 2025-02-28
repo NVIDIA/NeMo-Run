@@ -6,6 +6,16 @@
 NeMo-Run documentation
 ======================
 
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   guides/configuration
+   guides/execution
+   guides/management
+   guides/why-use-nemo-run
+   faqs
+
 NeMo-Run is a powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments. NeMo Run has three core responsibilities:
 
 1. `Configuration <./guides/configuration.html>`_
@@ -15,16 +25,9 @@ NeMo-Run is a powerful tool designed to streamline the configuration, execution 
 Please click into each link to learn more.
 This is also the typical order Nemo Run users will follow to setup and launch experiments.
 
-.. toctree::
-   :glob:
-   :maxdepth: 1
-
-   api/index.rst
-   guides/index.rst
-   faq*
-
 Installation
----------
+------------
+
 To install the project, use the following command:
 
 ``pip install git+https://github.com/NVIDIA/NeMo-Run.git``
