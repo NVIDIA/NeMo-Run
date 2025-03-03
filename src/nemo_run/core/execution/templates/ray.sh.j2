@@ -12,7 +12,7 @@ done
 echo "Environment Variables:"
 echo "SLURM_NNODES=${SLURM_NNODES}"
 echo "HEAD_NODE_ADDR=${HEAD_NODE_ADDR}"
-export NEMO_CURATOR_RAY_SLURM_JOB="true"
+{{ env_vars }}
 
 # Extract Ray ports from environment variables or hardcode them
 GCS_SERVER_PORT={{ gcs_server_port }}
@@ -98,7 +98,7 @@ start_head() {
 
         # Proceed only if the worker_count is a valid integer and >= expected_workers
         if [[ "$worker_count" -ge "$SLURM_NNODES" ]]; then
-            echo "Enough workers connected. Proceeding to start the Nemo Curator server."
+            echo "Enough workers connected. Proceeding to start the Python command."
             break
         fi
 
