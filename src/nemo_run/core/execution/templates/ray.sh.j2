@@ -146,9 +146,9 @@ fi
 
 # Only the head node executes the Python command.
 if [ -z "$SLURM_NODEID" ] || [ "$SLURM_NODEID" == "0" ]; then
-    echo "Running Python command: $@"
+    echo "Running Python command: {{ command }}"
     # Use eval so the given command is executed with its arguments.
-    eval "$@"
+    eval "{{ command }}"
     echo "Python script finished. Shutting down Ray on head node."
     ray stop
     sleep 30
