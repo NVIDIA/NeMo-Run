@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import typer
 
 fdl_runner_app = typer.Typer(pretty_exceptions_enable=False)
@@ -49,7 +51,11 @@ def fdl_direct_run(
         fdl_package.setup()
 
     if os.path.isfile(fdl_config):
-        maybe_load_external_main(Path(fdl_config).parent.parent.parent)
+        try:
+            maybe_load_external_main(Path(fdl_config).parent.parent.parent)
+        except Exception as e:
+            logging.warning(f"Failed to load external main: {e}")
+
         fdl_config = Path(fdl_config).read_text()
 
     fdl_buildable: fdl.Buildable = ZlibJSONSerializer().deserialize(fdl_config)
