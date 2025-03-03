@@ -1,0 +1,155 @@
+#!/bin/bash
+
+# Required environment variables
+REQUIRED_VARS=("SLURM_NNODES" "HEAD_NODE_ADDR")
+for var in "${REQUIRED_VARS[@]}"; do
+    if [ -z "${!var}" ]; then
+        echo "Error: $var is not set."
+        exit 1
+    fi
+done
+
+echo "Environment Variables:"
+echo "SLURM_NNODES=${SLURM_NNODES}"
+echo "HEAD_NODE_ADDR=${HEAD_NODE_ADDR}"
+{{ env_vars }}
+
+# Extract Ray ports from environment variables or hardcode them
+GCS_SERVER_PORT={{ gcs_server_port }}
+DASHBOARD_PORT={{ dashboard_port }}
+OBJECT_MANAGER_PORT={{ object_manager_port }}
+NODE_MANAGER_PORT={{ node_manager_port }}
+RAY_DASHBOARD_AGENT_PORT={{ dashboard_agent_port }}
+RAY_DASHBOARD_AGENT_GRPC_PORT={{ dashboard_agent_grpc_port }}
+METRICS_PORT={{ metrics_port }}
+
+get_ray_worker_count() {
+    local ray_status_output
+    ray_status_output=$(ray status 2>&1)  # Capture both stdout and stderr
+
+    # Check if the output contains the expected "Active" workers section
+    if echo "$ray_status_output" | grep -q "Active:"; then
+        # Extract the number of active workers by counting lines containing "node_"
+        worker_count=$(echo "$ray_status_output" | awk '/Active:/,/Pending:/' | grep -c "node_")
+
+        # Ensure worker_count is valid, otherwise set it to 0
+        if [[ -z "$worker_count" || "$worker_count" -lt 0 ]]; then
+            worker_count=0
+        fi
+    else
+        # Handle the case where "ray status" doesn't return valid data yet
+        worker_count=-1
+    fi
+
+    echo "$worker_count"
+}
+
+display_nvidia_smi() {
+    echo "NVIDIA SMI for $SLURMD_NODENAME"
+    which nvidia-smi && nvidia-smi || echo "nvidia-smi not in container"
+}
+
+ray_pid=""
+
+# Display nvidia-smi output
+{% if display_nvidia_smi_output | default(false) %}
+display_nvidia_smi
+{% endif %}
+
+
+# Function to start the Ray head node.
+start_head() {
+    # Start Ray head node
+
+    echo "Starting Ray head node"
+    ray start --head \
+        --node-ip-address=$(hostname -i) \
+        --port=${GCS_SERVER_PORT} \
+        --object-manager-port=${OBJECT_MANAGER_PORT} \
+        --node-manager-port=${NODE_MANAGER_PORT} \
+        --system-config='{"local_fs_capacity_threshold": 0.90, "object_spilling_config": "{ \"type\": \"filesystem\", \"params\": {\"directory_path\": \"/tmp/ray_spill\", \"buffer_size\": 1000000 } }"}' \
+        --metrics-export-port=${METRICS_PORT} \
+        --dashboard-host 0.0.0.0 --include-dashboard 1 \
+        --disable-usage-stats \
+        --dashboard-agent-grpc-port=${RAY_DASHBOARD_AGENT_GRPC_PORT} \
+        --dashboard-agent-listen-port=${RAY_DASHBOARD_AGENT_PORT} |  tee -a /tmp/ray.log
+    ray_pid=$!
+    echo "Ray head node started with PID $ray_pid"
+
+    ready_set=false
+    # Periodically check Ray status
+    while true; do
+        worker_count=$(get_ray_worker_count)
+        echo "Current workers ready: $worker_count"
+        if [[ "$worker_count" -eq -1 ]]; then
+            echo "Ray cluster status not available. Waiting for cluster."
+            sleep 5
+            continue
+        fi
+        if [[ "$worker_count" -eq 1 && "$ready_set" == "false" ]]; then
+            echo "Ray cluster is ready. Setting head node pod status to ready."
+            # TODO: enable once health server is ready
+            # curl -X POST http://localhost:8000/set-ready -H "Content-Type: application/json" -d '{"status": true}'
+            touch /tmp/is_ready
+
+            # Set ready_set to true after the curl request is sent
+            ready_set=true
+        fi
+
+        # Proceed only if the worker_count is a valid integer and >= expected_workers
+        if [[ "$worker_count" -ge "$SLURM_NNODES" ]]; then
+            echo "Enough workers connected. Proceeding to start the Python command."
+            break
+        fi
+
+        echo "Waiting for workers to connect..."
+        sleep {{ head_init_wait_time }}
+    done
+
+    {{ head_setup }}
+}
+
+# Function to start a Ray worker node.
+start_worker() {
+    sleep {{ worker_init_wait_time }}
+    set +x
+
+    # Start Ray worker node and connect to head
+    echo "Starting Ray worker node and connecting to head at ${HEAD_NODE_ADDR}:${GCS_SERVER_PORT}"
+    ray start --address="${HEAD_NODE_ADDR}:${GCS_SERVER_PORT}" \
+        --block \
+        --node-ip-address=$(hostname -i) \
+        --object-manager-port=${OBJECT_MANAGER_PORT} \
+        --node-manager-port=${NODE_MANAGER_PORT} \
+        --metrics-export-port=${METRICS_PORT} \
+        --dashboard-agent-grpc-port=${RAY_DASHBOARD_AGENT_GRPC_PORT} \
+        --dashboard-agent-listen-port=${RAY_DASHBOARD_AGENT_PORT} \
+        --disable-usage-stats
+
+
+    # Check if Ray worker node started successfully by reading the exit code
+    if [ $? -ne 0 ]; then
+        echo "Error: Ray worker node failed to start."
+        exit 1
+    fi
+
+    echo "Ray start --block ... exited"
+
+}
+
+# If this is the head node, start the head; otherwise, start a worker.
+if [ -z "$SLURM_NODEID" ] || [ "$SLURM_NODEID" == "0" ]; then
+    start_head
+else
+    start_worker
+fi
+
+# Only the head node executes the Python command.
+if [ -z "$SLURM_NODEID" ] || [ "$SLURM_NODEID" == "0" ]; then
+    echo "Running Python command: {{ command }}"
+    # Use eval so the given command is executed with its arguments.
+    eval "{{ command }}"
+    echo "Python script finished. Shutting down Ray on head node."
+    ray stop
+    sleep 30
+fi
