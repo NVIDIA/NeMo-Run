@@ -139,13 +139,27 @@ class SlurmRay(SlurmTemplate):
     and executing the provided command. Worker nodes start Ray and wait.
     """
 
-    port: int = 6379
+    gcs_server_port: int = 6379
+    dashboard_port: int = 8265
+    object_manager_port: int = 8076
+    node_manager_port: int = 8077
+    dashboard_agent_port: int = 52365
+    dashboard_agent_grpc_port: int = 52366
+    metrics_port: int = 9002
+    display_nvidia_smi_output: bool = False
 
     def __post_init__(self):
         # Set the template path to the Ray template
         self.template_path = "ray.sh.j2"
-        # Add port to template variables
-        self.template_vars["port"] = self.port
+        # Fill in the template variables
+        self.template_vars["gcs_server_port"] = self.gcs_server_port
+        self.template_vars["dashboard_port"] = self.dashboard_port
+        self.template_vars["object_manager_port"] = self.object_manager_port
+        self.template_vars["node_manager_port"] = self.node_manager_port
+        self.template_vars["dashboard_agent_port"] = self.dashboard_agent_port
+        self.template_vars["dashboard_agent_grpc_port"] = self.dashboard_agent_grpc_port
+        self.template_vars["metrics_port"] = self.metrics_port
+        self.template_vars["display_nvidia_smi_output"] = self.display_nvidia_smi_output
         # Call parent's post_init
         super().__post_init__()
 
