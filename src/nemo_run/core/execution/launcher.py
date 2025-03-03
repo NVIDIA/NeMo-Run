@@ -154,7 +154,7 @@ class SlurmRay(SlurmTemplate):
 
     def __post_init__(self):
         # Set the template path to the Ray template
-        self.template_path = "ray.sh.j2"
+        self.template_path = "slurm_ray.sh.j2"
         # Fill in the template variables
         self.template_vars["gcs_server_port"] = self.gcs_server_port
         self.template_vars["dashboard_port"] = self.dashboard_port
