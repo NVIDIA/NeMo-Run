@@ -147,6 +147,9 @@ class SlurmRay(SlurmTemplate):
     dashboard_agent_grpc_port: int = 52366
     metrics_port: int = 9002
     display_nvidia_smi_output: bool = False
+    head_setup: Optional[str] = None
+    head_init_wait_time: int = 10
+    worker_init_wait_time: int = 60
 
     def __post_init__(self):
         # Set the template path to the Ray template
@@ -160,6 +163,9 @@ class SlurmRay(SlurmTemplate):
         self.template_vars["dashboard_agent_grpc_port"] = self.dashboard_agent_grpc_port
         self.template_vars["metrics_port"] = self.metrics_port
         self.template_vars["display_nvidia_smi_output"] = self.display_nvidia_smi_output
+        self.template_vars["head_setup"] = self.head_setup
+        self.template_vars["head_init_wait_time"] = self.head_init_wait_time
+        self.template_vars["worker_init_wait_time"] = self.worker_init_wait_time
         # Call parent's post_init
         super().__post_init__()
 
