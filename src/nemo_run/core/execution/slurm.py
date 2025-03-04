@@ -34,7 +34,7 @@ from nemo_run.core.execution.base import (
     Executor,
     ExecutorMacros,
 )
-from nemo_run.core.execution.launcher import FaultTolerance, Launcher, SlurmRay, Torchrun
+from nemo_run.core.execution.launcher import FaultTolerance, Launcher, SlurmTemplate, Torchrun
 from nemo_run.core.execution.utils import fill_template
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.packaging.base import Packager
@@ -543,7 +543,7 @@ class SlurmExecutor(Executor):
             return launcher.get_nsys_prefix(profile_dir=f"/{RUNDIR_NAME}")
 
     def supports_launcher_transform(self) -> bool:
-        return True if isinstance(self.get_launcher(), SlurmRay) else False
+        return True if isinstance(self.get_launcher(), SlurmTemplate) else False
 
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
         filenames = []
