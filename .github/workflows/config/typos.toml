@@ -4,3 +4,7 @@ extend-exclude = [
     "test/",
 ]
 ignore-hidden = false
+
+
+[default.extend-words]
+typ = "typ"

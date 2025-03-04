@@ -21,7 +21,8 @@ from pathlib import Path
 import pytest
 
 from nemo_run.config import Script
-from nemo_run.core.execution.base import ExecutorMacros, FaultTolerance
+from nemo_run.core.execution.base import ExecutorMacros
+from nemo_run.core.execution.launcher import FaultTolerance
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor, SlurmJobDetails
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
