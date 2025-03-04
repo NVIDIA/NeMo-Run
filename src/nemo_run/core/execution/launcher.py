@@ -115,7 +115,8 @@ class SlurmTemplate(Launcher):
 
         # If using inline template or absolute path template
         template_content = self.get_template_content()
-        template = jinja2.Template(template_content)
+        env = jinja2.Environment(autoescape=jinja2.select_autoescape(['html', 'xml']))
+        template = env.from_string(template_content)
 
         # Create variables dictionary with command and additional variables
         vars_dict = {"command": " ".join(cmd), **self.template_vars}
