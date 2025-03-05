@@ -41,11 +41,11 @@ from torchx.specs.api import AppState
 
 import nemo_run as run
 from nemo_run.config import (
-    NEMORUN_HOME,
     Config,
     ConfigurableMixin,
     Partial,
     Script,
+    get_nemorun_home,
     get_type_namespace,
 )
 from nemo_run.core.execution.base import Executor
@@ -101,7 +101,7 @@ class Experiment(ConfigurableMixin):
     The design is heavily inspired from `XManager <https://github.com/google-deepmind/xmanager/blob/main/docs/xm_launch_api_principles.md>`_.
 
     Under the hood, the Experiment metadata is stored in the local filesystem
-    inside a user specified directory controlled by NEMORUN_HOME env var.
+    inside a user specified directory controlled by get_nemorun_home() env var.
     We will explore making the metadata more persistent in the future.
 
     .. note::
@@ -206,9 +206,9 @@ nemo experiment cancel {exp_id} 0
         title: str = "",
     ) -> list[str]:
         """
-        List all experiments inside NEMORUN_HOME, optionally with the provided title.
+        List all experiments inside get_nemorun_home(), optionally with the provided title.
         """
-        parent_dir = os.path.join(NEMORUN_HOME, "experiments", title)
+        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         return _get_sorted_dirs(parent_dir)
 
     @classmethod
@@ -247,7 +247,7 @@ nemo experiment cancel {exp_id} 0
         Reconstruct an experiment with the specified id.
         """
         title, _, _ = id.rpartition("_")
-        parent_dir = os.path.join(NEMORUN_HOME, "experiments", title)
+        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         exp_dir = os.path.join(parent_dir, id)
 
         assert os.path.isdir(exp_dir), f"Experiment {id} not found."
@@ -263,7 +263,7 @@ nemo experiment cancel {exp_id} 0
         """
         Reconstruct an experiment with the specified title.
         """
-        parent_dir = os.path.join(NEMORUN_HOME, "experiments", title)
+        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         exp_dir = _get_latest_dir(parent_dir)
 
         assert os.path.isdir(exp_dir), f"Experiment {id} not found."
@@ -303,7 +303,7 @@ nemo experiment cancel {exp_id} 0
         self._title = title
         self._id = id or f"{title}_{int(time.time())}"
 
-        base_dir = base_dir or NEMORUN_HOME
+        base_dir = base_dir or get_nemorun_home()
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
 
         self.log_level = log_level
@@ -967,7 +967,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
         old_id, old_exp_dir, old_launched = self._id, self._exp_dir, self._launched
         self._id = f"{self._title}_{int(time.time())}"
-        self._exp_dir = os.path.join(NEMORUN_HOME, "experiments", self._title, self._id)
+        self._exp_dir = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
         self._launched = False
         self._live_progress = None
 
@@ -1017,7 +1017,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 f"[bold magenta]Failed resetting Experiment {self._id} due to error: {e}"
             )
             # Double check exp dir is unchanged
-            new_path = os.path.join(NEMORUN_HOME, "experiments", self._title, self._id)
+            new_path = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
             if self._exp_dir == new_path and new_path != old_exp_dir:
                 shutil.rmtree(self._exp_dir)
 

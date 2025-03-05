@@ -31,7 +31,7 @@ from torchx.specs import (
     parse_app_handle,
 )
 
-from nemo_run.config import NEMORUN_HOME, RUNDIR_NAME
+from nemo_run.config import RUNDIR_NAME, get_nemorun_home
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
@@ -50,7 +50,7 @@ except ModuleNotFoundError:
     fcntl = None
     FCNTL_AVAILABLE = False
 
-DOCKER_JOB_DIRS = os.path.join(NEMORUN_HOME, ".docker_jobs.json")
+DOCKER_JOB_DIRS = os.path.join(get_nemorun_home(), ".docker_jobs.json")
 NETWORK = "nemo_run"
 
 LABEL_EXPERIMENT_ID: str = "nemo-run/experiment-id"
