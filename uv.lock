@@ -1,30 +1,20 @@
 version = 1
+revision = 1
 requires-python = ">=3.10"
 resolution-markers = [
-    "python_full_version < '3.11' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Darwin' and sys_platform == 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'win32'",
+    "python_full_version < '3.11' and sys_platform == 'win32'",
+    "python_version < '0'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'win32'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'win32'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and sys_platform == 'win32'",
+    "python_full_version < '3.11' and sys_platform == 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and sys_platform == 'darwin'",
 ]
 
 [options]
@@ -59,7 +49,7 @@ name = "aiodns"
 version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycares" },
+    { name = "pycares", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e7/84/41a6a2765abc124563f5380e76b9b24118977729e25a84112f8dfb2b33dc/aiodns-3.2.0.tar.gz", hash = "sha256:62869b23409349c21b072883ec8998316b234c9a9e36675756e8e317e8768f72", size = 7823 }
 wheels = [
@@ -2090,7 +2080,7 @@ name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121 }
 wheels = [
@@ -2111,7 +2101,7 @@ name = "colorful"
 version = "0.6.0a1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b5/50/8c88030d9d52787116ca3061a076f47492bb436128516e6c25f35743a565/colorful-0.6.0a1.tar.gz", hash = "sha256:b6a425600416213b852407bdac719830f8862e0ce377a75d78eb0de4966a0ccb", size = 204794 }
 wheels = [
@@ -2774,18 +2764,10 @@ name = "grpcio"
 version = "1.49.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Darwin' and sys_platform == 'darwin'",
+    "python_full_version < '3.11' and sys_platform == 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and sys_platform == 'darwin'",
 ]
 dependencies = [
     { name = "six", marker = "sys_platform == 'darwin'" },
@@ -2801,18 +2783,14 @@ name = "grpcio"
 version = "1.51.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Darwin' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and sys_platform != 'win32'",
+    "python_full_version < '3.11' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'win32'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and sys_platform != 'win32'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin' and sys_platform != 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'win32'",
+    "python_full_version >= '3.13' and sys_platform == 'win32'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f9/d1/8e1d6f684e36492476e1d6bbbf0162f8021421d9880fc346620d29f3c5a6/grpcio-1.51.3.tar.gz", hash = "sha256:be7b2265b7527bb12109a7727581e274170766d5b3c9258d4e466f4872522d7a", size = 22147992 }
 wheels = [
@@ -3106,7 +3084,7 @@ version = "7.0.0a0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "appnope", marker = "platform_system == 'Darwin'" },
+    { name = "appnope", marker = "sys_platform == 'darwin'" },
     { name = "comm" },
     { name = "debugpy" },
     { name = "ipython" },
@@ -3416,7 +3394,7 @@ dependencies = [
     { name = "overrides" },
     { name = "packaging" },
     { name = "prometheus-client" },
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "os_name == 'nt' and sys_platform != 'darwin'" },
     { name = "pyzmq" },
     { name = "send2trash" },
     { name = "terminado" },
@@ -3434,7 +3412,7 @@ name = "jupyter-server-terminals"
 version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "os_name == 'nt' and sys_platform != 'darwin'" },
     { name = "terminado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fc/d5/562469734f476159e99a55426d697cbf8e7eb5efe89fb0e0b4f83a3d3459/jupyter_server_terminals-0.5.3.tar.gz", hash = "sha256:5ae0295167220e9ace0edcfdb212afd2b01ee8d179fe6f23c899590e9b8a5269", size = 31430 }
@@ -3582,7 +3560,7 @@ name = "linkify-it-py"
 version = "2.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "uc-micro-py" },
+    { name = "uc-micro-py", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2a/ae/bb56c6828e4797ba5a4821eec7c43b8bf40f69cda4d4f5f8c8a2810ec96a/linkify-it-py-2.0.3.tar.gz", hash = "sha256:68cda27e162e9215c17d786649d1da0021a451bdc436ef9e0fa0ba5234b9b048", size = 27946 }
 wheels = [
@@ -3603,10 +3581,10 @@ wheels = [
 
 [package.optional-dependencies]
 linkify = [
-    { name = "linkify-it-py" },
+    { name = "linkify-it-py", marker = "sys_platform != 'win32'" },
 ]
 plugins = [
-    { name = "mdit-py-plugins" },
+    { name = "mdit-py-plugins", marker = "sys_platform != 'win32'" },
 ]
 
 [[package]]
@@ -3684,7 +3662,7 @@ name = "mdit-py-plugins"
 version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "markdown-it-py" },
+    { name = "markdown-it-py", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/19/03/a2ecab526543b152300717cf232bb4bb8605b6edb946c845016fa9c9c9fd/mdit_py_plugins-0.4.2.tar.gz", hash = "sha256:5f2cd1fdb606ddf152d37ec30e46101a60512bc0e5fa1a7002c36647b09e26b5", size = 43542 }
 wheels = [
@@ -3705,9 +3683,9 @@ name = "memray"
 version = "1.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "jinja2" },
-    { name = "rich" },
-    { name = "textual" },
+    { name = "jinja2", marker = "sys_platform != 'win32'" },
+    { name = "rich", marker = "sys_platform != 'win32'" },
+    { name = "textual", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f8/e8/725ac54c543d43479c32be1d7d49ea75b5f46fbe5f77262332cd51e301dc/memray-1.14.0.tar.gz", hash = "sha256:b5d8874b7b215551f0ae9fa8aef3f2f52321a6460dc0141aaf9374709e6b0eb7", size = 1024807 }
 wheels = [
@@ -3838,7 +3816,7 @@ wheels = [
 
 [package.optional-dependencies]
 broker = [
-    { name = "pymsalruntime", marker = "platform_system == 'Darwin' or platform_system == 'Windows'" },
+    { name = "pymsalruntime", marker = "sys_platform == 'darwin' or sys_platform == 'win32'" },
 ]
 
 [[package]]
@@ -4107,7 +4085,6 @@ wheels = [
 
 [[package]]
 name = "nemo-run"
-version = "0.1.dev89+g60788e8.d20250214"
 source = { editable = "." }
 dependencies = [
     { name = "catalogue" },
@@ -4118,6 +4095,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "networkx" },
     { name = "omegaconf" },
+    { name = "packaging" },
     { name = "rich" },
     { name = "torchx" },
     { name = "typer" },
@@ -4131,7 +4109,7 @@ skypilot-all = [
     { name = "skypilot", extra = ["all"] },
 ]
 
-[package.dependency-groups]
+[package.dev-dependencies]
 dev = [
     { name = "coverage" },
     { name = "ipykernel" },
@@ -4160,14 +4138,16 @@ requires-dist = [
     { name = "jinja2", specifier = ">=3.1.4" },
     { name = "networkx", specifier = ">=3.3" },
     { name = "omegaconf", specifier = ">=2.3.0" },
+    { name = "packaging" },
     { name = "rich", specifier = ">=13.7.1" },
     { name = "skypilot", extras = ["all"], marker = "extra == 'skypilot-all'", specifier = ">=0.8.0" },
     { name = "skypilot", extras = ["kubernetes"], marker = "extra == 'skypilot'", specifier = ">=0.8.0" },
     { name = "torchx", specifier = ">=0.7.0" },
     { name = "typer", specifier = ">=0.12.3" },
 ]
+provides-extras = ["skypilot", "skypilot-all"]
 
-[package.metadata.dependency-groups]
+[package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=7.5.1" },
     { name = "ipykernel", specifier = ">=6.29.4" },
@@ -4555,7 +4535,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450 }
 wheels = [
@@ -4670,7 +4650,7 @@ name = "portalocker"
 version = "2.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "platform_system == 'Windows'" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/d3/c6c64067759e87af98cc668c1cc75171347d0f1577fab7ca3749134e3cd4/portalocker-2.10.1.tar.gz", hash = "sha256:ef1bf844e878ab08aee7e40184156e1151f228f103aa5c6bd0724cc330960f8f", size = 40891 }
 wheels = [
@@ -4915,7 +4895,7 @@ name = "pycares"
 version = "4.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi" },
+    { name = "cffi", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1b/8f/daf60bbc06f4a3cd1cfb0ab807057151287df6f5c78f2e0d298acc9193ac/pycares-4.4.0.tar.gz", hash = "sha256:f47579d508f2f56eddd16ce72045782ad3b1b3b678098699e2b6a1b30733e1c2", size = 821630 }
 wheels = [
@@ -6139,7 +6119,7 @@ version = "0.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ptyprocess", marker = "os_name != 'nt'" },
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "os_name == 'nt' and sys_platform != 'darwin'" },
     { name = "tornado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701 }
@@ -6152,10 +6132,10 @@ name = "textual"
 version = "0.84.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "markdown-it-py", extra = ["linkify", "plugins"] },
-    { name = "platformdirs" },
-    { name = "rich" },
-    { name = "typing-extensions" },
+    { name = "markdown-it-py", extra = ["linkify", "plugins"], marker = "sys_platform != 'win32'" },
+    { name = "platformdirs", marker = "sys_platform != 'win32'" },
+    { name = "rich", marker = "sys_platform != 'win32'" },
+    { name = "typing-extensions", marker = "sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d6/86/525031f6bbfa4671fa66a4a5c088c3e9aa53f32d1b51a9bf2b900b3b1f32/textual-0.84.0.tar.gz", hash = "sha256:fb89717960fea7a539823fa264252f7be1c84844e4b8d27360e6d4edb36846a8", size = 1453120 }
 wheels = [
@@ -6290,7 +6270,7 @@ name = "tqdm"
 version = "4.66.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/58/83/6ba9844a41128c62e810fddddd72473201f3eacde02046066142a2d96cc5/tqdm-4.66.5.tar.gz", hash = "sha256:e1020aef2e5096702d8a025ac7d16b1577279c9d63f8375b63083e9a5f0fcbad", size = 169504 }
 wheels = [

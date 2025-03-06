@@ -29,7 +29,8 @@ dependencies = [
     "jinja2>=3.1.4",
     "cryptography < 43.0.0",
     "networkx >= 3.3",
-    "omegaconf>=2.3.0"
+    "omegaconf>=2.3.0",
+    "packaging"
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -125,10 +126,7 @@ allow-direct-references = true
 packages = ["nemo_run"]
 
 [tool.hatch.version]
-source = "vcs"
-
-[tool.hatch.build.hooks.vcs]
-version-file = "nemo_run/_version.py"
+path  = "nemo_run/package_info.py"
 
 [tool.ruff]
 line-length = 100
