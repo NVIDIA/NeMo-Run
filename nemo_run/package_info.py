@@ -28,9 +28,7 @@ DEV = Version(__version__).dev
 __package_name__ = "nemo_curator"
 __contact_names__ = "NVIDIA"
 __contact_emails__ = "nemo-toolkit@nvidia.com"
-__homepage__ = (
-    "https://docs.nvidia.com/nemo-framework/user-guide/latest/datacuration/index.html"
-)
+__homepage__ = "https://docs.nvidia.com/nemo-framework/user-guide/latest/datacuration/index.html"
 __repository_url__ = "https://github.com/NVIDIA/NeMo-Curator"
 __download_url__ = "https://github.com/NVIDIA/NeMo-Curator/releases"
 __description__ = (
