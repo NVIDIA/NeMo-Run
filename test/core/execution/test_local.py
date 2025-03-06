@@ -16,7 +16,7 @@
 import os
 import tempfile
 
-from src.nemo_run.core.execution.local import LocalExecutor
+from nemo_run.core.execution.local import LocalExecutor
 
 
 def test_local_executor_init():
