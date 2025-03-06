@@ -15,7 +15,7 @@
 
 import pytest
 
-from src.nemo_run.core.execution.utils import fill_template
+from nemo_run.core.execution.utils import fill_template
 
 
 def test_fill_template_file_not_found():
