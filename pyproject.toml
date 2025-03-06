@@ -90,8 +90,8 @@ addopts = '-m "not slow"'
 
 [tool.coverage.run]
 branch = true
-include = ["src/nemo_run/**/*.py"]
-omit = ["src/nemo_run/core/tunnel/callback.py", "src/nemo_run/help.py", "src/nemo_run/**/__init__.py", "src/nemo_run/**/_version.py"]
+include = ["nemo_run/**/*.py"]
+omit = ["nemo_run/core/tunnel/callback.py", "nemo_run/help.py", "nemo_run/**/__init__.py", "nemo_run/**/_version.py"]
 
 [tool.coverage.report]
 # Regexes for lines to exclude from consideration
@@ -122,13 +122,13 @@ directory = "coverage_html_report"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/nemo_run"]
+packages = ["nemo_run"]
 
 [tool.hatch.version]
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "src/nemo_run/_version.py"
+version-file = "nemo_run/_version.py"
 
 [tool.ruff]
 line-length = 100
