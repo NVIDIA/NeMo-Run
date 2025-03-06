@@ -11,7 +11,7 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
+# limitations under the License..
 
 [project]
 name = "nemo_run"
@@ -125,10 +125,7 @@ allow-direct-references = true
 packages = ["nemo_run"]
 
 [tool.hatch.version]
-source = "vcs"
-
-[tool.hatch.build.hooks.vcs]
-version-file = "nemo_run/_version.py"
+path  = "nemo_run/package_info.py"
 
 [tool.ruff]
 line-length = 100
