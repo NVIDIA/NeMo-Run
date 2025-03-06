@@ -240,6 +240,10 @@ def _get_job_dirs() -> dict[str, dict[str, str]]:
 
     serializer = ZlibJSONSerializer()
     for app in data.values():
-        app["executor"] = fdl.build(serializer.deserialize(app["executor"]))
+        try:
+            app["executor"] = fdl.build(serializer.deserialize(app["executor"]))
+        except Exception as e:
+            log.warning(f"Failed to deserialize executor: {e}")
+            continue
 
     return data
