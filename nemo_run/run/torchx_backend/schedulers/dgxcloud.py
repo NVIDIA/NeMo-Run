@@ -243,7 +243,7 @@ def _get_job_dirs() -> dict[str, dict[str, str]]:
         try:
             app["executor"] = fdl.build(serializer.deserialize(app["executor"]))
         except Exception as e:
-            log.warning(f"Failed to deserialize executor: {e}")
+            log.debug(f"Failed to deserialize executor: {e}")
             continue
 
     return data
