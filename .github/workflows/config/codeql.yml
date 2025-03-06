@@ -1,7 +1,7 @@
 name: "CodeQL config"
 
 paths:
-  - src/
+  - nemo_run/
   - test/
   - examples/
   - .github/
