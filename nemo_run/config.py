@@ -44,10 +44,31 @@ _T = TypeVar("_T")
 _BuildableT = TypeVar("_BuildableT", bound=fdl.Buildable)
 
 RECURSIVE_TYPES = (typing.Union, typing.Optional)
-NEMORUN_HOME = os.environ.get("NEMORUN_HOME", os.path.expanduser("~/.nemo_run"))
+_NEMORUN_HOME = os.environ.get("NEMORUN_HOME", os.path.expanduser("~/.nemo_run"))
 RUNDIR_NAME = "nemo_run"
 RUNDIR_SPECIAL_NAME = "/$nemo_run"
 SCRIPTS_DIR = "scripts"
+
+
+def get_nemorun_home() -> str:
+    """
+    Get the current NEMORUN_HOME directory path.
+
+    Returns:
+        The path to the NEMORUN_HOME directory.
+    """
+    return _NEMORUN_HOME
+
+
+def set_nemorun_home(path: str) -> None:
+    """
+    Set the NEMORUN_HOME directory path.
+
+    Args:
+        path: The new path for NEMORUN_HOME.
+    """
+    global _NEMORUN_HOME
+    _NEMORUN_HOME = os.path.expanduser(path)
 
 
 def get_type_namespace(typ: Type | Callable) -> str:

@@ -42,7 +42,7 @@ from torchx.specs import (
     runopts,
 )
 
-from nemo_run.config import NEMORUN_HOME
+from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.skypilot import _SKYPILOT_AVAILABLE, SkypilotExecutor
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
@@ -74,7 +74,7 @@ except ImportError:
     ...
 
 log: logging.Logger = logging.getLogger(__name__)
-SKYPILOT_JOB_DIRS = os.path.join(NEMORUN_HOME, ".skypilot_jobs.json")
+SKYPILOT_JOB_DIRS = os.path.join(get_nemorun_home(), ".skypilot_jobs.json")
 
 
 @dataclass

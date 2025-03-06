@@ -56,7 +56,13 @@ from typing_extensions import NotRequired, ParamSpec, TypedDict
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
-from nemo_run.config import NEMORUN_HOME, Config, Partial, get_type_namespace, get_underlying_types
+from nemo_run.config import (
+    Config,
+    Partial,
+    get_nemorun_home,
+    get_type_namespace,
+    get_underlying_types,
+)
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
@@ -758,7 +764,7 @@ def _search_workspace_file() -> str | None:
     file_names = [
         "workspace_private.py",
         "workspace.py",
-        os.path.join(NEMORUN_HOME, "workspace.py"),
+        os.path.join(get_nemorun_home(), "workspace.py"),
     ]
 
     while True:

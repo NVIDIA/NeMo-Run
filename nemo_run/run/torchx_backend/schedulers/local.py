@@ -46,7 +46,7 @@ from torchx.schedulers.local_scheduler import (
 )
 from torchx.specs.api import AppDef, AppState, Role
 
-from nemo_run.config import NEMORUN_HOME
+from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
@@ -59,7 +59,7 @@ except ModuleNotFoundError:
     fcntl = None
     FCNTL_AVAILABLE = False
 
-LOCAL_JOB_DIRS = os.path.join(NEMORUN_HOME, ".local_jobs.json")
+LOCAL_JOB_DIRS = os.path.join(get_nemorun_home(), ".local_jobs.json")
 
 
 class PersistentLocalScheduler(SchedulerMixin, LocalScheduler):  # type: ignore

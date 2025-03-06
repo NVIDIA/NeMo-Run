@@ -32,12 +32,12 @@ from fabric import Config, Connection
 from invoke.context import Context
 from invoke.runners import Result as RunResult
 
-from nemo_run.config import NEMORUN_HOME, ConfigurableMixin
+from nemo_run.config import ConfigurableMixin, get_nemorun_home
 from nemo_run.core.frontend.console.api import CONSOLE
 
 logger: logging.Logger = logging.getLogger(__name__)
 TUNNEL_DIR = ".tunnels"
-TUNNEL_FILE_SUBPATH = os.path.join(NEMORUN_HOME, TUNNEL_DIR)
+TUNNEL_FILE_SUBPATH = os.path.join(get_nemorun_home(), TUNNEL_DIR)
 
 
 def delete_tunnel_dir(file_path):
@@ -136,7 +136,7 @@ class LocalTunnel(Tunnel):
 
     def _set_job_dir(self, experiment_id: str):
         experiment_title, _, _ = experiment_id.rpartition("_")
-        base_job_dir = self.job_dir or os.path.join(NEMORUN_HOME, "experiments")
+        base_job_dir = self.job_dir or os.path.join(get_nemorun_home(), "experiments")
         job_dir = os.path.join(base_job_dir, experiment_title, experiment_id)
         self.job_dir = job_dir
 

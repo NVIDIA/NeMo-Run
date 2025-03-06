@@ -14,13 +14,14 @@
 # limitations under the License.
 
 import time
-from test.conftest import MockContext
 from unittest.mock import ANY, patch
 
 import pytest
-from nemo_run.config import Partial, Script
+
+from nemo_run.config import Partial, Script, set_nemorun_home
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.run.api import run
+from test.conftest import MockContext
 
 
 class MockExecutor:
@@ -67,8 +68,8 @@ def test_run_dryrun(dummy_partial: Partial, capsys):
     assert "Dry run for task torchx_backend.test_api:dummy_add" in stdout
 
 
-def test_run_dryrun_with_executor(mocker, dummy_partial: Partial, capsys, tmpdir):
-    mocker.patch("nemo_run.run.experiment.NEMORUN_HOME", str(tmpdir))
+def test_run_dryrun_with_executor(dummy_partial: Partial, capsys, tmpdir):
+    set_nemorun_home(str(tmpdir))
     run(dummy_partial, executor=LocalExecutor(), dryrun=True)
     stdout = capsys.readouterr().out
     assert "Entering Experiment torchx_backend.test_api.dummy_add with id" in stdout
@@ -87,10 +88,9 @@ def test_run_script(capsys):
 @patch("builtins.print")
 def test_run_with_executor(
     mocked_print,
-    mocker,
     tmpdir,
 ):
-    mocker.patch("nemo_run.run.experiment.NEMORUN_HOME", str(tmpdir))
+    set_nemorun_home(str(tmpdir))
     script = Script(inline="echo 'Hello World Mock Test'")
 
     run(script, executor=LocalExecutor(), detach=False, tail_logs=True)
