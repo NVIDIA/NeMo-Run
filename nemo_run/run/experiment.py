@@ -392,6 +392,9 @@ nemo experiment cancel {exp_id} 0
 
     def _prepare(self, exist_ok: bool = False):
         self._save_experiment(exist_ok=exist_ok)
+        for tunnel in self.tunnels.values():
+            tunnel.packaging_jobs = {}
+
         for job in self.jobs:
             job.prepare()
 
