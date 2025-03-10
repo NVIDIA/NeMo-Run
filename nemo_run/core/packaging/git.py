@@ -108,9 +108,9 @@ class GitArchivePackager(Packager):
                 capture_output=True,
                 text=True,
             ).stdout.strip()
-            assert not bool(
-                untracked_files
-            ), "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
+            assert not bool(untracked_files), (
+                "Your repo has untracked files. Please track your files via git or set check_untracked_files to False to proceed with packaging."
+            )
 
         ctx = Context()
         # we first add git files into an uncompressed archive
@@ -159,8 +159,7 @@ class GitArchivePackager(Packager):
             )
             pattern_tar_file_name = os.path.join(git_base_path, pattern_tar_file_name)
             include_pattern_cmd = (
-                f"find {relative_include_pattern} -type f | "
-                f"tar -cf {pattern_tar_file_name} -T -"
+                f"find {relative_include_pattern} -type f | tar -cf {pattern_tar_file_name} -T -"
             )
 
             with ctx.cd(include_pattern_relative_path):

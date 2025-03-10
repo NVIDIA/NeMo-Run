@@ -107,12 +107,12 @@ class SkypilotExecutor(Executor):
     packager: Packager = field(default_factory=lambda: GitArchivePackager())  # type: ignore  # noqa: F821
 
     def __post_init__(self):
-        assert (
-            _SKYPILOT_AVAILABLE
-        ), "Skypilot is not installed. Please install it using `pip install nemo_run[skypilot]"
-        assert isinstance(
-            self.packager, GitArchivePackager
-        ), "Only GitArchivePackager is currently supported for SkypilotExecutor."
+        assert _SKYPILOT_AVAILABLE, (
+            "Skypilot is not installed. Please install it using `pip install nemo_run[skypilot]"
+        )
+        assert isinstance(self.packager, GitArchivePackager), (
+            "Only GitArchivePackager is currently supported for SkypilotExecutor."
+        )
 
     @classmethod
     def parse_app(cls: Type["SkypilotExecutor"], app_id: str) -> tuple[str, str, int]:

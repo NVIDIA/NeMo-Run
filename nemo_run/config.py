@@ -118,9 +118,9 @@ def from_dict(raw_data: dict | list | str | float | int | bool, cls: Type[_T]) -
     if isinstance(raw_data, dict):
         underlying_types = get_underlying_types(cls)
         underlying_types = [tp for tp in underlying_types if tp is not type(None)]
-        assert (
-            len(underlying_types) == 1
-        ), f"Unable to load {cls}. Nested union types are not currently supported."
+        assert len(underlying_types) == 1, (
+            f"Unable to load {cls}. Nested union types are not currently supported."
+        )
         cls = underlying_types[0]  # type: ignore
 
     if dataclasses.is_dataclass(cls):

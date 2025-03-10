@@ -234,7 +234,9 @@ cd /nemo_run/code
                 == os.path.abspath(x["path"]),
                 self.pvcs,
             )
-        ), f"Need to specify atleast one PVC containing {self.job_dir}.\nTo update job dir to a PVC path, you can use set_nemorun_home() or the NEMORUN_HOME env var."
+        ), (
+            f"Need to specify atleast one PVC containing {self.job_dir}.\nTo update job dir to a PVC path, you can use set_nemorun_home() or the NEMORUN_HOME env var."
+        )
 
     def package(self, packager: Packager, job_name: str):
         assert self.experiment_id, "Executor not assigned to an experiment."

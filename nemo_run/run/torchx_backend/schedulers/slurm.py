@@ -53,7 +53,7 @@ from torchx.specs.api import is_terminal
 from nemo_run.config import from_dict, get_nemorun_home
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor, SlurmJobDetails
-from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel, Tunnel
+from nemo_run.core.tunnel.client import LocalTunnel, PackagingJob, SSHTunnel, Tunnel
 from nemo_run.run import experiment as run_experiment
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
@@ -62,16 +62,19 @@ SLURM_JOB_DIRS = os.path.join(get_nemorun_home(), ".slurm_jobs")
 
 
 class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
-    def __init__(self, session_name: str) -> None:
+    def __init__(
+        self, session_name: str, experiment: Optional[run_experiment.Experiment] = None
+    ) -> None:
         self.tunnel: Optional[Tunnel] = None
         super().__init__(session_name)
+        self.experiment = experiment
 
     # TODO: Move this into the SlurmExecutor
     def _initialize_tunnel(self, tunnel: SSHTunnel | LocalTunnel):
         if self.tunnel == tunnel:
             return
 
-        experiment = run_experiment._current_experiment.get(None)
+        experiment = self.experiment or run_experiment._current_experiment.get(None)
         if experiment and tunnel.key in experiment.tunnels:
             self.tunnel = experiment.tunnels[tunnel.key]
             return
@@ -361,8 +364,10 @@ class TunnelLogIterator(LogIterator):
 
 
 def create_scheduler(session_name: str, **kwargs: Any) -> SlurmTunnelScheduler:
+    experiment = kwargs.pop("experiment", None)
     return SlurmTunnelScheduler(
         session_name=session_name,
+        experiment=experiment,
     )
 
 
@@ -400,6 +405,9 @@ def _get_job_dirs() -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:
         tunnel_cls = SSHTunnel if value[1] == SSHTunnel.__name__ else LocalTunnel
         try:
             tunnel = from_dict(json.loads(value[2]), tunnel_cls)
+            for key, job in tunnel.packaging_jobs.items():
+                if isinstance(job, dict):
+                    tunnel.packaging_jobs[key] = from_dict(job, PackagingJob)
         except Exception:
             continue
 
