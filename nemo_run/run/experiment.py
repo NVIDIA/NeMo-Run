@@ -307,7 +307,7 @@ nemo experiment cancel {exp_id} 0
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
 
         self.log_level = log_level
-        self._runner = get_runner()
+        self._runner = get_runner(component_defaults=None, experiment=self)
 
         if not _reconstruct:
             self.executor = executor if executor else LocalExecutor()

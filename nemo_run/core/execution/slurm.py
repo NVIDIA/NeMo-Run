@@ -95,6 +95,10 @@ class SlurmJobDetails:
         return f"{self.__class__.__name__}({self.folder})"
 
 
+def get_packaging_job_key(experiment_id: str, job_name: str) -> str:
+    return f"{experiment_id}:{job_name}"
+
+
 @dataclass(kw_only=True)
 class SlurmExecutor(Executor):
     """
@@ -566,6 +570,8 @@ class SlurmExecutor(Executor):
         return filenames
 
     def package(self, packager: Packager, job_name: str):
+        assert self.experiment_id, "Executor not assigned to an experiment."
+
         if job_name in self.tunnel.packaging_jobs and not packager.symlink_from_remote_dir:
             logger.info(
                 f"Packaging for job {job_name} in tunnel {self.tunnel.key} already done. Skipping subsequent packagings.\n"
@@ -578,13 +584,17 @@ class SlurmExecutor(Executor):
                 f"Packager {packager} is configured to symlink from remote dir. Skipping packaging."
             )
             if type(packager) is Packager:
-                self.tunnel.packaging_jobs[job_name] = PackagingJob(symlink=False)
+                self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = (
+                    PackagingJob(symlink=False)
+                )
                 return
 
-            self.tunnel.packaging_jobs[job_name] = PackagingJob(
-                symlink=True,
-                src_path=packager.symlink_from_remote_dir,
-                dst_path=os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
+            self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = (
+                PackagingJob(
+                    symlink=True,
+                    src_path=packager.symlink_from_remote_dir,
+                    dst_path=os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
+                )
             )
 
             # Tunnel job dir is the directory of the experiment id, so the base job dir is two levels up
@@ -599,7 +609,6 @@ class SlurmExecutor(Executor):
 
             return
 
-        assert self.experiment_id, "Executor not assigned to an experiment."
         if isinstance(packager, GitArchivePackager):
             output = subprocess.run(
                 ["git", "rev-parse", "--show-toplevel"],
@@ -628,11 +637,13 @@ class SlurmExecutor(Executor):
                 f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
             )
 
-        self.tunnel.packaging_jobs[job_name] = PackagingJob(
-            symlink=False,
-            dst_path=None
-            if type(packager) is Packager
-            else os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
+        self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = (
+            PackagingJob(
+                symlink=False,
+                dst_path=None
+                if type(packager) is Packager
+                else os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
+            )
         )
 
     def parse_deps(self) -> list[str]:
