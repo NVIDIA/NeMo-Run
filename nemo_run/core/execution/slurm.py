@@ -581,7 +581,7 @@ class SlurmExecutor(Executor):
 
         if packager.symlink_from_remote_dir:
             logger.info(
-                f"Packager {packager} is configured to symlink from remote dir. Skipping packaging."
+                f"Packager {get_packaging_job_key(self.experiment_id, job_name)} is configured to symlink from remote dir. Skipping packaging."
             )
             if type(packager) is Packager:
                 self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = (
