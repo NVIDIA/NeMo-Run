@@ -110,9 +110,9 @@ class Executor(ConfigurableMixin):
             self._setup_launcher()
             self._launcher_setup = True
 
-        assert self.launcher is None or isinstance(
-            self.launcher, Launcher
-        ), f"{self.info()} could not setup the launcher."
+        assert self.launcher is None or isinstance(self.launcher, Launcher), (
+            f"{self.info()} could not setup the launcher."
+        )
         if self.launcher is None:
             self.launcher = Launcher()
 

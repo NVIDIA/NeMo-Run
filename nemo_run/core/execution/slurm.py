@@ -361,12 +361,12 @@ class SlurmExecutor(Executor):
         main_executor.run_as_group = True
 
         if main_executor.het_group_indices:
-            assert (
-                main_executor.heterogeneous
-            ), "heterogeneous must be True if het_group_indices is provided"
-            assert (
-                len(main_executor.het_group_indices) == num_tasks
-            ), "het_group_indices must be the same length as the number of tasks"
+            assert main_executor.heterogeneous, (
+                "heterogeneous must be True if het_group_indices is provided"
+            )
+            assert len(main_executor.het_group_indices) == num_tasks, (
+                "het_group_indices must be the same length as the number of tasks"
+            )
             assert all(
                 x <= y
                 for x, y in zip(
@@ -837,9 +837,9 @@ class SlurmBatchRequest:
 
         sbatch_flags = []
         if self.slurm_config.heterogeneous:
-            assert (
-                len(self.jobs) == len(self.slurm_config.resource_group)
-            ), f"Number of jobs {len(self.jobs)} must match number of resource group requests {len(self.slurm_config.resource_group)}.\nIf you are just submitting a single job, make sure that heterogeneous=False in the executor."
+            assert len(self.jobs) == len(self.slurm_config.resource_group), (
+                f"Number of jobs {len(self.jobs)} must match number of resource group requests {len(self.slurm_config.resource_group)}.\nIf you are just submitting a single job, make sure that heterogeneous=False in the executor."
+            )
             final_group_index = len(self.slurm_config.resource_group) - 1
             if self.slurm_config.het_group_indices:
                 final_group_index = self.slurm_config.het_group_indices.index(
@@ -849,9 +849,9 @@ class SlurmBatchRequest:
             for i in range(len(self.slurm_config.resource_group)):
                 resource_req = self.slurm_config.resource_group[i]
                 if resource_req.het_group_index:
-                    assert (
-                        self.slurm_config.resource_group[i - 1].het_group_index is not None
-                    ), "het_group_index must be set for all requests in resource_group"
+                    assert self.slurm_config.resource_group[i - 1].het_group_index is not None, (
+                        "het_group_index must be set for all requests in resource_group"
+                    )
                     if (
                         i > 0
                         and resource_req.het_group_index
