@@ -42,7 +42,7 @@ jobs:
 
       - name: Run example scripts
         run: |
-          uv run -- coverage run --branch --source=nemo_run -m examples/hello-world/hello_scripts.py
+          uv run -- coverage run --branch --source=nemo_run examples/hello-world/hello_scripts.py
           uv run -- coverage report -m
 
       - name: Generate report
