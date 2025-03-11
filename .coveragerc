@@ -1,8 +1,8 @@
 [paths]
 source =
-    nemo_curator/
-    /home/runner/work/NeMo-Curator/NeMo-Curator/nemo_curator
-    /opt/NeMo-Curator/nemo_curator
+    nemo_run/
+    /home/runner/work/NeMo-Run/NeMo-Run/nemo_run
+    /opt/NeMo-Run/nemo_run
 [run]
 omit =
-    nemo_curator/scripts/*
+    nemo_run/scripts/*
