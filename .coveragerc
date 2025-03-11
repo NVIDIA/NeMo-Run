@@ -1,0 +1,8 @@
+[paths]
+source =
+    nemo_run/
+    /home/runner/work/NeMo-Run/NeMo-Run/nemo_run
+    /opt/NeMo-Run/nemo_run
+[run]
+omit =
+    nemo_run/scripts/*
