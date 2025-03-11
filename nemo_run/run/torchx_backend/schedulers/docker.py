@@ -18,7 +18,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from torchx.schedulers.api import (
     AppDryRunInfo,
@@ -272,9 +272,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             )
 
 
-def create_scheduler(
-    session_name: str,
-) -> PersistentDockerScheduler:
+def create_scheduler(session_name: str, **kwargs: Any) -> PersistentDockerScheduler:
     return PersistentDockerScheduler(
         session_name=session_name,
     )
