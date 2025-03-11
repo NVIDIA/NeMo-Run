@@ -27,22 +27,19 @@ jobs:
           git config --global user.name github-actions[bot]
           git config --global user.email 41898282+github-actions[bot]@users.noreply.github.com
 
-      - name: Run tests
-        run: uv run -- pytest test/
-
       - name: Run coverage
         run: |
-          uv run -- coverage run --branch --source=nemo_run -m pytest
+          uv run -- coverage run --branch --source=nemo_run -a -m pytest
           uv run -- coverage report -m
 
       - name: Run example notebooks
         run: |
-          uv run -- coverage run --branch --source=nemo_run -m jupyter execute examples/**/*.ipynb
+          uv run -- coverage run --branch --source=nemo_run -a -m jupyter execute examples/**/*.ipynb
           uv run -- coverage report -m
 
       - name: Run example scripts
         run: |
-          uv run -- coverage run --branch --source=nemo_run examples/hello-world/hello_scripts.py
+          uv run -- coverage run --branch --source=nemo_run -a examples/hello-world/hello_scripts.py
           uv run -- coverage report -m
 
       - name: Generate report
