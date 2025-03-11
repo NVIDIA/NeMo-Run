@@ -38,11 +38,12 @@ jobs:
       - name: Run example notebooks
         run: |
           uv run -- coverage run --branch --source=nemo_run -m jupyter execute examples/**/*.ipynb
+          uv run -- coverage report -m
 
       - name: Run example scripts
         run: |
-          cd examples/hello-world
-          uv run -- coverage run --branch --source=nemo_run -m python hello_scripts.py
+          uv run -- coverage run --branch --source=nemo_run -m examples/hello-world/hello_scripts.py
+          uv run -- coverage report -m
 
       - name: Generate report
         run: |
