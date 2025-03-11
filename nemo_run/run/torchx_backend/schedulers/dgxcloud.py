@@ -86,9 +86,9 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         app: AppDef,
         cfg: Executor,
     ) -> AppDryRunInfo[DGXRequest]:
-        assert isinstance(
-            cfg, DGXCloudExecutor
-        ), f"{cfg.__class__} not supported for skypilot scheduler."
+        assert isinstance(cfg, DGXCloudExecutor), (
+            f"{cfg.__class__} not supported for skypilot scheduler."
+        )
         executor = cfg
 
         assert len(app.roles) == 1, "Only single-role apps are supported."
