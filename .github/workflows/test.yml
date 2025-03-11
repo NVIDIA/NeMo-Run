@@ -44,8 +44,8 @@ jobs:
 
       - name: Generate report
         run: |
-          python -m coverage xml
-          python -m coverage report
+          uv run -- coverage xml
+          uv run -- coverage report
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
