@@ -84,7 +84,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 
 ### **Q:** I made a change locally in my git repo and tested it using the local executor. However, the change is not reflected in the remote job.
 
-**A**: This is most likely because you haven't committed the changes. See details about `GitArchivePackager` [here](./execution.md#packagers) to learn more.
+**A**: This is most likely because you haven't committed the changes. See details about `GitArchivePackager` [here](guides/execution.md#packagers) to learn more.
 
 ### **Q:** I made a change locally _outside_ my git repo and tested it using the local executor. However, the change is not reflected in the remote job.
 

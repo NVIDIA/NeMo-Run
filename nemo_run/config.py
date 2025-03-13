@@ -339,11 +339,6 @@ class ConfigurableMixin(_VisualizeMixin):
 
     For classes that are not dataclasses, the `to_config` method needs to be
     overridden to provide custom conversion logic to Config instances.
-
-    Methods:
-        diff: Generate a visual difference between configurations.
-        to_config: Convert the current object to a Config instance.
-        _repr_svg_: Generate an SVG representation for Jupyter notebooks.
     """
 
     def diff(self, old: Self, trim=True, **kwargs):

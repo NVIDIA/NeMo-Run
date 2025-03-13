@@ -1,31 +1,28 @@
 version = 1
+revision = 1
 requires-python = ">=3.10"
 resolution-markers = [
-    "python_full_version < '3.11' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Darwin' and sys_platform != 'darwin'",
+    "python_full_version >= '3.13' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
 ]
+conflicts = [[
+    { package = "nemo-run", group = "docs" },
+    { package = "nemo-run", extra = "skypilot" },
+    { package = "nemo-run", extra = "skypilot-all" },
+]]
 
 [options]
 prerelease-mode = "allow"
@@ -37,6 +34,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7a/8f/fc001b92ecc467cc32ab38398bd0bfb45df46e7523bf33c2ad22a505f06e/absl-py-2.1.0.tar.gz", hash = "sha256:7820790efbb316739cde8b4e19357243fc3608a152024288513dd968d7d959ff", size = 118055 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/ad/e0d3c824784ff121c03cc031f944bc7e139a8f1870ffd2845cc2dd76f6c4/absl_py-2.1.0-py3-none-any.whl", hash = "sha256:526a04eadab8b4ee719ce68f204172ead1027549089702d99b9059f129ff1308", size = 133706 },
+]
+
+[[package]]
+name = "accessible-pygments"
+version = "0.0.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pygments" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bc/c1/bbac6a50d02774f91572938964c582fff4270eee73ab822a4aeea4d8b11b/accessible_pygments-0.0.5.tar.gz", hash = "sha256:40918d3e6a2b619ad424cb91e556bd3bd8865443d9f22f1dcdf79e33c8046872", size = 1377899 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/3f/95338030883d8c8b91223b4e21744b04d11b161a3ef117295d8241f50ab4/accessible_pygments-0.0.5-py3-none-any.whl", hash = "sha256:88ae3211e68a1d0b011504b2ffc1691feafce124b845bd072ab6f9f66f34d4b7", size = 1395903 },
 ]
 
 [[package]]
@@ -248,7 +257,7 @@ version = "0.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "outcome" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/11/ef/29b54c1c0570b0f77d8e72a41c6d55473726e17ef287e2ed06a6a70b3c69/anyioutils-0.7.1.tar.gz", hash = "sha256:a7d167cbe82678351fba5717a5abb16c4ddca59ebb7b2afe598acc20214f763a", size = 14675 }
@@ -330,6 +339,18 @@ wheels = [
 ]
 
 [[package]]
+name = "astroid"
+version = "3.3.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/80/c5/5c83c48bbf547f3dd8b587529db7cf5a265a3368b33e85e76af8ff6061d3/astroid-3.3.8.tar.gz", hash = "sha256:a88c7994f914a4ea8572fac479459f4955eeccc877be3f2d959a33273b0cf40b", size = 398196 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/28/0bc8a17d6cd4cc3c79ae41b7105a2b9a327c110e5ddd37a8a27b29a5c8a2/astroid-3.3.8-py3-none-any.whl", hash = "sha256:187ccc0c248bfbba564826c26f070494f7bc964fd286b6d9fff4420e55de828c", size = 275153 },
+]
+
+[[package]]
 name = "asttokens"
 version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -343,7 +364,7 @@ name = "async-lru"
 version = "2.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/e2/2b4651eff771f6fd900d233e175ddc5e2be502c7eb62c0c42f975c6d36cd/async-lru-2.0.4.tar.gz", hash = "sha256:b8a59a5df60805ff63220b2a0c5b5393da5521b113cd5465a44eb037d81a5627", size = 10019 }
 wheels = [
@@ -374,8 +395,8 @@ version = "1.38.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
-    { name = "colorama" },
-    { name = "docutils" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" } },
+    { name = "docutils", version = "0.16", source = { registry = "https://pypi.org/simple" } },
     { name = "pyyaml" },
     { name = "rsa" },
     { name = "s3transfer" },
@@ -497,7 +518,7 @@ dependencies = [
     { name = "azure-synapse-managedprivateendpoints" },
     { name = "azure-synapse-spark" },
     { name = "chardet" },
-    { name = "colorama" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" } },
     { name = "distro", marker = "sys_platform == 'linux'" },
     { name = "fabric" },
     { name = "javaproperties" },
@@ -536,7 +557,7 @@ dependencies = [
     { name = "jmespath" },
     { name = "knack" },
     { name = "microsoft-security-utilities-secret-masker" },
-    { name = "msal", extra = ["broker"] },
+    { name = "msal", extra = ["broker"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "msal-extensions" },
     { name = "msrestazure" },
     { name = "packaging" },
@@ -545,7 +566,7 @@ dependencies = [
     { name = "py-deviceid" },
     { name = "pyjwt" },
     { name = "pyopenssl" },
-    { name = "requests", extra = ["socks"] },
+    { name = "requests", extra = ["socks"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c8/b4/7926d17c74332825abf00d0c30186d6e03bbbfb77daec7306bac3c00f271/azure_cli_core-2.70.0.tar.gz", hash = "sha256:a511439f6dd32092eb4bc1d99debdacff87981325b7c3afb2e0534ce6ca071bd", size = 230595 }
 wheels = [
@@ -1833,7 +1854,7 @@ dependencies = [
     { name = "fonttools" },
     { name = "pillow" },
     { name = "python-barcode" },
-    { name = "qrcode", extra = ["pil"] },
+    { name = "qrcode", extra = ["pil"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "requests" },
     { name = "setuptools" },
 ]
@@ -2139,7 +2160,8 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot') or (sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "colorama", version = "0.4.6", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'win32' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593 }
 wheels = [
@@ -2150,9 +2172,37 @@ wheels = [
 name = "colorama"
 version = "0.4.4"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.13' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and sys_platform != 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version >= '3.12' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra == 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/1f/bb/5d3246097ab77fa083a61bd8d3d527b7ae063c7d8e8671b1cf8c4ec10cbe/colorama-0.4.4.tar.gz", hash = "sha256:5941b2b48a20143d2267e95b1c2a7603ce057ee39fd88e7329b0c292aa16869b", size = 27813 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/44/98/5b86278fbbf250d239ae0ecb724f8572af1c91f4a11edf4d36a206189440/colorama-0.4.4-py2.py3-none-any.whl", hash = "sha256:9f47eda37229f68eee03b24b9748937c7dc3868f906e8ba69fbcbdd3bc5dc3e2", size = 16028 },
+]
+
+[[package]]
+name = "colorama"
+version = "0.4.6"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version == '3.11.*' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "python_full_version < '3.11' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs'",
+    "extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all' and extra != 'group-8-nemo-run-docs'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335 },
 ]
 
 [[package]]
@@ -2160,7 +2210,7 @@ name = "colorful"
 version = "0.6.0a1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b5/50/8c88030d9d52787116ca3061a076f47492bb436128516e6c25f35743a565/colorful-0.6.0a1.tar.gz", hash = "sha256:b6a425600416213b852407bdac719830f8862e0ce377a75d78eb0de4966a0ccb", size = 204794 }
 wheels = [
@@ -2237,6 +2287,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b6/c3/f7aaa3813f1fa9a4228175a7bd368199659d392897e184435a3b66408dd3/coverage-7.6.12-cp313-cp313t-win_amd64.whl", hash = "sha256:f60a297c3987c6c02ffb29effc70eadcbb412fe76947d394a1091a3615948e2f", size = 213240 },
     { url = "https://files.pythonhosted.org/packages/7a/7f/05818c62c7afe75df11e0233bd670948d68b36cdbf2a339a095bc02624a8/coverage-7.6.12-pp39.pp310-none-any.whl", hash = "sha256:7e39e845c4d764208e7b8f6a21c541ade741e2c41afabdfa1caa28687a3c98cf", size = 200558 },
     { url = "https://files.pythonhosted.org/packages/fb/b2/f655700e1024dec98b10ebaafd0cedbc25e40e4abe62a3c8e2ceef4f8f0a/coverage-7.6.12-py3-none-any.whl", hash = "sha256:eb8668cfbc279a536c633137deeb9435d2962caec279c3f8cf8b91fff6ff8953", size = 200552 },
+]
+
+[package.optional-dependencies]
+toml = [
+    { name = "tomli", marker = "python_full_version <= '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 
 [[package]]
@@ -2402,9 +2457,33 @@ wheels = [
 name = "docutils"
 version = "0.16"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.13' and sys_platform == 'darwin'",
+    "python_full_version == '3.12.*' and sys_platform == 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
+    "python_full_version < '3.11' and sys_platform == 'darwin'",
+    "python_full_version >= '3.13' and sys_platform != 'darwin'",
+    "python_full_version == '3.12.*' and sys_platform != 'darwin'",
+    "python_full_version == '3.11.*' and sys_platform != 'darwin'",
+    "python_full_version < '3.11' and sys_platform != 'darwin'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/2f/e0/3d435b34abd2d62e8206171892f174b180cd37b09d57b924ca5c2ef2219d/docutils-0.16.tar.gz", hash = "sha256:c2de3a60e9e7d07be26b7f2b00ca0309c207e06c100f9cc2a94931fc75a478fc", size = 1962041 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/44/8a15e45ffa96e6cf82956dd8d7af9e666357e16b0d93b253903475ee947f/docutils-0.16-py2.py3-none-any.whl", hash = "sha256:0c5b78adfbf7762415433f5515cd5c9e762339e23369dbe8000d84a4bf4ab3af", size = 548181 },
+]
+
+[[package]]
+name = "docutils"
+version = "0.21.2"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ae/ed/aefcc8cd0ba62a0560c3c18c33925362d46c6075480bfa4df87b28e169a9/docutils-0.21.2.tar.gz", hash = "sha256:3a6b18732edf182daa3cd12775bbb338cf5691468f91eeeb109deff6ebfa986f", size = 2204444 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/d7/9322c609343d929e75e7e5e6255e614fcc67572cfd083959cdef3b7aad79/docutils-0.21.2-py3-none-any.whl", hash = "sha256:dafca5b9e384f0e419294eb4d2ff9fa826435bf15f15b7bd45723e8ad76811b2", size = 587408 },
 ]
 
 [[package]]
@@ -2479,7 +2558,7 @@ wheels = [
 [package.optional-dependencies]
 all = [
     { name = "email-validator" },
-    { name = "fastapi-cli", extra = ["standard"] },
+    { name = "fastapi-cli", extra = ["standard"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "httpx" },
     { name = "itsdangerous" },
     { name = "jinja2" },
@@ -2489,7 +2568,7 @@ all = [
     { name = "python-multipart" },
     { name = "pyyaml" },
     { name = "ujson" },
-    { name = "uvicorn", extra = ["standard"] },
+    { name = "uvicorn", extra = ["standard"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
 ]
 
 [[package]]
@@ -2499,7 +2578,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "rich-toolkit" },
     { name = "typer" },
-    { name = "uvicorn", extra = ["standard"] },
+    { name = "uvicorn", extra = ["standard"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fe/73/82a5831fbbf8ed75905bacf5b2d9d3dfd6f04d6968b29fe6f72a5ae9ceb1/fastapi_cli-0.0.7.tar.gz", hash = "sha256:02b3b65956f526412515907a0793c9094abd4bfb5457b389f645b0ea6ba3605e", size = 16753 }
 wheels = [
@@ -2508,7 +2587,7 @@ wheels = [
 
 [package.optional-dependencies]
 standard = [
-    { name = "uvicorn", extra = ["standard"] },
+    { name = "uvicorn", extra = ["standard"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
 ]
 
 [[package]]
@@ -3120,7 +3199,7 @@ version = "7.0.0a1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "appnope", marker = "platform_system == 'Darwin'" },
+    { name = "appnope", marker = "sys_platform == 'darwin' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "comm" },
     { name = "debugpy" },
     { name = "ipython" },
@@ -3144,17 +3223,18 @@ name = "ipython"
 version = "8.34.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot') or (sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "colorama", version = "0.4.6", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'win32' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "decorator" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "jedi" },
     { name = "matplotlib-inline" },
-    { name = "pexpect", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "pexpect", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32') or (sys_platform == 'emscripten' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (sys_platform == 'emscripten' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (sys_platform == 'emscripten' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "prompt-toolkit" },
     { name = "pygments" },
     { name = "stack-data" },
     { name = "traitlets" },
-    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.12' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/13/18/1a60aa62e9d272fcd7e658a89e1c148da10e1a5d38edcbcd834b52ca7492/ipython-8.34.0.tar.gz", hash = "sha256:c31d658e754673ecc6514583e7dda8069e47136eb62458816b7d1e6625948b5a", size = 5508477 }
 wheels = [
@@ -3376,7 +3456,7 @@ version = "5.7.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "platformdirs" },
-    { name = "pywin32", marker = "platform_python_implementation != 'PyPy' and sys_platform == 'win32'" },
+    { name = "pywin32", marker = "(platform_python_implementation != 'PyPy' and sys_platform == 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (platform_python_implementation == 'PyPy' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (platform_python_implementation == 'PyPy' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (sys_platform != 'win32' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (sys_platform != 'win32' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (sys_platform != 'win32' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "traitlets" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/00/11/b56381fa6c3f4cc5d2cf54a7dbf98ad9aa0b339ef7a601d6053538b079a7/jupyter_core-5.7.2.tar.gz", hash = "sha256:aa5f8d32bbf6b431ac830496da7392035d6f61b4f54872f15c4bd2a9c3f536d9", size = 87629 }
@@ -3432,7 +3512,7 @@ dependencies = [
     { name = "overrides" },
     { name = "packaging" },
     { name = "prometheus-client" },
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra == 'extra-8-nemo-run-skypilot') or (os_name == 'nt' and extra != 'extra-8-nemo-run-skypilot-all') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "pyzmq" },
     { name = "send2trash" },
     { name = "terminado" },
@@ -3450,7 +3530,7 @@ name = "jupyter-server-terminals"
 version = "0.5.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra == 'extra-8-nemo-run-skypilot') or (os_name == 'nt' and extra != 'extra-8-nemo-run-skypilot-all') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "terminado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fc/d5/562469734f476159e99a55426d697cbf8e7eb5efe89fb0e0b4f83a3d3459/jupyter_server_terminals-0.5.3.tar.gz", hash = "sha256:5ae0295167220e9ace0edcfdb212afd2b01ee8d179fe6f23c899590e9b8a5269", size = 31430 }
@@ -3474,7 +3554,7 @@ dependencies = [
     { name = "notebook-shim" },
     { name = "packaging" },
     { name = "setuptools" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "tornado" },
     { name = "traitlets" },
 ]
@@ -3680,6 +3760,18 @@ wheels = [
 ]
 
 [[package]]
+name = "mdit-py-plugins"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "markdown-it-py" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/19/03/a2ecab526543b152300717cf232bb4bb8605b6edb946c845016fa9c9c9fd/mdit_py_plugins-0.4.2.tar.gz", hash = "sha256:5f2cd1fdb606ddf152d37ec30e46101a60512bc0e5fa1a7002c36647b09e26b5", size = 43542 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a7/f7/7782a043553ee469c1ff49cfa1cdace2d6bf99a1f333cf38676b3ddf30da/mdit_py_plugins-0.4.2-py3-none-any.whl", hash = "sha256:0c673c3f889399a33b95e88d2f0d111b4447bdfea7f237dab2d488f459835636", size = 55316 },
+]
+
+[[package]]
 name = "mdurl"
 version = "0.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3719,7 +3811,7 @@ name = "microsoft-kiota-http"
 version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "httpx", extra = ["http2"] },
+    { name = "httpx", extra = ["http2"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "microsoft-kiota-abstractions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d8/d6/85919176980a96dadefdc87fa52c24b6a1b05da606d8804b1aac874825fa/microsoft_kiota_http-0.6.0.tar.gz", hash = "sha256:d61e0b1de4df0c4cf666c09ea72bed8b9386f962c8d05138dd08a86eef542cb4", size = 39770 }
@@ -3767,7 +3859,7 @@ name = "mistune"
 version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/80/f7/f6d06304c61c2a73213c0a4815280f70d985429cda26272f490e42119c1a/mistune-3.1.2.tar.gz", hash = "sha256:733bf018ba007e8b5f2d3a9eb624034f6ee26c4ea769a98ec533ee111d504dff", size = 94613 }
 wheels = [
@@ -3780,7 +3872,7 @@ version = "1.31.2b1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
-    { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyjwt", extra = ["crypto"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "requests" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e6/3b/e0b6564cf79505c4a33047e20447223c763933b80ba21e61547607a62188/msal-1.31.2b1.tar.gz", hash = "sha256:cd57dfdb214f6ab1c162e6bdea028aa1dce771cdcfb0a2058e811ce8473519f9", size = 145915 }
@@ -3790,7 +3882,7 @@ wheels = [
 
 [package.optional-dependencies]
 broker = [
-    { name = "pymsalruntime", marker = "platform_system == 'Darwin' or platform_system == 'Windows'" },
+    { name = "pymsalruntime", marker = "sys_platform == 'darwin' or sys_platform == 'win32'" },
 ]
 
 [[package]]
@@ -3863,7 +3955,7 @@ name = "msgraph-core"
 version = "1.0.0a4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "httpx", extra = ["http2"] },
+    { name = "httpx", extra = ["http2"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "microsoft-kiota-abstractions" },
     { name = "microsoft-kiota-http" },
 ]
@@ -4002,6 +4094,24 @@ wheels = [
 ]
 
 [[package]]
+name = "myst-parser"
+version = "4.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "docutils", version = "0.21.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "jinja2" },
+    { name = "markdown-it-py" },
+    { name = "mdit-py-plugins" },
+    { name = "pyyaml" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/66/a5/9626ba4f73555b3735ad86247a8077d4603aa8628537687c839ab08bfe44/myst_parser-4.0.1.tar.gz", hash = "sha256:5cfea715e4f3574138aecbf7d54132296bfd72bb614d31168f48c477a830a7c4", size = 93985 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5f/df/76d0321c3797b54b60fef9ec3bd6f4cfd124b9e422182156a1dd418722cf/myst_parser-4.0.1-py3-none-any.whl", hash = "sha256:9134e88959ec3b5780aedf8a99680ea242869d012e8821db3126d427edc9c95d", size = 84579 },
+]
+
+[[package]]
 name = "nbclient"
 version = "0.10.2"
 source = { registry = "https://pypi.org/simple" }
@@ -4058,7 +4168,6 @@ wheels = [
 
 [[package]]
 name = "nemo-run"
-version = "0.2.0rc0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "catalogue" },
@@ -4077,13 +4186,13 @@ dependencies = [
 
 [package.optional-dependencies]
 skypilot = [
-    { name = "skypilot", extra = ["kubernetes"] },
+    { name = "skypilot", extra = ["kubernetes"], marker = "extra == 'extra-8-nemo-run-skypilot' or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 skypilot-all = [
-    { name = "skypilot", extra = ["all"] },
+    { name = "skypilot", extra = ["all"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
 ]
 
-[package.dependency-groups]
+[package.dev-dependencies]
 dev = [
     { name = "coverage" },
     { name = "ipykernel" },
@@ -4091,13 +4200,19 @@ dev = [
     { name = "jupyter" },
     { name = "pre-commit" },
     { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "pytest-sugar" },
     { name = "ruff" },
 ]
 docs = [
-    { name = "sphinx", version = "5.1.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'darwin'" },
-    { name = "sphinx", version = "5.3.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'darwin'" },
+    { name = "astroid" },
+    { name = "colorama", version = "0.4.6", source = { registry = "https://pypi.org/simple" } },
+    { name = "myst-parser" },
+    { name = "nvidia-sphinx-theme" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "sphinx-autoapi" },
 ]
 lint = [
     { name = "ruff" },
@@ -4120,8 +4235,9 @@ requires-dist = [
     { name = "torchx", specifier = ">=0.7.0" },
     { name = "typer", specifier = ">=0.12.3" },
 ]
+provides-extras = ["skypilot", "skypilot-all"]
 
-[package.metadata.dependency-groups]
+[package.metadata.requires-dev]
 dev = [
     { name = "coverage", specifier = ">=7.5.1" },
     { name = "ipykernel", specifier = ">=6.29.4" },
@@ -4129,11 +4245,19 @@ dev = [
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pre-commit", specifier = ">=3.7.1" },
     { name = "pytest", specifier = ">=8.2.0" },
+    { name = "pytest-cov" },
     { name = "pytest-mock", specifier = ">=3.14.0" },
     { name = "pytest-sugar", specifier = ">=1.0.0" },
     { name = "ruff", specifier = ">=0.4.4" },
 ]
-docs = [{ name = "sphinx" }]
+docs = [
+    { name = "astroid", specifier = "==3.3.8" },
+    { name = "colorama", specifier = ">=0.4.6" },
+    { name = "myst-parser" },
+    { name = "nvidia-sphinx-theme" },
+    { name = "sphinx", specifier = ">=7" },
+    { name = "sphinx-autoapi", specifier = ">=3.0.0" },
+]
 lint = [{ name = "ruff", specifier = ">=0.4.4" }]
 
 [[package]]
@@ -4251,6 +4375,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/29/e8/5da32ffcaa7a72f7ecd82f90c062140a061eb823cb88e90279424e515cf4/numpy-2.2.3-pp310-pypy310_pp73-macosx_14_0_x86_64.whl", hash = "sha256:ed2cf9ed4e8ebc3b754d398cba12f24359f018b416c380f577bbae112ca52fc9", size = 6809418 },
     { url = "https://files.pythonhosted.org/packages/a8/a9/68aa7076c7656a7308a0f73d0a2ced8c03f282c9fd98fa7ce21c12634087/numpy-2.2.3-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:39261798d208c3095ae4f7bc8eaeb3481ea8c6e03dc48028057d3cbdbdb8937e", size = 16215461 },
     { url = "https://files.pythonhosted.org/packages/17/7f/d322a4125405920401450118dbdc52e0384026bd669939484670ce8b2ab9/numpy-2.2.3-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:783145835458e60fa97afac25d511d00a1eca94d4a8f3ace9fe2043003c678e4", size = 12839607 },
+]
+
+[[package]]
+name = "nvidia-sphinx-theme"
+version = "0.0.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydata-sphinx-theme" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/dd/74/996dbc314da8ed670cd5e040d0b4b5be79ff1fc3db3fe25e63134deebe9a/nvidia_sphinx_theme-0.0.8-py3-none-any.whl", hash = "sha256:18f117aa154a3a156251a75647279c541464f3e75f7df2ae283e720cc7d0bc2c", size = 140678 },
 ]
 
 [[package]]
@@ -4653,7 +4790,7 @@ name = "portalocker"
 version = "2.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "platform_system == 'Windows'" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ed/d3/c6c64067759e87af98cc668c1cc75171347d0f1577fab7ca3749134e3cd4/portalocker-2.10.1.tar.gz", hash = "sha256:ef1bf844e878ab08aee7e40184156e1151f228f103aa5c6bd0724cc330960f8f", size = 40891 }
 wheels = [
@@ -4941,6 +5078,8 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/83/1b/c33e94fd0de4a67a833818e920ab4541aeca8adf067d780fa031ffef0d7c/pycares-4.5.0-cp310-cp310-musllinux_1_2_ppc64le.whl", hash = "sha256:8addbf3408af1010f50fd67ef634a6cb239ccb9c534c32a40713f3b8d306a98e", size = 297410 },
     { url = "https://files.pythonhosted.org/packages/87/90/266f05bb0781d1705a14140c9a6742dcbd7be6fad96a2d2c807193b1b285/pycares-4.5.0-cp310-cp310-musllinux_1_2_s390x.whl", hash = "sha256:d0428ef42fcf575e197047e6a47892404faa34231902a453b3dfed66af4178b3", size = 290483 },
     { url = "https://files.pythonhosted.org/packages/18/5f/e8b5b142075c0dfeb7f980fec17c8f970955ede842f0234f360e5a3c5610/pycares-4.5.0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:aed5c2732f3a6bdbbfab202267d37044ca1162f690b9d34b7ece97ba43f27453", size = 279970 },
+    { url = "https://files.pythonhosted.org/packages/b3/0a/e42a4aa2c456e62485128c984a2c8e078966b4047d016651e1570f34c027/pycares-4.5.0-cp310-cp310-win32.whl", hash = "sha256:b1859ea770a7abec40a6d02b5ab03c2396c4900c01f4e50ddb6c0dca4c2a6a7c", size = 61603 },
+    { url = "https://files.pythonhosted.org/packages/23/b4/013b9a19b589f936730a1d858cad25c9fdabf8d91968ec6918c3228842cf/pycares-4.5.0-cp310-cp310-win_amd64.whl", hash = "sha256:9f87d8da20a3a80ab05fe80c14a62bf078bd726ca6af609edbeb376fb97d50ab", size = 76534 },
     { url = "https://files.pythonhosted.org/packages/65/72/0dbd1169058924af1f8f1c1421fba64b7fb0ab2b8a489789f17c4b8527ee/pycares-4.5.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:5ca7a1dba7b88290710db45012e0903c21c839fa0a2b9ddc100bba8e66bfb251", size = 74837 },
     { url = "https://files.pythonhosted.org/packages/4a/55/97d90ab79e16e641c35a9b53b437e6556993ea904af2e1ce8982a6b8191b/pycares-4.5.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:160e92588cdf1a0fa3a7015f47990b508d50efd9109ea4d719dee31c058f0648", size = 71314 },
     { url = "https://files.pythonhosted.org/packages/52/91/c152c9e90e9ea7b2bc6381abecdc52ccf1f18b5aa5e67c3a4264f9ae1b22/pycares-4.5.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0f38e45d23660ed1dafdb956fd263ae4735530ef1578aa2bf2caabb94cee4523", size = 289122 },
@@ -4953,6 +5092,8 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/55/76/ae8e641c0f9ea6a98b9143a4b6a619ed4b35451b121265f4fded7c8d638d/pycares-4.5.0-cp311-cp311-musllinux_1_2_ppc64le.whl", hash = "sha256:ba17d8e5eeec4b2e0eb1a6a840bae9e62cd1c1c9cbc8dc9db9d1b9fdf33d0b54", size = 297460 },
     { url = "https://files.pythonhosted.org/packages/2c/16/a6f6cf9ca531cfce8d9e0b635a779c514e7aa7eccf9a4d89fb0d32eb102d/pycares-4.5.0-cp311-cp311-musllinux_1_2_s390x.whl", hash = "sha256:9e9b7d1a8de703283e4735c0e532ba4bc600e88de872dcd1a9a4950cf74d9f4f", size = 290514 },
     { url = "https://files.pythonhosted.org/packages/8e/61/83f4ae4c6222766ac9326ebd383d985b016b9875d7412e01a5d18550e19d/pycares-4.5.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:4c6922ecbe458c13a4a2c1177bbce38abc44b5f086bc82115a92eab34418915f", size = 279964 },
+    { url = "https://files.pythonhosted.org/packages/09/a8/2d6e68eca2cb05d6dce0a5ca8aa8720f4aa2abc97679ebe649c97f3b6e4e/pycares-4.5.0-cp311-cp311-win32.whl", hash = "sha256:1004b8a17614e33410b4b1bb68360977667f1cc9ab2dbcfb27240d6703e4cb6a", size = 61604 },
+    { url = "https://files.pythonhosted.org/packages/75/d6/a5d3752b62a4a728c03ce39e4aa9689fc275f1a408fa4f887ff31f01ee52/pycares-4.5.0-cp311-cp311-win_amd64.whl", hash = "sha256:2c9c1055c622258a0f315560b2880a372363484b87cbef48af092624804caa72", size = 76534 },
     { url = "https://files.pythonhosted.org/packages/d2/d7/86d62dec9edb3cbba1a11ef0b9558483659f049d14175d41cbef156cde4c/pycares-4.5.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:506efbe5017807747ccd1bdcb3c2f6e64635bc01fee01a50c0b97d649018c162", size = 74921 },
     { url = "https://files.pythonhosted.org/packages/3c/db/6aa863a70eec7989b70bd8b666b1b7cb13e446deaad416e2acf69f227e21/pycares-4.5.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:c469ec9fbe0526f45a98f67c1ea55be03abf30809c4f9c9be4bc93fb6806304d", size = 71331 },
     { url = "https://files.pythonhosted.org/packages/26/64/2a5338c4d5c72211a7d5bda9c8350086ad9d02c66a2f3cb4933be8daa6ba/pycares-4.5.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:597c0950ede240c3a779f023fcf2442207fc11e570d3ca4ccdbb0db5bbaf2588", size = 290337 },
@@ -4965,6 +5106,8 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4e/24/6a799f616558f0ea2380af76e73c6f246af8bce81dec0107cf2b14493f47/pycares-4.5.0-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:a90aecd41188884e57ae32507a2c6b010c60b791a253083761bbb37a488ecaed", size = 297729 },
     { url = "https://files.pythonhosted.org/packages/14/c5/d00ea25938e441081608a4c1a4ee91b3e6a021606a109cb251752aa3bfed/pycares-4.5.0-cp312-cp312-musllinux_1_2_s390x.whl", hash = "sha256:0d3de65cab653979dcc491e03f596566c9d40346c9deb088e0f9fe70600d8737", size = 291630 },
     { url = "https://files.pythonhosted.org/packages/bd/bc/1425763b3d2883039842272e3d295226f91f79d9936d70f93da1b25c371a/pycares-4.5.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:27a77b43604b3ba24e4fc49fd3ea59f50f7d89c7255f1f1ea46928b26cccacfa", size = 281153 },
+    { url = "https://files.pythonhosted.org/packages/e5/ba/c8ab1c930a93442e363d49660329fc597b8e84b4d81eee64129f9611f24a/pycares-4.5.0-cp312-cp312-win32.whl", hash = "sha256:6028cb8766f0fea1d2caa69fac23621fbe2cff9ce6968374e165737258703a33", size = 61624 },
+    { url = "https://files.pythonhosted.org/packages/c0/d7/1cc9403bf599c3f30d51d37c9639794a607c448a121a0a7447d59dbb6f07/pycares-4.5.0-cp312-cp312-win_amd64.whl", hash = "sha256:2ce10672c4cfd1c5fb6718e8b25f0336ca11c89aab88aa6df53dafc4e41df740", size = 76546 },
     { url = "https://files.pythonhosted.org/packages/32/8b/b48b6a7c4234d682fb9f0d6904a09333711642b760c79a6a7b2f53cbe76e/pycares-4.5.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:011cd670da7caf55664c944abb71ec39af82b837f8d48da7cf0eec80f5682c4c", size = 74919 },
     { url = "https://files.pythonhosted.org/packages/fb/57/3bec0d830efe9521a4706581fa9cc74825d7996104d773c8c971925a3989/pycares-4.5.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:b5c67930497fb2b1dbcaa85f8c4188fc2cb62e41d787deeed2d33cfe9dd6bf52", size = 71334 },
     { url = "https://files.pythonhosted.org/packages/b7/94/1e6e41f0f72f32e8e32922b085e5df6a9d0a6dd3f5d41cfe213d8849b15e/pycares-4.5.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:2d435a3b8468c656a7e7180dd7c4794510f6c612c33ad61a0fff6e440621f8b5", size = 290310 },
@@ -4977,6 +5120,8 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/20/78/6819d2c283ce7b53ef639fff44f15ea46dd5dd57307f25d46fb41d83966c/pycares-4.5.0-cp313-cp313-musllinux_1_2_ppc64le.whl", hash = "sha256:bc7a1d8ed7c7a4de17706a3c89b305b02eb64c778897e6727c043e5b9dd0d853", size = 297722 },
     { url = "https://files.pythonhosted.org/packages/bd/0d/6776b00eb6ea3d2742ac4f4e1d4bf170168d0923effffa1963e3b4619019/pycares-4.5.0-cp313-cp313-musllinux_1_2_s390x.whl", hash = "sha256:5703ec878b5c1efacdbf24ceaedfa606112fc67af5564f4db99c2c210f3ffadc", size = 291628 },
     { url = "https://files.pythonhosted.org/packages/13/29/c329ec7ef6cd88335676d71ed8a059d0fd2f5adcff3ab3537e03327955fa/pycares-4.5.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:d87758e09dbf52c27ed7cf7bc7eaf8b3226217d10c52b03d61a14d59f40fcae1", size = 281161 },
+    { url = "https://files.pythonhosted.org/packages/02/c4/aadb6b4a60b040bd6c4de31d971d4a07f54af274594a368de06170ede457/pycares-4.5.0-cp313-cp313-win32.whl", hash = "sha256:3316d490b4ce1a69f034881ac1ea7608f5f24ea5293db24ab574ac70b7d7e407", size = 61624 },
+    { url = "https://files.pythonhosted.org/packages/32/38/33889749dde2c3ecab5039d72459769d8714665ba3038e718f514c556517/pycares-4.5.0-cp313-cp313-win_amd64.whl", hash = "sha256:018e700fb0d1a2db5ec96e404ffa85ed97cc96e96d6af0bb9548111e37cf36a3", size = 76546 },
 ]
 
 [[package]]
@@ -5129,6 +5274,25 @@ wheels = [
 ]
 
 [[package]]
+name = "pydata-sphinx-theme"
+version = "0.16.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "accessible-pygments" },
+    { name = "babel" },
+    { name = "beautifulsoup4" },
+    { name = "docutils", version = "0.21.2", source = { registry = "https://pypi.org/simple" } },
+    { name = "pygments" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/00/20/bb50f9de3a6de69e6abd6b087b52fa2418a0418b19597601605f855ad044/pydata_sphinx_theme-0.16.1.tar.gz", hash = "sha256:a08b7f0b7f70387219dc659bff0893a7554d5eb39b59d3b8ef37b8401b7642d7", size = 2412693 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e2/0d/8ba33fa83a7dcde13eb3c1c2a0c1cc29950a048bfed6d9b0d8b6bd710b4c/pydata_sphinx_theme-0.16.1-py3-none-any.whl", hash = "sha256:225331e8ac4b32682c18fcac5a57a6f717c4e632cea5dd0e247b55155faeccde", size = 6723264 },
+]
+
+[[package]]
 name = "pydo"
 version = "0.9.2"
 source = { registry = "https://pypi.org/simple" }
@@ -5150,7 +5314,7 @@ version = "1.59.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deprecated" },
-    { name = "pyjwt", extra = ["crypto"] },
+    { name = "pyjwt", extra = ["crypto"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "pynacl" },
     { name = "requests" },
 ]
@@ -5278,16 +5442,30 @@ name = "pytest"
 version = "8.3.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11'" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot') or (sys_platform == 'win32' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "colorama", version = "0.4.6", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform == 'win32' and extra != 'extra-8-nemo-run-skypilot' and extra != 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ae/3c/c9d525a414d506893f0cd8a8d0de7706446213181570cdbd766691164e40/pytest-8.3.5.tar.gz", hash = "sha256:f4efe70cc14e511565ac476b57c279e12a855b11f48f212af1080ef2263d3845", size = 1450891 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/30/3d/64ad57c803f1fa1e963a7946b6e0fea4a70df53c1a7fed304586539c2bac/pytest-8.3.5-py3-none-any.whl", hash = "sha256:c69214aa47deac29fad6c2a4f590b9c4a9fdb16a403176fe154b79c0b4d4d820", size = 343634 },
+]
+
+[[package]]
+name = "pytest-cov"
+version = "6.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "coverage", extra = ["toml"] },
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/34/8c/039a7793f23f5cb666c834da9e944123f498ccc0753bed5fbfb2e2c11f87/pytest_cov-6.1.0.tar.gz", hash = "sha256:ec55e828c66755e5b74a21bd7cc03c303a9f928389c0563e50ba454a6dbe71db", size = 66651 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/c5/8d6ffe9fc8f7f57b3662156ae8a34f2b8e7a754c73b48e689ce43145e98c/pytest_cov-6.1.0-py3-none-any.whl", hash = "sha256:cd7e1d54981d5185ef2b8d64b50172ce97e6f357e6df5cb103e828c7f993e201", size = 23743 },
 ]
 
 [[package]]
@@ -5463,7 +5641,7 @@ name = "pyzmq"
 version = "26.2.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "implementation_name == 'pypy'" },
+    { name = "cffi", marker = "implementation_name == 'pypy' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5a/e3/8d0382cb59feb111c252b54e8728257416a38ffcb2243c4e4775a3c990fe/pyzmq-26.2.1.tar.gz", hash = "sha256:17d72a74e5e9ff3829deb72897a175333d3ef5b5413948cae3cf7ebf0b02ecca", size = 278433 }
 wheels = [
@@ -5536,7 +5714,7 @@ name = "qrcode"
 version = "8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d7/db/6fc9631cac1327f609d2c8ae3680ecd987a2e97472437f2de7ead1235156/qrcode-8.0.tar.gz", hash = "sha256:025ce2b150f7fe4296d116ee9bad455a6643ab4f6e7dce541613a4758cbce347", size = 42743 }
 wheels = [
@@ -5691,6 +5869,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5b/8a/71cfbf6bf6257ea785d1f030c22468f763eea1b3e5417620f2ba9abd6dca/rich_toolkit-0.13.2.tar.gz", hash = "sha256:fea92557530de7c28f121cbed572ad93d9e0ddc60c3ca643f1b831f2f56b95d3", size = 72288 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7e/1b/1c2f43af46456050b27810a7a013af8a7e12bc545a0cdc00eb0df55eb769/rich_toolkit-0.13.2-py3-none-any.whl", hash = "sha256:f3f6c583e5283298a2f7dbd3c65aca18b7f818ad96174113ab5bec0b0e35ed61", size = 13566 },
+]
+
+[[package]]
+name = "roman-numerals-py"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/76/48fd56d17c5bdbdf65609abbc67288728a98ed4c02919428d4f52d23b24b/roman_numerals_py-3.1.0.tar.gz", hash = "sha256:be4bf804f083a4ce001b5eb7e3c0862479d10f94c936f6c4e5f250aa5ff5bd2d", size = 9017 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/53/97/d2cbbaa10c9b826af0e10fdf836e1bf344d9f0abb873ebc34d1f49642d3f/roman_numerals_py-3.1.0-py3-none-any.whl", hash = "sha256:9da2ad2fb670bcf24e81070ceb3be72f6c11c440d73bd579fbeca1e9f330954c", size = 7742 },
 ]
 
 [[package]]
@@ -5876,14 +6063,14 @@ name = "runpod"
 version = "1.7.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "aiohttp", extra = ["speedups"] },
+    { name = "aiohttp", extra = ["speedups"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "aiohttp-retry" },
     { name = "backoff" },
     { name = "boto3" },
     { name = "click" },
-    { name = "colorama" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" } },
     { name = "cryptography" },
-    { name = "fastapi", extra = ["all"] },
+    { name = "fastapi", extra = ["all"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "inquirerpy" },
     { name = "paramiko" },
     { name = "prettytable" },
@@ -5976,7 +6163,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
     { name = "click" },
-    { name = "colorama" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" } },
     { name = "cryptography" },
     { name = "filelock" },
     { name = "jinja2" },
@@ -6013,7 +6200,7 @@ all = [
     { name = "azure-storage-blob" },
     { name = "boto3" },
     { name = "botocore" },
-    { name = "colorama" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" } },
     { name = "cudo-compute" },
     { name = "docker" },
     { name = "google-api-python-client" },
@@ -6030,7 +6217,7 @@ all = [
     { name = "pydantic" },
     { name = "pydo" },
     { name = "pyvmomi" },
-    { name = "ray", extra = ["default"] },
+    { name = "ray", extra = ["default"], marker = "extra == 'extra-8-nemo-run-skypilot-all' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
     { name = "runpod" },
     { name = "urllib3" },
     { name = "vastai-sdk" },
@@ -6080,83 +6267,81 @@ wheels = [
 
 [[package]]
 name = "sphinx"
-version = "5.1.1"
+version = "8.1.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Windows' and sys_platform != 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Darwin' and sys_platform != 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Darwin' and sys_platform != 'darwin'",
+    "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "alabaster", marker = "sys_platform != 'darwin'" },
-    { name = "babel", marker = "sys_platform != 'darwin'" },
-    { name = "colorama", marker = "sys_platform == 'win32'" },
-    { name = "docutils", marker = "sys_platform != 'darwin'" },
-    { name = "imagesize", marker = "sys_platform != 'darwin'" },
-    { name = "jinja2", marker = "sys_platform != 'darwin'" },
-    { name = "packaging", marker = "sys_platform != 'darwin'" },
-    { name = "pygments", marker = "sys_platform != 'darwin'" },
-    { name = "requests", marker = "sys_platform != 'darwin'" },
-    { name = "snowballstemmer", marker = "sys_platform != 'darwin'" },
-    { name = "sphinxcontrib-applehelp", marker = "sys_platform != 'darwin'" },
-    { name = "sphinxcontrib-devhelp", marker = "sys_platform != 'darwin'" },
-    { name = "sphinxcontrib-htmlhelp", marker = "sys_platform != 'darwin'" },
-    { name = "sphinxcontrib-jsmath", marker = "sys_platform != 'darwin'" },
-    { name = "sphinxcontrib-qthelp", marker = "sys_platform != 'darwin'" },
-    { name = "sphinxcontrib-serializinghtml", marker = "sys_platform != 'darwin'" },
+    { name = "alabaster", marker = "python_full_version < '3.11'" },
+    { name = "babel", marker = "python_full_version < '3.11'" },
+    { name = "colorama", version = "0.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' and sys_platform == 'win32'" },
+    { name = "docutils", version = "0.21.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "imagesize", marker = "python_full_version < '3.11'" },
+    { name = "jinja2", marker = "python_full_version < '3.11'" },
+    { name = "packaging", marker = "python_full_version < '3.11'" },
+    { name = "pygments", marker = "python_full_version < '3.11'" },
+    { name = "requests", marker = "python_full_version < '3.11'" },
+    { name = "snowballstemmer", marker = "python_full_version < '3.11'" },
+    { name = "sphinxcontrib-applehelp", marker = "python_full_version < '3.11'" },
+    { name = "sphinxcontrib-devhelp", marker = "python_full_version < '3.11'" },
+    { name = "sphinxcontrib-htmlhelp", marker = "python_full_version < '3.11'" },
+    { name = "sphinxcontrib-jsmath", marker = "python_full_version < '3.11'" },
+    { name = "sphinxcontrib-qthelp", marker = "python_full_version < '3.11'" },
+    { name = "sphinxcontrib-serializinghtml", marker = "python_full_version < '3.11'" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3a/30/ac07935542607c876f3fcee1c1ab043d253332567009994a1bf71d9b55cd/Sphinx-5.1.1.tar.gz", hash = "sha256:ba3224a4e206e1fbdecf98a4fae4992ef9b24b85ebf7b584bb340156eaf08d89", size = 6755784 }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/be0b61178fe2cdcb67e2a92fc9ebb488e3c51c4f74a36a7824c0adf23425/sphinx-8.1.3.tar.gz", hash = "sha256:43c1911eecb0d3e161ad78611bc905d1ad0e523e4ddc202a58a821773dc4c927", size = 8184611 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/74/318d8cd70cbde2164e3035f9e9ba0807e2de7d384e03784ad0afc98b891b/Sphinx-5.1.1-py3-none-any.whl", hash = "sha256:309a8da80cb6da9f4713438e5b55861877d5d7976b69d87e336733637ea12693", size = 3152688 },
+    { url = "https://files.pythonhosted.org/packages/26/60/1ddff83a56d33aaf6f10ec8ce84b4c007d9368b21008876fceda7e7381ef/sphinx-8.1.3-py3-none-any.whl", hash = "sha256:09719015511837b76bf6e03e42eb7595ac8c2e41eeb9c29c5b755c6b677992a2", size = 3487125 },
 ]
 
 [[package]]
 name = "sphinx"
-version = "5.3.0"
+version = "8.2.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version < '3.11' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system != 'Darwin' and platform_system != 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Windows' and sys_platform == 'darwin'",
-    "python_full_version == '3.12.*' and platform_system == 'Darwin' and sys_platform == 'darwin'",
-    "python_full_version >= '3.13' and platform_system == 'Darwin' and sys_platform == 'darwin'",
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
 ]
 dependencies = [
-    { name = "alabaster", marker = "sys_platform == 'darwin'" },
-    { name = "babel", marker = "sys_platform == 'darwin'" },
-    { name = "docutils", marker = "sys_platform == 'darwin'" },
-    { name = "imagesize", marker = "sys_platform == 'darwin'" },
-    { name = "jinja2", marker = "sys_platform == 'darwin'" },
-    { name = "packaging", marker = "sys_platform == 'darwin'" },
-    { name = "pygments", marker = "sys_platform == 'darwin'" },
-    { name = "requests", marker = "sys_platform == 'darwin'" },
-    { name = "snowballstemmer", marker = "sys_platform == 'darwin'" },
-    { name = "sphinxcontrib-applehelp", marker = "sys_platform == 'darwin'" },
-    { name = "sphinxcontrib-devhelp", marker = "sys_platform == 'darwin'" },
-    { name = "sphinxcontrib-htmlhelp", marker = "sys_platform == 'darwin'" },
-    { name = "sphinxcontrib-jsmath", marker = "sys_platform == 'darwin'" },
-    { name = "sphinxcontrib-qthelp", marker = "sys_platform == 'darwin'" },
-    { name = "sphinxcontrib-serializinghtml", marker = "sys_platform == 'darwin'" },
+    { name = "alabaster", marker = "python_full_version >= '3.11'" },
+    { name = "babel", marker = "python_full_version >= '3.11'" },
+    { name = "colorama", version = "0.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' and sys_platform == 'win32'" },
+    { name = "docutils", version = "0.21.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "imagesize", marker = "python_full_version >= '3.11'" },
+    { name = "jinja2", marker = "python_full_version >= '3.11'" },
+    { name = "packaging", marker = "python_full_version >= '3.11'" },
+    { name = "pygments", marker = "python_full_version >= '3.11'" },
+    { name = "requests", marker = "python_full_version >= '3.11'" },
+    { name = "roman-numerals-py", marker = "python_full_version >= '3.11'" },
+    { name = "snowballstemmer", marker = "python_full_version >= '3.11'" },
+    { name = "sphinxcontrib-applehelp", marker = "python_full_version >= '3.11'" },
+    { name = "sphinxcontrib-devhelp", marker = "python_full_version >= '3.11'" },
+    { name = "sphinxcontrib-htmlhelp", marker = "python_full_version >= '3.11'" },
+    { name = "sphinxcontrib-jsmath", marker = "python_full_version >= '3.11'" },
+    { name = "sphinxcontrib-qthelp", marker = "python_full_version >= '3.11'" },
+    { name = "sphinxcontrib-serializinghtml", marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/af/b2/02a43597980903483fe5eb081ee8e0ba2bb62ea43a70499484343795f3bf/Sphinx-5.3.0.tar.gz", hash = "sha256:51026de0a9ff9fc13c05d74913ad66047e104f56a129ff73e174eb5c3ee794b5", size = 6811365 }
+sdist = { url = "https://files.pythonhosted.org/packages/38/ad/4360e50ed56cb483667b8e6dadf2d3fda62359593faabbe749a27c4eaca6/sphinx-8.2.3.tar.gz", hash = "sha256:398ad29dee7f63a75888314e9424d40f52ce5a6a87ae88e7071e80af296ec348", size = 8321876 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/a7/01dd6fd9653c056258d65032aa09a615b5d7b07dd840845a9f41a8860fbc/sphinx-5.3.0-py3-none-any.whl", hash = "sha256:060ca5c9f7ba57a08a1219e547b269fadf125ae25b06b9fa7f66768efb652d6d", size = 3183160 },
+    { url = "https://files.pythonhosted.org/packages/31/53/136e9eca6e0b9dc0e1962e2c908fbea2e5ac000c2a2fbd9a35797958c48b/sphinx-8.2.3-py3-none-any.whl", hash = "sha256:4405915165f13521d875a8c29c8970800a0141c14cc5416a38feca4ea5d9b9c3", size = 3589741 },
+]
+
+[[package]]
+name = "sphinx-autoapi"
+version = "3.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "astroid" },
+    { name = "jinja2" },
+    { name = "pyyaml" },
+    { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs')" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7f/a8/22b379a2a75ccb881217d3d4ae56d7d35f2d1bb4c8c0c51d0253676746a1/sphinx_autoapi-3.6.0.tar.gz", hash = "sha256:c685f274e41d0842ae7e199460c322c4bd7fec816ccc2da8d806094b4f64af06", size = 55417 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/17/0eda9dc80fcaf257222b506844207e71b5d59567c41bbdcca2a72da119b9/sphinx_autoapi-3.6.0-py3-none-any.whl", hash = "sha256:f3b66714493cab140b0e896d33ce7137654a16ac1edb6563edcbd47bf975f711", size = 35281 },
 ]
 
 [[package]]
@@ -6274,8 +6459,8 @@ name = "terminado"
 version = "0.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "os_name != 'nt'" },
-    { name = "pywinpty", marker = "os_name == 'nt'" },
+    { name = "ptyprocess", marker = "os_name != 'nt' or (extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin') or (os_name == 'nt' and extra == 'extra-8-nemo-run-skypilot') or (os_name == 'nt' and extra != 'extra-8-nemo-run-skypilot-all') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot' and extra == 'group-8-nemo-run-docs') or (os_name != 'nt' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs') or (sys_platform == 'darwin' and extra != 'extra-8-nemo-run-skypilot' and extra == 'extra-8-nemo-run-skypilot-all' and extra == 'group-8-nemo-run-docs')" },
     { name = "tornado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701 }
@@ -6441,7 +6626,7 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737 }
 wheels = [
@@ -6633,7 +6818,7 @@ wheels = [
 
 [package.optional-dependencies]
 standard = [
-    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "colorama", version = "0.4.4", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
