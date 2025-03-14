@@ -69,7 +69,7 @@ def test_submit_dryrun(slurm_scheduler, mock_app_def, slurm_executor):
 
                 # Skip the actual test since we can't mock the script generation
                 # This is a placeholder to show we're aware of the test
-                pass
+
 
 
 def test_scheduler_with_remote_parameters(slurm_scheduler, slurm_executor, mock_app_def):
@@ -87,7 +87,7 @@ def test_scheduler_with_remote_parameters(slurm_scheduler, slurm_executor, mock_
 
                 # Skip the actual test since we can't mock the script generation
                 # This is a placeholder to show we're aware of the test
-                pass
+
 
 
 def test_slurm_scheduler_methods(slurm_scheduler):
