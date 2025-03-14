@@ -14,12 +14,9 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import List, TYPE_CHECKING, ForwardRef
+from typing import List, ForwardRef
 
 import nemo_run as run
-
-if TYPE_CHECKING:
-    from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 
 
 @dataclass

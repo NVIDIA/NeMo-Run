@@ -25,7 +25,6 @@ from typing import (
     Type,
     Union,
     ForwardRef,
-    TYPE_CHECKING,
 )
 
 import pytest
@@ -46,9 +45,6 @@ from nemo_run.cli.cli_parser import (
     parse_value,
 )
 from nemo_run.config import Config, Partial
-
-if TYPE_CHECKING:
-    from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 
 
 class TestSimpleValueParsing:
