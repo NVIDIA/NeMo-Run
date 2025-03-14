@@ -211,9 +211,7 @@ class PythonicParser:
             >>> parser.parse("x+=5")
             {'x': (Operation.ADD, '5')}
         """
-        assignment_match = re.match(
-            r"^([\w\[\]\.]+)\s*(=|\+=|-=|\*=|/=|\|=|&=)\s*(.+)$", arg
-        )
+        assignment_match = re.match(r"^([\w\[\]\.]+)\s*(=|\+=|-=|\*=|/=|\|=|&=)\s*(.+)$", arg)
         if assignment_match:
             key, op_str, value = assignment_match.groups()
             try:
@@ -461,9 +459,7 @@ class PythonicParser:
                 return eval(value, {"__builtins__": self.safe_builtins}, {})
             raise ArgumentValueError(f"Invalid lambda: {value}", value, {})
         except Exception as e:
-            raise ArgumentValueError(
-                f"Error parsing lambda '{value}': {str(e)}", value, {}
-            )
+            raise ArgumentValueError(f"Error parsing lambda '{value}': {str(e)}", value, {})
 
     def _contains_unsafe_operations(self, node: ast.AST) -> bool:
         """
@@ -499,19 +495,14 @@ class PythonicParser:
             return self._contains_unsafe_operations(node.body)
         elif isinstance(node, ast.BinOp):
             # Allow basic arithmetic operations
-            return self._contains_unsafe_operations(
-                node.left
-            ) or self._contains_unsafe_operations(node.right)
+            return self._contains_unsafe_operations(node.left) or self._contains_unsafe_operations(
+                node.right
+            )
         elif isinstance(node, ast.UnaryOp):
             return self._contains_unsafe_operations(node.operand)
         elif isinstance(node, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
-            return any(
-                self._contains_unsafe_operations(elt)
-                for elt in ast.iter_child_nodes(node)
-            )
-        elif isinstance(
-            node, (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Ellipsis)
-        ):
+            return any(self._contains_unsafe_operations(elt) for elt in ast.iter_child_nodes(node))
+        elif isinstance(node, (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Ellipsis)):
             # Allow basic literals
             return False
         return True
@@ -564,11 +555,7 @@ class PythonicParser:
         try:
             if op == Operation.OR and isinstance(old, dict) and isinstance(new, dict):
                 return {**old, **new}
-            elif (
-                op == Operation.OR
-                and hasattr(old, "__dict__")
-                and hasattr(new, "__dict__")
-            ):
+            elif op == Operation.OR and hasattr(old, "__dict__") and hasattr(new, "__dict__"):
                 return {**old.__dict__, **new.__dict__}
             elif op in self.operations:
                 return self.operations[op](old, new)
@@ -662,11 +649,7 @@ class TypeParser:
         origin = get_origin(annotation) or annotation
         if str(origin).startswith("ForwardRef"):
             return self.parse_forward_ref
-        return (
-            self.custom_parsers.get(origin)
-            or self.parsers.get(origin)
-            or self.parse_unknown
-        )
+        return self.custom_parsers.get(origin) or self.parsers.get(origin) or self.parse_unknown
 
     def parse(self, value: str, annotation: Type) -> Any:
         """Parse a string value according to the given type annotation.
@@ -698,9 +681,7 @@ class TypeParser:
                 {"expected_type": annotation},
             )
 
-    def parse_buildable(
-        self, value: str, annotation: Type[Config | Partial]
-    ) -> Config | Partial:
+    def parse_buildable(self, value: str, annotation: Type[Config | Partial]) -> Config | Partial:
         """Parse a string value into a Buildable type (Config or Partial).
 
         Args:
@@ -768,9 +749,7 @@ class TypeParser:
         try:
             return float(value)
         except ValueError:
-            raise ParseError(
-                value, float, f"Could not convert string to float: '{value}'"
-            )
+            raise ParseError(value, float, f"Could not convert string to float: '{value}'")
 
     def parse_str(self, value: str, _: Type) -> str:
         """Parse a string value, removing surrounding quotes if present.
@@ -783,9 +762,7 @@ class TypeParser:
             str: The parsed string value.
         """
         if len(value) >= 2:
-            if (value[0] == "'" and value[-1] == "'") or (
-                value[0] == '"' and value[-1] == '"'
-            ):
+            if (value[0] == "'" and value[-1] == "'") or (value[0] == '"' and value[-1] == '"'):
                 return value[1:-1]
         return value
 
@@ -1077,9 +1054,7 @@ def parse_cli_args(
     parser = PythonicParser()
     if isinstance(fn, (Config, Partial)):
         output = fn
-    elif isinstance(fn, (list, tuple)) and all(
-        isinstance(item, (Config, Partial)) for item in fn
-    ):
+    elif isinstance(fn, (list, tuple)) and all(isinstance(item, (Config, Partial)) for item in fn):
         output = fn
     else:
         if output_type in (Partial, Config):
@@ -1280,9 +1255,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
                 types = get_underlying_types(arg_type)
                 for t in types:
                     try:
-                        factory_fn = _get_from_registry(
-                            factory_name, t, name=factory_name
-                        )
+                        factory_fn = _get_from_registry(factory_name, t, name=factory_name)
                         break
                     except catalogue.RegistryError:
                         continue
