@@ -20,6 +20,7 @@ This is also the typical order Nemo Run users will follow to setup and launch ex
    :maxdepth: 1
 
    api/index.rst
+   guides/index.rst
    faq*
 
 Installation
