@@ -53,6 +53,6 @@ The ``hello_world`` tutorial series provides a comprehensive introduction to NeM
 
 You can find the tutorial series below:
 
-1. :download:`Part 1 <examples/hello-world/hello_world.ipynb>`
-2. :download:`Part 2 <examples/hello-world/hello_experiments.ipynb>`
-3. :download:`Part 3 <examples/hello-world/hello_scripts.py>`
+1. :download:`Part 1 <../../../examples/hello-world/hello_world.ipynb>`
+2. :download:`Part 2 <../../../examples/hello-world/hello_experiments.ipynb>`
+3. :download:`Part 3 <../../../examples/hello-world/hello_scripts.py>`
