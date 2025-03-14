@@ -609,6 +609,7 @@ class TypeParser:
             Optional: self.parse_optional,
             Literal: self.parse_literal,
             Path: self.parse_path,
+            'ForwardRef': self.parse_forward_ref,  # Add ForwardRef handling
         }
         self.custom_parsers = {}
         self.strict_mode = strict_mode
@@ -646,6 +647,8 @@ class TypeParser:
             Callable[[str, Type], Any]: The parser function for the given type.
         """
         origin = get_origin(annotation) or annotation
+        if str(origin).startswith('ForwardRef'):
+            return self.parse_forward_ref
         return self.custom_parsers.get(origin) or self.parsers.get(origin) or self.parse_unknown
 
     def parse(self, value: str, annotation: Type) -> Any:
@@ -949,6 +952,23 @@ class TypeParser:
         if "\0" in value:
             raise ParseError(value, Path, "Invalid path: contains null character")
         return Path(value.strip("'\" "))
+
+    def parse_forward_ref(self, value: str, annotation) -> Any:
+        """Parse a string value as a ForwardRef type.
+
+        Args:
+            value (str): The string value to parse.
+            annotation: The ForwardRef type annotation.
+
+        Returns:
+            Any: The parsed value.
+
+        Raises:
+            ParseError: If the value cannot be parsed.
+        """
+        # For ForwardRef types, we'll just return the value as is
+        # since the actual type resolution happens later
+        return value
 
     def infer_type(self, value: str) -> Type:
         """Infer the type of a string value.

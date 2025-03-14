@@ -16,7 +16,7 @@
 import sys
 from pathlib import Path
 from test.dummy_factory import DummyModel
-from typing import Any, Dict, List, Literal, Optional, Type, Union
+from typing import Any, Dict, List, Literal, Optional, Type, Union, ForwardRef, TYPE_CHECKING
 
 import pytest
 
@@ -36,6 +36,9 @@ from nemo_run.cli.cli_parser import (
     parse_value,
 )
 from nemo_run.config import Config, Partial
+
+if TYPE_CHECKING:
+    from nemo.collections.common.tokenizers.tokenizer_spec import TokenizerSpec
 
 
 class TestSimpleValueParsing:
@@ -152,6 +155,23 @@ class TestComplexTypeParsing:
             parse_cli_args(func, ['a="yellow"'])
         assert "Error parsing argument" in str(exc_info.value)
         assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
+
+    def test_forward_ref_parsing(self):
+        # Use string annotation to avoid needing the actual class at runtime
+        def func(tokenizer: Optional[ForwardRef("TokenizerSpec")]):
+            pass
+
+        # Test with string value
+        result = parse_cli_args(func, ["tokenizer=tokenizer_spec"])
+        assert result.tokenizer.hidden == 1000
+
+        # Test with None
+        result = parse_cli_args(func, ["tokenizer=None"])
+        assert result.tokenizer is None
+
+        # Test with null (alternative None syntax)
+        result = parse_cli_args(func, ["tokenizer=null"])
+        assert result.tokenizer is None
 
 
 class TestFactoryFunctionParsing:
