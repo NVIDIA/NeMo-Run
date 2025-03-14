@@ -1,4 +1,10 @@
-configuration.md
-execution.md
-management.md
-why-use-nemo-run.md
+Guides
+=================
+
+.. toctree::
+   :maxdepth: 2
+
+   configuration
+   execution
+   management
+   why-use-nemo-run
