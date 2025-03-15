@@ -609,6 +609,7 @@ class TypeParser:
             Optional: self.parse_optional,
             Literal: self.parse_literal,
             Path: self.parse_path,
+            "ForwardRef": self.parse_forward_ref,
         }
         self.custom_parsers = {}
         self.strict_mode = strict_mode
@@ -646,6 +647,8 @@ class TypeParser:
             Callable[[str, Type], Any]: The parser function for the given type.
         """
         origin = get_origin(annotation) or annotation
+        if str(origin).startswith("ForwardRef"):
+            return self.parse_forward_ref
         return self.custom_parsers.get(origin) or self.parsers.get(origin) or self.parse_unknown
 
     def parse(self, value: str, annotation: Type) -> Any:
@@ -950,6 +953,23 @@ class TypeParser:
             raise ParseError(value, Path, "Invalid path: contains null character")
         return Path(value.strip("'\" "))
 
+    def parse_forward_ref(self, value: str, annotation) -> Any:
+        """Parse a string value as a ForwardRef type.
+
+        Args:
+            value (str): The string value to parse.
+            annotation: The ForwardRef type annotation.
+
+        Returns:
+            Any: The parsed value.
+
+        Raises:
+            ParseError: If the value cannot be parsed.
+        """
+        # For ForwardRef types, we'll just return the value as is
+        # since the actual type resolution happens later
+        return value
+
     def infer_type(self, value: str) -> Type:
         """Infer the type of a string value.
 
@@ -980,7 +1000,9 @@ def parse_value(value: str, annotation: Type = None) -> Any:
 
 @cli_exception_handler
 def parse_cli_args(
-    fn: Callable, args: List[str], output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial
+    fn: Callable,
+    args: List[str],
+    output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial,
 ) -> TypeVar("OutputT", Partial, Config):
     """Parse command-line arguments and apply them to a function or class.
 
@@ -1127,7 +1149,9 @@ def parse_cli_args(
             else:
                 if not hasattr(nested, arg_name):
                     raise UndefinedVariableError(
-                        f"Cannot use '{op.value}' on undefined variable", arg, {"key": key}
+                        f"Cannot use '{op.value}' on undefined variable",
+                        arg,
+                        {"key": key},
                     )
                 setattr(
                     nested,
@@ -1287,7 +1311,9 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
         for arg in args:
             if "=" not in arg:
                 raise ArgumentParsingError(
-                    "Positional argument found after keyword argument", arg, {"position": len(args)}
+                    "Positional argument found after keyword argument",
+                    arg,
+                    {"position": len(args)},
                 )
 
         return args
@@ -1314,7 +1340,9 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
                 positional_count += 1
             else:
                 raise ArgumentParsingError(
-                    "Too many positional arguments", arg, {"max_positional": len(params)}
+                    "Too many positional arguments",
+                    arg,
+                    {"max_positional": len(params)},
                 )
 
     return updated_args

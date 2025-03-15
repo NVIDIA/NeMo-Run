@@ -16,7 +16,16 @@
 import sys
 from pathlib import Path
 from test.dummy_factory import DummyModel
-from typing import Any, Dict, List, Literal, Optional, Type, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Type,
+    Union,
+    ForwardRef,
+)
 
 import pytest
 
@@ -152,6 +161,23 @@ class TestComplexTypeParsing:
             parse_cli_args(func, ['a="yellow"'])
         assert "Error parsing argument" in str(exc_info.value)
         assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
+
+    def test_forward_ref_parsing(self):
+        # Use string annotation to avoid needing the actual class at runtime
+        def func(tokenizer: Optional[ForwardRef("TokenizerSpec")]):
+            pass
+
+        # Test with string value
+        result = parse_cli_args(func, ["tokenizer=tokenizer_spec"])
+        assert result.tokenizer.hidden == 1000
+
+        # Test with None
+        result = parse_cli_args(func, ["tokenizer=None"])
+        assert result.tokenizer is None
+
+        # Test with null (alternative None syntax)
+        result = parse_cli_args(func, ["tokenizer=null"])
+        assert result.tokenizer is None
 
 
 class TestFactoryFunctionParsing:
@@ -348,7 +374,8 @@ class TestExceptions:
             pass
 
         with pytest.raises(
-            ArgumentValueError, match="Invalid argument: No parameter named 'b' exists for"
+            ArgumentValueError,
+            match="Invalid argument: No parameter named 'b' exists for",
         ):
             parse_cli_args(func, ["b=5"])
 
@@ -398,7 +425,8 @@ class TestParseValue:
         assert parse_value("0", int) == 0
         assert parse_value("+789", int) == 789
         with pytest.raises(
-            ParseError, match="Failed to parse '3.14' as <class 'int'>: Invalid integer literal"
+            ParseError,
+            match="Failed to parse '3.14' as <class 'int'>: Invalid integer literal",
         ):
             parse_value("3.14", int)
         with pytest.raises(
@@ -447,7 +475,8 @@ class TestParseValue:
         ):
             parse_value("not_a_bool", bool)
         with pytest.raises(
-            ParseError, match="Failed to parse '2' as <class 'bool'>: Cannot convert .* to bool"
+            ParseError,
+            match="Failed to parse '2' as <class 'bool'>: Cannot convert .* to bool",
         ):
             parse_value("2", bool)
 
@@ -465,7 +494,10 @@ class TestParseValue:
 
     def test_parse_dict(self):
         assert parse_value('{"a": 1, "b": 2}', Dict[str, int]) == {"a": 1, "b": 2}
-        assert parse_value('{"x": "foo", "y": "bar"}', Dict[str, str]) == {"x": "foo", "y": "bar"}
+        assert parse_value('{"x": "foo", "y": "bar"}', Dict[str, str]) == {
+            "x": "foo",
+            "y": "bar",
+        }
         assert parse_value("{}", Dict[str, Any]) == {}
         with pytest.raises(ParseError, match="Failed to parse 'not_a_dict' as typing.Dict"):
             parse_value("not_a_dict", Dict[str, int])
@@ -559,7 +591,8 @@ class TestParseValue:
             pass
 
         with pytest.raises(
-            ParseError, match="Failed to parse 'value' as <class '.*CustomType'>: Unsupported type"
+            ParseError,
+            match="Failed to parse 'value' as <class '.*CustomType'>: Unsupported type",
         ):
             strict_parser.parse("value", CustomType)
 
@@ -599,7 +632,11 @@ class TestPythonicParser:
 
     def test_parse_comprehension(self, parser):
         assert parser.parse_comprehension("[x for x in range(3)]") == [0, 1, 2]
-        assert parser.parse_comprehension("{x: x**2 for x in range(3)}") == {0: 0, 1: 1, 2: 4}
+        assert parser.parse_comprehension("{x: x**2 for x in range(3)}") == {
+            0: 0,
+            1: 1,
+            2: 4,
+        }
 
     def test_parse_lambda(self, parser):
         # Test safe lambdas
