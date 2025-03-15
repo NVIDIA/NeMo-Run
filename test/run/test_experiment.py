@@ -220,7 +220,7 @@ def test_add_job_group_with_plugin(temp_dir):
             plugin = MagicMock(spec=ExperimentPlugin)
 
             # Add the job group with the plugin
-            job_id = exp.add(tasks, name="group-job", plugins=[plugin])
+            exp.add(tasks, name="group-job", plugins=[plugin])
 
             # Verify the plugin's setup method was called
             # Note: The assign method is not called for job groups, only for single jobs
