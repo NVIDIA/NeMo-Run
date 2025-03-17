@@ -604,7 +604,7 @@ def test_dependencies_between_jobs(temp_dir):
         job1_id = exp.add(task1, name="job1")
 
         task2 = run.Partial(dummy_function, x=3, y=4)
-        job2_id = exp.add(task2, name="job2", dependencies=[job1_id])
+        exp.add(task2, name="job2", dependencies=[job1_id])
 
         assert len(exp.jobs) == 2
         assert exp.jobs[0].id == "job1"
