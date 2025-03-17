@@ -544,7 +544,7 @@ def test_complex_dag_execution(mock_get_runner, temp_dir):
         job1_id = exp.add(task.clone(), name="job1")
         job2_id = exp.add(task.clone(), name="job2", dependencies=[job1_id])
         job3_id = exp.add(task.clone(), name="job3", dependencies=[job1_id])
-        job4_id = exp.add(task.clone(), name="job4", dependencies=[job2_id, job3_id])
+        exp.add(task.clone(), name="job4", dependencies=[job2_id, job3_id])
 
         # Patch the _run_dag method to verify DAG is constructed correctly
         with patch.object(exp, "_run_dag") as mock_run_dag:
@@ -590,7 +590,7 @@ def test_invalid_dependency(temp_dir):
     """Test adding a job with an invalid dependency."""
     with Experiment("test-exp") as exp:
         task = run.Partial(dummy_function, x=1, y=2)
-        job1_id = exp.add(task, name="job1")
+        exp.add(task, name="job1")
 
         # Adding a job with a non-existent dependency should raise an assertion error
         with pytest.raises(AssertionError):
@@ -768,7 +768,7 @@ def test_wait_for_jobs_exception(mock_get_runner, temp_dir):
 
     with Experiment("test-exp") as exp:
         task = run.Partial(dummy_function, x=1, y=2)
-        job_id = exp.add(task, name="test-job")
+        exp.add(task, name="test-job")
 
         # Mock job attributes and methods
         job = exp.jobs[0]
