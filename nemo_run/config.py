@@ -221,9 +221,7 @@ def set_value(cfg: config.Buildable, key: str, value: Any) -> None:
         else:
             raise run_exceptions.SetValueError(f"Unexpected path element {last}.")
     except Exception as e:
-        raise run_exceptions.SetValueError(
-            f'Could not set "{key}" to "{value}".'
-        ) from e
+        raise run_exceptions.SetValueError(f'Could not set "{key}" to "{value}".') from e
 
 
 class _CloneAndFNMixin:
@@ -338,9 +336,7 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
         **kwargs,
     ):
         # Handle dict types by converting to _kwargs_to_dict function
-        if fn_or_cls == {} or (
-            hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict
-        ):
+        if fn_or_cls == {} or (hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict):
             fn_or_cls = dict  # type: ignore
             bind_args = False
 
@@ -422,9 +418,7 @@ class ConfigurableMixin(_VisualizeMixin):
         Returns:
             graphviz.Digraph: A graph representing the differences between configurations.
         """
-        return render_diff(
-            old=old.to_config(), new=self.to_config(), trim=trim, **kwargs
-        )
+        return render_diff(old=old.to_config(), new=self.to_config(), trim=trim, **kwargs)
 
     def to_config(self) -> Config[Self]:
         """
@@ -544,11 +538,7 @@ class Script(ConfigurableMixin):
                 if is_local:
                     cmd = [filename]
                 else:
-                    cmd = [
-                        os.path.join(
-                            f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name
-                        )
-                    ]
+                    cmd = [os.path.join(f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name)]
 
                 if with_entrypoint:
                     cmd = [self.entrypoint] + cmd
@@ -572,9 +562,7 @@ class Script(ConfigurableMixin):
             if self.entrypoint:
                 cmd = [self.entrypoint] + cmd
             else:
-                raise ValueError(
-                    "Cannot use with_entrypoint=True without specifying entrypoint"
-                )
+                raise ValueError("Cannot use with_entrypoint=True without specifying entrypoint")
 
         return cmd
 
