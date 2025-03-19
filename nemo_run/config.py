@@ -125,7 +125,7 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
     # Special case for functions and classes - return the type itself
     if inspect.isfunction(type_hint) or inspect.isclass(type_hint):
         return {type_hint}
-    
+
     # Handle older style type hints (_GenericAlias)
     if hasattr(typing, "_GenericAlias") and isinstance(type_hint, typing._GenericAlias):  # type: ignore
         if str(type_hint).startswith("typing.Annotated"):
@@ -138,17 +138,17 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
                 types.update(get_underlying_types(arg))
             return types
         return {type_hint}
-    
+
     # Handle Python 3.9+ style type hints
     origin = typing.get_origin(type_hint)
     args = typing.get_args(type_hint)
-    
+
     # Base case: no origin or args means it's a simple type
     if origin is None:
         if isinstance(type_hint, type):
             return {type_hint}
         return {type_hint}  # Return the hint itself if not a type
-    
+
     # Union type (including Optional)
     if origin is typing.Union:
         result = set()
@@ -156,21 +156,21 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
             if arg is not type(None):  # Skip NoneType in Unions
                 result.update(get_underlying_types(arg))
         return result
-    
+
     # List, Dict, etc. - collect types from arguments
     result = set()
     for arg in args:
         result.update(get_underlying_types(arg))
-    
+
     # Include the origin type itself if it's a class
     # This handles both typing module types and Python 3.9+ built-in generic types
     if isinstance(origin, type):
         result.add(origin)
-    
+
     # If no types were added, return the original type hint to preserve behavior
     if not result:
         return {type_hint}
-    
+
     return result
 
 
@@ -221,9 +221,7 @@ def set_value(cfg: config.Buildable, key: str, value: Any) -> None:
         else:
             raise run_exceptions.SetValueError(f"Unexpected path element {last}.")
     except Exception as e:
-        raise run_exceptions.SetValueError(
-            f'Could not set "{key}" to "{value}".'
-        ) from e
+        raise run_exceptions.SetValueError(f'Could not set "{key}" to "{value}".') from e
 
 
 class _CloneAndFNMixin:
@@ -338,9 +336,7 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
         **kwargs,
     ):
         # Handle dict types by converting to _kwargs_to_dict function
-        if fn_or_cls == {} or (
-            hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict
-        ):
+        if fn_or_cls == {} or (hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict):
             fn_or_cls = dict  # type: ignore
             bind_args = False
 
@@ -422,9 +418,7 @@ class ConfigurableMixin(_VisualizeMixin):
         Returns:
             graphviz.Digraph: A graph representing the differences between configurations.
         """
-        return render_diff(
-            old=old.to_config(), new=self.to_config(), trim=trim, **kwargs
-        )
+        return render_diff(old=old.to_config(), new=self.to_config(), trim=trim, **kwargs)
 
     def to_config(self) -> Config[Self]:
         """
@@ -544,11 +538,7 @@ class Script(ConfigurableMixin):
                 if is_local:
                     cmd = [filename]
                 else:
-                    cmd = [
-                        os.path.join(
-                            f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name
-                        )
-                    ]
+                    cmd = [os.path.join(f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name)]
 
                 if with_entrypoint:
                     cmd = [self.entrypoint] + cmd
@@ -572,9 +562,7 @@ class Script(ConfigurableMixin):
             if self.entrypoint:
                 cmd = [self.entrypoint] + cmd
             else:
-                raise ValueError(
-                    "Cannot use with_entrypoint=True without specifying entrypoint"
-                )
+                raise ValueError("Cannot use with_entrypoint=True without specifying entrypoint")
 
         return cmd
 
