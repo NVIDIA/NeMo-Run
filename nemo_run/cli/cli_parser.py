@@ -49,7 +49,7 @@ BUILTIN_TO_TYPING = {
     list: List,
     dict: Dict,
     tuple: tuple,  # typing.Tuple in older Python
-    set: set,      # typing.Set in older Python
+    set: set,  # typing.Set in older Python
     type: Type,
     # Add more as needed
 }
@@ -224,7 +224,9 @@ class PythonicParser:
             >>> parser.parse("x+=5")
             {'x': (Operation.ADD, '5')}
         """
-        assignment_match = re.match(r"^([\w\[\]\.]+)\s*(=|\+=|-=|\*=|/=|\|=|&=)\s*(.+)$", arg)
+        assignment_match = re.match(
+            r"^([\w\[\]\.]+)\s*(=|\+=|-=|\*=|/=|\|=|&=)\s*(.+)$", arg
+        )
         if assignment_match:
             key, op_str, value = assignment_match.groups()
             try:
@@ -472,7 +474,9 @@ class PythonicParser:
                 return eval(value, {"__builtins__": self.safe_builtins}, {})
             raise ArgumentValueError(f"Invalid lambda: {value}", value, {})
         except Exception as e:
-            raise ArgumentValueError(f"Error parsing lambda '{value}': {str(e)}", value, {})
+            raise ArgumentValueError(
+                f"Error parsing lambda '{value}': {str(e)}", value, {}
+            )
 
     def _contains_unsafe_operations(self, node: ast.AST) -> bool:
         """
@@ -508,14 +512,19 @@ class PythonicParser:
             return self._contains_unsafe_operations(node.body)
         elif isinstance(node, ast.BinOp):
             # Allow basic arithmetic operations
-            return self._contains_unsafe_operations(node.left) or self._contains_unsafe_operations(
-                node.right
-            )
+            return self._contains_unsafe_operations(
+                node.left
+            ) or self._contains_unsafe_operations(node.right)
         elif isinstance(node, ast.UnaryOp):
             return self._contains_unsafe_operations(node.operand)
         elif isinstance(node, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
-            return any(self._contains_unsafe_operations(elt) for elt in ast.iter_child_nodes(node))
-        elif isinstance(node, (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Ellipsis)):
+            return any(
+                self._contains_unsafe_operations(elt)
+                for elt in ast.iter_child_nodes(node)
+            )
+        elif isinstance(
+            node, (ast.Num, ast.Str, ast.Bytes, ast.NameConstant, ast.Ellipsis)
+        ):
             # Allow basic literals
             return False
         return True
@@ -568,7 +577,11 @@ class PythonicParser:
         try:
             if op == Operation.OR and isinstance(old, dict) and isinstance(new, dict):
                 return {**old, **new}
-            elif op == Operation.OR and hasattr(old, "__dict__") and hasattr(new, "__dict__"):
+            elif (
+                op == Operation.OR
+                and hasattr(old, "__dict__")
+                and hasattr(new, "__dict__")
+            ):
                 return {**old.__dict__, **new.__dict__}
             elif op in self.operations:
                 return self.operations[op](old, new)
@@ -665,15 +678,15 @@ class TypeParser:
             origin = get_origin(annotation)
         except (TypeError, AttributeError):
             origin = None
-        
+
         # Handle direct type references (int, str, etc.)
         if annotation in self.parsers:
             return self.parsers[annotation]
-        
+
         # Handle custom parsers
         if annotation in self.custom_parsers:
             return self.custom_parsers[annotation]
-        
+
         # If we have an origin, map it to the correct parser
         if origin is not None:
             # Map built-in container origins to their corresponding parser
@@ -684,17 +697,17 @@ class TypeParser:
             elif origin is Union:
                 return self.parse_union
             # Add other mappings as needed
-            
+
             # Check for custom parsers for the origin
             if origin in self.custom_parsers:
                 return self.custom_parsers[origin]
             if origin in self.parsers:
                 return self.parsers[origin]
-        
+
         # Handle older-style generic aliases
         if hasattr(annotation, "__origin__"):
             origin = annotation.__origin__
-            
+
             # Map older-style typing module generics
             if origin is list or origin is List:
                 return self.parse_list
@@ -702,13 +715,13 @@ class TypeParser:
                 return self.parse_dict
             elif origin is Union:
                 return self.parse_union
-            
+
             # Check for parsers registered for the origin
             if origin in self.custom_parsers:
                 return self.custom_parsers[origin]
             if origin in self.parsers:
                 return self.parsers[origin]
-        
+
         # Fall back to the unknown type parser
         return self.parse_unknown
 
@@ -742,7 +755,9 @@ class TypeParser:
                 {"expected_type": annotation},
             )
 
-    def parse_buildable(self, value: str, annotation: Type[Config | Partial]) -> Config | Partial:
+    def parse_buildable(
+        self, value: str, annotation: Type[Config | Partial]
+    ) -> Config | Partial:
         """Parse a string value into a Buildable type (Config or Partial).
 
         Args:
@@ -810,7 +825,9 @@ class TypeParser:
         try:
             return float(value)
         except ValueError:
-            raise ParseError(value, float, f"Could not convert string to float: '{value}'")
+            raise ParseError(
+                value, float, f"Could not convert string to float: '{value}'"
+            )
 
     def parse_str(self, value: str, _: Type) -> str:
         """Parse a string value, removing surrounding quotes if present.
@@ -823,7 +840,9 @@ class TypeParser:
             str: The parsed string value.
         """
         if len(value) >= 2:
-            if (value[0] == "'" and value[-1] == "'") or (value[0] == '"' and value[-1] == '"'):
+            if (value[0] == "'" and value[-1] == "'") or (
+                value[0] == '"' and value[-1] == '"'
+            ):
                 return value[1:-1]
         return value
 
@@ -864,10 +883,10 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, list):
                 raise ValueError("Not a list")
-            
+
             # Get the element type - handle both old and new style type hints safely
             elem_type = None
-            
+
             # Try to get args using get_args (works for Python 3.9+)
             try:
                 type_args = get_args(annotation)
@@ -877,11 +896,11 @@ class TypeParser:
                 # If that fails, try older __args__ style (Python 3.8 and earlier)
                 if hasattr(annotation, "__args__") and annotation.__args__:
                     elem_type = annotation.__args__[0]
-            
+
             # Default to Any if we can't determine the element type
             if elem_type is None:
                 return parsed
-            
+
             # Parse each element with the determined type
             return [self.parse(str(item), elem_type) for item in parsed]
         except Exception as e:
@@ -904,11 +923,11 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, dict):
                 raise ValueError("Not a dict")
-            
+
             # Get the key and value types - handle both old and new style type hints
             key_type = None
             val_type = None
-            
+
             # Try to get args using get_args (works for Python 3.9+)
             try:
                 type_args = get_args(annotation)
@@ -918,11 +937,11 @@ class TypeParser:
                 # If that fails, try older __args__ style (Python 3.8 and earlier)
                 if hasattr(annotation, "__args__") and len(annotation.__args__) >= 2:
                     key_type, val_type = annotation.__args__[0], annotation.__args__[1]
-            
+
             # If we can't determine the types, return the parsed dict as is
             if key_type is None or val_type is None:
                 return parsed
-            
+
             # Parse each key-value pair with the determined types
             return {
                 self.parse(str(k), key_type): self.parse(str(v), val_type)
@@ -1081,7 +1100,9 @@ def parse_value(value: str, annotation: Type = None) -> Any:
 
 @cli_exception_handler
 def parse_cli_args(
-    fn: Callable, args: List[str], output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial
+    fn: Callable,
+    args: List[str],
+    output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial,
 ) -> TypeVar("OutputT", Partial, Config):
     """Parse command-line arguments and apply them to a function or class.
 
@@ -1133,7 +1154,9 @@ def parse_cli_args(
     parser = PythonicParser()
     if isinstance(fn, (Config, Partial)):
         output = fn
-    elif isinstance(fn, (list, tuple)) and all(isinstance(item, (Config, Partial)) for item in fn):
+    elif isinstance(fn, (list, tuple)) and all(
+        isinstance(item, (Config, Partial)) for item in fn
+    ):
         output = fn
     else:
         if output_type in (Partial, Config):
@@ -1228,7 +1251,9 @@ def parse_cli_args(
             else:
                 if not hasattr(nested, arg_name):
                     raise UndefinedVariableError(
-                        f"Cannot use '{op.value}' on undefined variable", arg, {"key": key}
+                        f"Cannot use '{op.value}' on undefined variable",
+                        arg,
+                        {"key": key},
                     )
                 setattr(
                     nested,
@@ -1332,7 +1357,9 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
                 types = get_underlying_types(arg_type)
                 for t in types:
                     try:
-                        factory_fn = _get_from_registry(factory_name, t, name=factory_name)
+                        factory_fn = _get_from_registry(
+                            factory_name, t, name=factory_name
+                        )
                         break
                     except catalogue.RegistryError:
                         continue
@@ -1388,7 +1415,9 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
         for arg in args:
             if "=" not in arg:
                 raise ArgumentParsingError(
-                    "Positional argument found after keyword argument", arg, {"position": len(args)}
+                    "Positional argument found after keyword argument",
+                    arg,
+                    {"position": len(args)},
                 )
 
         return args
@@ -1415,7 +1444,9 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
                 positional_count += 1
             else:
                 raise ArgumentParsingError(
-                    "Too many positional arguments", arg, {"max_positional": len(params)}
+                    "Too many positional arguments",
+                    arg,
+                    {"max_positional": len(params)},
                 )
 
     return updated_args

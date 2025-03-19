@@ -85,15 +85,23 @@ class TestSimpleValueParsing:
         def func(a: Path):
             pass
 
-        assert parse_cli_args(func, ["a=/home/user/file.txt"]).a == Path("/home/user/file.txt")
+        assert parse_cli_args(func, ["a=/home/user/file.txt"]).a == Path(
+            "/home/user/file.txt"
+        )
         assert parse_cli_args(func, ["a=./relative/path"]).a == Path("./relative/path")
-        assert parse_cli_args(func, ["a=C:\\Windows\\System32"]).a == Path("C:\\Windows\\System32")
+        assert parse_cli_args(func, ["a=C:\\Windows\\System32"]).a == Path(
+            "C:\\Windows\\System32"
+        )
 
         # Test with a path containing spaces
-        assert parse_cli_args(func, ["a=path with spaces"]).a == Path("path with spaces")
+        assert parse_cli_args(func, ["a=path with spaces"]).a == Path(
+            "path with spaces"
+        )
 
         # Test with a path containing special characters
-        assert parse_cli_args(func, ["a=path/with/!@#$%^&*()"]).a == Path("path/with/!@#$%^&*()")
+        assert parse_cli_args(func, ["a=path/with/!@#$%^&*()"]).a == Path(
+            "path/with/!@#$%^&*()"
+        )
 
 
 class TestComplexTypeParsing:
@@ -121,7 +129,9 @@ class TestComplexTypeParsing:
         def func(a: Dict[str, Dict[str, int]]):
             pass
 
-        assert parse_cli_args(func, ["a={'outer': {'inner': 42}}"]).a == {"outer": {"inner": 42}}
+        assert parse_cli_args(func, ["a={'outer': {'inner': 42}}"]).a == {
+            "outer": {"inner": 42}
+        }
 
     def test_union_type_parsing(self):
         def func(a: Union[int, str]):
@@ -141,17 +151,23 @@ class TestComplexTypeParsing:
         with pytest.raises(LiteralParseError) as exc_info:
             parse_cli_args(func, ["a=yellow"])
         assert "Error parsing argument" in str(exc_info.value)
-        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
+        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(
+            exc_info.value
+        )
 
         with pytest.raises(LiteralParseError) as exc_info:
             parse_cli_args(func, ["a='yellow'"])
         assert "Error parsing argument" in str(exc_info.value)
-        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
+        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(
+            exc_info.value
+        )
 
         with pytest.raises(LiteralParseError) as exc_info:
             parse_cli_args(func, ['a="yellow"'])
         assert "Error parsing argument" in str(exc_info.value)
-        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
+        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(
+            exc_info.value
+        )
 
 
 class TestFactoryFunctionParsing:
@@ -319,7 +335,9 @@ class TestExceptions:
         def func(a: int):
             pass
 
-        with pytest.raises(UndefinedVariableError, match="Cannot use '\\+=' on undefined variable"):
+        with pytest.raises(
+            UndefinedVariableError, match="Cannot use '\\+=' on undefined variable"
+        ):
             parse_cli_args(func, ["a+=3"])
 
     def test_type_mismatch_addition(self):
@@ -340,7 +358,9 @@ class TestExceptions:
         def func(a: float):
             pass
 
-        with pytest.raises(OperationError, match="Operation '/=' failed: float division by zero "):
+        with pytest.raises(
+            OperationError, match="Operation '/=' failed: float division by zero "
+        ):
             parse_cli_args(func, ["a=10", "a/=0"])
 
     def test_invalid_key(self):
@@ -348,7 +368,8 @@ class TestExceptions:
             pass
 
         with pytest.raises(
-            ArgumentValueError, match="Invalid argument: No parameter named 'b' exists for"
+            ArgumentValueError,
+            match="Invalid argument: No parameter named 'b' exists for",
         ):
             parse_cli_args(func, ["b=5"])
 
@@ -398,7 +419,8 @@ class TestParseValue:
         assert parse_value("0", int) == 0
         assert parse_value("+789", int) == 789
         with pytest.raises(
-            ParseError, match="Failed to parse '3.14' as <class 'int'>: Invalid integer literal"
+            ParseError,
+            match="Failed to parse '3.14' as <class 'int'>: Invalid integer literal",
         ):
             parse_value("3.14", int)
         with pytest.raises(
@@ -447,7 +469,8 @@ class TestParseValue:
         ):
             parse_value("not_a_bool", bool)
         with pytest.raises(
-            ParseError, match="Failed to parse '2' as <class 'bool'>: Cannot convert .* to bool"
+            ParseError,
+            match="Failed to parse '2' as <class 'bool'>: Cannot convert .* to bool",
         ):
             parse_value("2", bool)
 
@@ -456,7 +479,9 @@ class TestParseValue:
         assert parse_value('["a", "b", "c"]', List[str]) == ["a", "b", "c"]
         assert parse_value("[1.1, 2.2, 3.3]", List[float]) == [1.1, 2.2, 3.3]
         assert parse_value("[]", List[Any]) == []
-        with pytest.raises(ParseError, match="Failed to parse 'not_a_list' as typing.List"):
+        with pytest.raises(
+            ParseError, match="Failed to parse 'not_a_list' as typing.List"
+        ):
             parse_value("not_a_list", List[int])
         with pytest.raises(
             ParseError, match="Failed to parse '\\[1, 2, 'three'\\]' as typing.List"
@@ -465,9 +490,14 @@ class TestParseValue:
 
     def test_parse_dict(self):
         assert parse_value('{"a": 1, "b": 2}', Dict[str, int]) == {"a": 1, "b": 2}
-        assert parse_value('{"x": "foo", "y": "bar"}', Dict[str, str]) == {"x": "foo", "y": "bar"}
+        assert parse_value('{"x": "foo", "y": "bar"}', Dict[str, str]) == {
+            "x": "foo",
+            "y": "bar",
+        }
         assert parse_value("{}", Dict[str, Any]) == {}
-        with pytest.raises(ParseError, match="Failed to parse 'not_a_dict' as typing.Dict"):
+        with pytest.raises(
+            ParseError, match="Failed to parse 'not_a_dict' as typing.Dict"
+        ):
             parse_value("not_a_dict", Dict[str, int])
         with pytest.raises(ParseError, match="Failed to parse"):
             parse_value('{"a": 1, "b": "two"}', Dict[str, int])
@@ -559,7 +589,8 @@ class TestParseValue:
             pass
 
         with pytest.raises(
-            ParseError, match="Failed to parse 'value' as <class '.*CustomType'>: Unsupported type"
+            ParseError,
+            match="Failed to parse 'value' as <class '.*CustomType'>: Unsupported type",
         ):
             strict_parser.parse("value", CustomType)
 
@@ -599,7 +630,11 @@ class TestPythonicParser:
 
     def test_parse_comprehension(self, parser):
         assert parser.parse_comprehension("[x for x in range(3)]") == [0, 1, 2]
-        assert parser.parse_comprehension("{x: x**2 for x in range(3)}") == {0: 0, 1: 1, 2: 4}
+        assert parser.parse_comprehension("{x: x**2 for x in range(3)}") == {
+            0: 0,
+            1: 1,
+            2: 4,
+        }
 
     def test_parse_lambda(self, parser):
         # Test safe lambdas
@@ -668,124 +703,121 @@ class TestEdgeCases:
 
 class TestModernTypeHintParsing:
     """Tests for parsing Python 3.9+ style type hints (list[str] instead of List[str])."""
-    
+
     def test_modern_list_parsing(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):
             pytest.skip("Python 3.9+ required for this test")
-            
+
         # Define a local function that uses modern type hints
         def func(items: list[str]):
             pass
-            
+
         # Test basic list parsing
         result = parse_cli_args(func, ["items=['apple', 'banana', 'cherry']"])
         assert result.items == ["apple", "banana", "cherry"]
-        
+
         # Test empty list
         result = parse_cli_args(func, ["items=[]"])
         assert result.items == []
-        
+
     def test_modern_dict_parsing(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):
             pytest.skip("Python 3.9+ required for this test")
-            
+
         # Define a local function that uses modern type hints
         def func(data: dict[str, int]):
             pass
-            
+
         # Test basic dict parsing
         result = parse_cli_args(func, ["data={'a': 1, 'b': 2, 'c': 3}"])
         assert result.data == {"a": 1, "b": 2, "c": 3}
-        
+
         # Test empty dict
         result = parse_cli_args(func, ["data={}"])
         assert result.data == {}
-        
+
     def test_nested_modern_type_hints(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):
             pytest.skip("Python 3.9+ required for this test")
-            
+
         # Define a local function with nested modern type hints
         def func(data: dict[str, list[int]]):
             pass
-            
+
         # Test nested type parsing
         result = parse_cli_args(func, ["data={'a': [1, 2], 'b': [3, 4, 5]}"])
         assert result.data == {"a": [1, 2], "b": [3, 4, 5]}
-        
+
     def test_modern_optional_type_hints(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):
             pytest.skip("Python 3.9+ required for this test")
-            
+
         # Define a local function with Optional and modern type hint
         def func(items: Optional[list[int]]):
             pass
-            
+
         # Test non-None value
         result = parse_cli_args(func, ["items=[1, 2, 3]"])
         assert result.items == [1, 2, 3]
-        
+
         # Test None value
         result = parse_cli_args(func, ["items=None"])
         assert result.items is None
-        
+
         # Test null value (alternative None syntax)
         result = parse_cli_args(func, ["items=null"])
         assert result.items is None
-        
+
     def test_modern_union_type_hints(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):
             pytest.skip("Python 3.9+ required for this test")
-            
+
         # Define a local function with Union and modern type hints
         def func(data: Union[list[str], dict[str, int]]):
             pass
-            
+
         # Test list case
         result = parse_cli_args(func, ["data=['a', 'b', 'c']"])
         assert result.data == ["a", "b", "c"]
-        
+
         # Test dict case
         result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
         assert result.data == {"x": 1, "y": 2}
-        
+
     def test_modern_type_operations(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):
             pytest.skip("Python 3.9+ required for this test")
-            
+
         # Define a local function with modern type hints
         def func(items: list[int], data: dict[str, int]):
             pass
-            
+
         # Test operations on list
-        result = parse_cli_args(func, [
-            "items=[1, 2]", 
-            "items+=[3, 4]",
-            "data={'a': 1}",
-            "data|={'b': 2}"
-        ])
+        result = parse_cli_args(
+            func, ["items=[1, 2]", "items+=[3, 4]", "data={'a': 1}", "data|={'b': 2}"]
+        )
         assert result.items == [1, 2, 3, 4]
         assert result.data == {"a": 1, "b": 2}
-        
+
     def test_modern_type_parsing_errors(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):
             pytest.skip("Python 3.9+ required for this test")
-            
+
         # Define a local function with modern type hints
         def func(items: list[int]):
             pass
-            
+
         # Test type error (strings in an int list)
         with pytest.raises(ParseError):
             parse_cli_args(func, ["items=['a', 'b', 'c']"])
-            
+
         # Test invalid list format - use a truly invalid syntax that will fail parsing
         with pytest.raises(ListParseError):
             parse_cli_args(func, ["items=[1, 2, 3"])
