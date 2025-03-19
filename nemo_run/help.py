@@ -248,7 +248,7 @@ def class_to_str(class_obj):
     # This works for both older and newer Python versions
     try:
         origin = typing.get_origin(class_obj)
-
+        args = typing.get_args(class_obj)
     except (AttributeError, TypeError):
         # If typing helpers fail, we'll handle through other means
         origin = None
