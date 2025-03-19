@@ -88,23 +88,15 @@ class TestSimpleValueParsing:
         def func(a: Path):
             pass
 
-        assert parse_cli_args(func, ["a=/home/user/file.txt"]).a == Path(
-            "/home/user/file.txt"
-        )
+        assert parse_cli_args(func, ["a=/home/user/file.txt"]).a == Path("/home/user/file.txt")
         assert parse_cli_args(func, ["a=./relative/path"]).a == Path("./relative/path")
-        assert parse_cli_args(func, ["a=C:\\Windows\\System32"]).a == Path(
-            "C:\\Windows\\System32"
-        )
+        assert parse_cli_args(func, ["a=C:\\Windows\\System32"]).a == Path("C:\\Windows\\System32")
 
         # Test with a path containing spaces
-        assert parse_cli_args(func, ["a=path with spaces"]).a == Path(
-            "path with spaces"
-        )
+        assert parse_cli_args(func, ["a=path with spaces"]).a == Path("path with spaces")
 
         # Test with a path containing special characters
-        assert parse_cli_args(func, ["a=path/with/!@#$%^&*()"]).a == Path(
-            "path/with/!@#$%^&*()"
-        )
+        assert parse_cli_args(func, ["a=path/with/!@#$%^&*()"]).a == Path("path/with/!@#$%^&*()")
 
 
 class TestComplexTypeParsing:
@@ -132,9 +124,7 @@ class TestComplexTypeParsing:
         def func(a: Dict[str, Dict[str, int]]):
             pass
 
-        assert parse_cli_args(func, ["a={'outer': {'inner': 42}}"]).a == {
-            "outer": {"inner": 42}
-        }
+        assert parse_cli_args(func, ["a={'outer': {'inner': 42}}"]).a == {"outer": {"inner": 42}}
 
     def test_union_type_parsing(self):
         def func(a: Union[int, str]):
@@ -154,23 +144,17 @@ class TestComplexTypeParsing:
         with pytest.raises(LiteralParseError) as exc_info:
             parse_cli_args(func, ["a=yellow"])
         assert "Error parsing argument" in str(exc_info.value)
-        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(
-            exc_info.value
-        )
+        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
 
         with pytest.raises(LiteralParseError) as exc_info:
             parse_cli_args(func, ["a='yellow'"])
         assert "Error parsing argument" in str(exc_info.value)
-        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(
-            exc_info.value
-        )
+        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
 
         with pytest.raises(LiteralParseError) as exc_info:
             parse_cli_args(func, ['a="yellow"'])
         assert "Error parsing argument" in str(exc_info.value)
-        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(
-            exc_info.value
-        )
+        assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
 
 
 class TestFactoryFunctionParsing:
@@ -338,9 +322,7 @@ class TestExceptions:
         def func(a: int):
             pass
 
-        with pytest.raises(
-            UndefinedVariableError, match="Cannot use '\\+=' on undefined variable"
-        ):
+        with pytest.raises(UndefinedVariableError, match="Cannot use '\\+=' on undefined variable"):
             parse_cli_args(func, ["a+=3"])
 
     def test_type_mismatch_addition(self):
@@ -361,9 +343,7 @@ class TestExceptions:
         def func(a: float):
             pass
 
-        with pytest.raises(
-            OperationError, match="Operation '/=' failed: float division by zero "
-        ):
+        with pytest.raises(OperationError, match="Operation '/=' failed: float division by zero "):
             parse_cli_args(func, ["a=10", "a/=0"])
 
     def test_invalid_key(self):
@@ -482,9 +462,7 @@ class TestParseValue:
         assert parse_value('["a", "b", "c"]', List[str]) == ["a", "b", "c"]
         assert parse_value("[1.1, 2.2, 3.3]", List[float]) == [1.1, 2.2, 3.3]
         assert parse_value("[]", List[Any]) == []
-        with pytest.raises(
-            ParseError, match="Failed to parse 'not_a_list' as typing.List"
-        ):
+        with pytest.raises(ParseError, match="Failed to parse 'not_a_list' as typing.List"):
             parse_value("not_a_list", List[int])
         with pytest.raises(
             ParseError, match="Failed to parse '\\[1, 2, 'three'\\]' as typing.List"
@@ -498,9 +476,7 @@ class TestParseValue:
             "y": "bar",
         }
         assert parse_value("{}", Dict[str, Any]) == {}
-        with pytest.raises(
-            ParseError, match="Failed to parse 'not_a_dict' as typing.Dict"
-        ):
+        with pytest.raises(ParseError, match="Failed to parse 'not_a_dict' as typing.Dict"):
             parse_value("not_a_dict", Dict[str, int])
         with pytest.raises(ParseError, match="Failed to parse"):
             parse_value('{"a": 1, "b": "two"}', Dict[str, int])
