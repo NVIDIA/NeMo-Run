@@ -244,6 +244,10 @@ def class_to_str(class_obj):
     if class_obj is None or class_obj is type(None):
         return "None"
 
+    # Handle list of types (for Callable arguments)
+    if isinstance(class_obj, (list, tuple)):
+        return "[" + ", ".join(class_to_str(item) for item in class_obj) + "]"
+
     # Try to get origin and arguments using typing helpers
     # This works for both older and newer Python versions
     try:
@@ -298,37 +302,36 @@ def class_to_str(class_obj):
 
         return base
 
-    # Handle builtins
-    if hasattr(class_obj, "__module__") and class_obj.__module__ == "builtins":
-        return class_obj.__name__
+    # Handle builtins and other types
+    if hasattr(class_obj, "__module__"):
+        if class_obj.__module__ == "builtins":
+            return class_obj.__name__
+        else:
+            module = _get_module(class_obj)
+            class_name = class_obj.__name__ if hasattr(class_obj, "__name__") else str(class_obj)
+            full_class_name = f"{module}.{class_name}"
 
-    # Handle everything else
-    try:
-        module = _get_module(class_obj)
-        class_name = class_obj.__name__ if hasattr(class_obj, "__name__") else str(class_obj)
-        full_class_name = f"{module}.{class_name}"
+            # Shorten common types
+            if full_class_name in (
+                "lightning.pytorch.core.module.LightningModule",
+                "pytorch_lightning.core.module.LightningModule",
+            ):
+                return "[link=https://lightning.ai/docs/pytorch/latest/common/lightning_module.html]L.LightningModule[/link]"
+            if full_class_name in (
+                "lightning.pytorch.core.datamodule.LightningDataModule",
+                "pytorch_lightning.core.datamodule.LightningDataModule",
+            ):
+                return "[link=https://lightning.ai/docs/pytorch/latest/api/lightning.pytorch.core.LightningDataModule.html#lightning.pytorch.core.LightningDataModule]L.LightningDataModule[/link]"
+            if full_class_name == "nemo.lightning.pytorch.trainer.Trainer":
+                # TODO: Add link to docs when we publish it
+                return "nm.Trainer"
+            if full_class_name == "nemo.lightning.pytorch.opt.base.OptimizerModule":
+                return "nm.OptimizerModule"
 
-        # Shorten common types
-        if full_class_name in (
-            "lightning.pytorch.core.module.LightningModule",
-            "pytorch_lightning.core.module.LightningModule",
-        ):
-            return "[link=https://lightning.ai/docs/pytorch/latest/common/lightning_module.html]L.LightningModule[/link]"
-        if full_class_name in (
-            "lightning.pytorch.core.datamodule.LightningDataModule",
-            "pytorch_lightning.core.datamodule.LightningDataModule",
-        ):
-            return "[link=https://lightning.ai/docs/pytorch/latest/api/lightning.pytorch.core.LightningDataModule.html#lightning.pytorch.core.LightningDataModule]L.LightningDataModule[/link]"
-        if full_class_name == "nemo.lightning.pytorch.trainer.Trainer":
-            # TODO: Add link to docs when we publish it
-            return "nm.Trainer"
-        if full_class_name == "nemo.lightning.pytorch.opt.base.OptimizerModule":
-            return "nm.OptimizerModule"
+            return full_class_name
 
-        return full_class_name
-    except (AttributeError, TypeError):
-        # If everything else fails, return the string representation of the object
-        return str(class_obj)
+    # If everything else fails, return the string representation of the object
+    return str(class_obj)
 
 
 def help(
