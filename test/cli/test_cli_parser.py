@@ -15,7 +15,6 @@
 
 import sys
 from pathlib import Path
-from test.dummy_factory import DummyModel
 from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 import pytest
@@ -23,19 +22,24 @@ import pytest
 from nemo_run.cli.cli_parser import (
     ArgumentParsingError,
     ArgumentValueError,
+    CLIException,
+    CollectionParseError,
     DictParseError,
     ListParseError,
     LiteralParseError,
+    Operation,
     OperationError,
     ParseError,
     PythonicParser,
     TypeParser,
+    TypeParsingError,
     UndefinedVariableError,
     UnknownTypeError,
     parse_cli_args,
     parse_value,
 )
 from nemo_run.config import Config, Partial
+from test.dummy_factory import DummyModel
 
 
 class TestSimpleValueParsing:
@@ -664,3 +668,113 @@ class TestEdgeCases:
 
         result = parse_cli_args(func, ["a=[{'x': 1, 'y': ['a', 'b']}, {'z': 2}]"])
         assert result.a == [{"x": 1, "y": ["a", "b"]}, {"z": 2}]
+
+
+class TestCLIException:
+    """Test the CLIException class hierarchy."""
+
+    def test_cli_exception_base(self):
+        """Test the base CLIException class."""
+        ex = CLIException("Test message", "test_arg", {"key": "value"})
+        assert "Test message" in str(ex)
+        assert "test_arg" in str(ex)
+        assert "{'key': 'value'}" in str(ex)
+        assert ex.arg == "test_arg"
+        assert ex.context == {"key": "value"}
+
+    def test_user_friendly_message(self):
+        """Test the user_friendly_message method."""
+        ex = CLIException("Test message", "test_arg", {"key": "value"})
+        friendly = ex.user_friendly_message()
+        assert "Error processing argument 'test_arg'" in friendly
+        assert "Test message" in friendly
+
+    def test_argument_parsing_error(self):
+        """Test ArgumentParsingError."""
+        ex = ArgumentParsingError("Invalid syntax", "bad=arg", {"line": 10})
+        assert isinstance(ex, CLIException)
+        assert "Invalid syntax" in str(ex)
+
+    def test_type_parsing_error(self):
+        """Test TypeParsingError."""
+        ex = TypeParsingError("Type mismatch", "arg=value", {"expected": "int"})
+        assert isinstance(ex, CLIException)
+        assert "Type mismatch" in str(ex)
+
+    def test_operation_error(self):
+        """Test OperationError."""
+        ex = OperationError("Invalid operation", "arg+=value", {"op": "+="})
+        assert isinstance(ex, CLIException)
+        assert "Invalid operation" in str(ex)
+
+    def test_argument_value_error(self):
+        """Test ArgumentValueError."""
+        ex = ArgumentValueError("Invalid value", "arg=value", {"expected": "option"})
+        assert isinstance(ex, CLIException)
+        assert "Invalid value" in str(ex)
+
+    def test_undefined_variable_error(self):
+        """Test UndefinedVariableError."""
+        ex = UndefinedVariableError("Variable not defined", "undefined+=1", {})
+        assert isinstance(ex, CLIException)
+        assert "Variable not defined" in str(ex)
+
+    def test_parse_error(self):
+        """Test ParseError."""
+        ex = ParseError("abc", int, "Cannot convert string to int")
+        assert isinstance(ex, CLIException)
+        assert "Failed to parse 'abc' as <class 'int'>" in str(ex)
+        assert ex.value == "abc"
+        assert ex.reason == "Cannot convert string to int"
+
+    def test_literal_parse_error(self):
+        """Test LiteralParseError."""
+        ex = LiteralParseError("red", Literal, "Expected one of ['blue', 'green']")
+        assert isinstance(ex, ParseError)
+        assert "Failed to parse 'red'" in str(ex)
+
+    def test_collection_parse_error(self):
+        """Test CollectionParseError."""
+        ex = CollectionParseError("[1,2,", list, "Invalid syntax")
+        assert isinstance(ex, ParseError)
+        assert "Failed to parse '[1,2,'" in str(ex)
+
+    def test_list_parse_error(self):
+        """Test ListParseError."""
+        ex = ListParseError("[1,2,", list, "Invalid syntax")
+        assert isinstance(ex, CollectionParseError)
+        assert "Failed to parse '[1,2,'" in str(ex)
+
+    def test_dict_parse_error(self):
+        """Test DictParseError."""
+        ex = DictParseError("{1:2,", dict, "Invalid syntax")
+        assert isinstance(ex, CollectionParseError)
+        assert "Failed to parse '{1:2,'" in str(ex)
+
+    def test_unknown_type_error(self):
+        """Test UnknownTypeError."""
+        ex = UnknownTypeError("value", str, "Unknown type")
+        assert isinstance(ex, ParseError)
+        assert "Failed to parse 'value'" in str(ex)
+
+
+class TestOperationEnum:
+    """Test the Operation enum."""
+
+    def test_operation_enum_values(self):
+        """Test Operation enum values."""
+        assert Operation.ASSIGN.value == "="
+        assert Operation.ADD.value == "+="
+        assert Operation.SUBTRACT.value == "-="
+        assert Operation.MULTIPLY.value == "*="
+        assert Operation.DIVIDE.value == "/="
+        assert Operation.OR.value == "|="
+        assert Operation.AND.value == "&="
+        assert Operation.UNION.value == "|="
+
+    def test_operation_enum_equality(self):
+        """Test Operation enum equality."""
+        assert Operation.ASSIGN == Operation.ASSIGN
+        assert Operation.ASSIGN != Operation.ADD
+        assert Operation.UNION == Operation.OR
+        assert str(Operation.ASSIGN) == "Operation.ASSIGN"

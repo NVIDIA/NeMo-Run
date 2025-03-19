@@ -303,7 +303,7 @@ nemo experiment cancel {exp_id} 0
         self._title = title
         self._id = id or f"{title}_{int(time.time())}"
 
-        base_dir = base_dir or get_nemorun_home()
+        base_dir = str(base_dir or get_nemorun_home())
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
 
         self.log_level = log_level
@@ -963,7 +963,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             self.console.log(
                 f"[bold magenta]Experiment {self._id} has not run yet, skipping reset..."
             )
-            return
+            return self
 
         old_id, old_exp_dir, old_launched = self._id, self._exp_dir, self._launched
         self._id = f"{self._title}_{int(time.time())}"
@@ -1233,18 +1233,19 @@ def maybe_load_external_main(exp_dir: str):
         _LOADED_MAINS.add(main_file)
 
         spec = importlib.util.spec_from_file_location("__external_main__", main_file)
-        new_main_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(new_main_module)
+        if spec is not None and spec.loader is not None:
+            new_main_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(new_main_module)
 
-        if "__external_main__" not in sys.modules:
-            sys.modules["__external_main__"] = new_main_module
-        else:
-            external = sys.modules["__external_main__"]
+            if "__external_main__" not in sys.modules:
+                sys.modules["__external_main__"] = new_main_module
+            else:
+                external = sys.modules["__external_main__"]
+                for attr in dir(new_main_module):
+                    if not attr.startswith("__"):
+                        setattr(external, attr, getattr(new_main_module, attr))
+
+            existing_main = sys.modules["__main__"]
             for attr in dir(new_main_module):
                 if not attr.startswith("__"):
-                    setattr(external, attr, getattr(new_main_module, attr))
-
-        existing_main = sys.modules["__main__"]
-        for attr in dir(new_main_module):
-            if not attr.startswith("__"):
-                setattr(existing_main, attr, getattr(new_main_module, attr))
+                    setattr(existing_main, attr, getattr(new_main_module, attr))
