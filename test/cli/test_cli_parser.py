@@ -27,7 +27,6 @@ from nemo_run.cli.cli_parser import (
     DictParseError,
     ListParseError,
     LiteralParseError,
-    Operation,
     OperationError,
     ParseError,
     PythonicParser,

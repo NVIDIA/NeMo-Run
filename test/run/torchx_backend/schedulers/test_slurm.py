@@ -15,6 +15,7 @@
 
 import csv
 import json
+import logging
 import os
 import tempfile
 from unittest import mock
@@ -71,8 +72,8 @@ def temp_job_dirs_file():
     try:
         os.unlink(temp_file)
         os.rmdir(temp_dir)
-    except (OSError, FileNotFoundError):
-        pass
+    except (OSError, FileNotFoundError) as e:
+        logging.error(f"Error during cleanup: {e}")
 
 
 def test_create_scheduler():
