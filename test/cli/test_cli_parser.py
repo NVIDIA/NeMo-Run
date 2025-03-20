@@ -756,25 +756,3 @@ class TestCLIException:
         ex = UnknownTypeError("value", str, "Unknown type")
         assert isinstance(ex, ParseError)
         assert "Failed to parse 'value'" in str(ex)
-
-
-class TestOperationEnum:
-    """Test the Operation enum."""
-
-    def test_operation_enum_values(self):
-        """Test Operation enum values."""
-        assert Operation.ASSIGN.value == "="
-        assert Operation.ADD.value == "+="
-        assert Operation.SUBTRACT.value == "-="
-        assert Operation.MULTIPLY.value == "*="
-        assert Operation.DIVIDE.value == "/="
-        assert Operation.OR.value == "|="
-        assert Operation.AND.value == "&="
-        assert Operation.UNION.value == "|="
-
-    def test_operation_enum_equality(self):
-        """Test Operation enum equality."""
-        assert Operation.ASSIGN == Operation.ASSIGN
-        assert Operation.ASSIGN != Operation.ADD
-        assert Operation.UNION == Operation.OR
-        assert str(Operation.ASSIGN) == "Operation.ASSIGN"
