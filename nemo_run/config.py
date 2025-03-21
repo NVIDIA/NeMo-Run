@@ -24,7 +24,17 @@ import sys
 import typing
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Generic, Iterable, Optional, Type, TypeVar, Union, get_args
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+)
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -43,7 +53,9 @@ ReturnType = TypeVar("ReturnType")
 _T = TypeVar("_T")
 _BuildableT = TypeVar("_BuildableT", bound=fdl.Buildable)
 
+# Define recursive types for both older typing module style and Python 3.9+ style
 RECURSIVE_TYPES = (typing.Union, typing.Optional)
+
 _NEMORUN_HOME = os.environ.get("NEMORUN_HOME", os.path.expanduser("~/.nemo_run"))
 RUNDIR_NAME = "nemo_run"
 RUNDIR_SPECIAL_NAME = "/$nemo_run"
@@ -101,7 +113,21 @@ def get_type_namespace(typ: Type | Callable) -> str:
 
 
 def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
-    if isinstance(type_hint, typing._GenericAlias):  # type: ignore
+    """
+    Retrieve the underlying types from a type hint, handling generic types.
+
+    Args:
+        type_hint: The type hint to analyze
+
+    Returns:
+        A set of all underlying types
+    """
+    # Special case for functions and classes - return the type itself
+    if inspect.isfunction(type_hint) or inspect.isclass(type_hint):
+        return {type_hint}
+
+    # Handle older style type hints (_GenericAlias)
+    if hasattr(typing, "_GenericAlias") and isinstance(type_hint, typing._GenericAlias):  # type: ignore
         if str(type_hint).startswith("typing.Annotated"):
             origin = type_hint.__origin__.__origin__
         else:
@@ -111,7 +137,41 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
             for arg in type_hint.__args__:
                 types.update(get_underlying_types(arg))
             return types
-    return {type_hint}
+        return {type_hint}
+
+    # Handle Python 3.9+ style type hints
+    origin = typing.get_origin(type_hint)
+    args = typing.get_args(type_hint)
+
+    # Base case: no origin or args means it's a simple type
+    if origin is None:
+        if isinstance(type_hint, type):
+            return {type_hint}
+        return {type_hint}  # Return the hint itself if not a type
+
+    # Union type (including Optional)
+    if origin is typing.Union:
+        result = set()
+        for arg in args:
+            if arg is not type(None):  # Skip NoneType in Unions
+                result.update(get_underlying_types(arg))
+        return result
+
+    # List, Dict, etc. - collect types from arguments
+    result = set()
+    for arg in args:
+        result.update(get_underlying_types(arg))
+
+    # Include the origin type itself if it's a class
+    # This handles both typing module types and Python 3.9+ built-in generic types
+    if isinstance(origin, type):
+        result.add(origin)
+
+    # If no types were added, return the original type hint to preserve behavior
+    if not result:
+        return {type_hint}
+
+    return result
 
 
 def from_dict(raw_data: dict | list | str | float | int | bool, cls: Type[_T]) -> _T:
@@ -382,7 +442,8 @@ class ConfigurableMixin(_VisualizeMixin):
         if dataclasses.is_dataclass(self):
             try:
                 return fdl.cast(
-                    Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True)
+                    Config,
+                    fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True),
                 )
             except Exception as e:
                 raise NotImplementedError(
@@ -463,7 +524,10 @@ class Script(ConfigurableMixin):
             return os.path.basename(self.path)
 
     def to_command(
-        self, with_entrypoint: bool = False, filename: Optional[str] = None, is_local: bool = False
+        self,
+        with_entrypoint: bool = False,
+        filename: Optional[str] = None,
+        is_local: bool = False,
     ) -> list[str]:
         if self.inline:
             if filename:
