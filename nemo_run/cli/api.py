@@ -1109,24 +1109,33 @@ class RunContext:
         if self.direct:
             raise ValueError("Direct execution is not supported for lazy execution")
 
+        # Parse run args, filtering out CLI flags
         _, run_args, args = _parse_prefixed_args(args, "run")
-        self.parse_args(run_args, lazy=True)
+        filtered_run_args = [arg for arg in run_args if not arg.startswith("--")]
+        self.parse_args(filtered_run_args, lazy=True)
 
+        # Filter out --lazy and export flags from args
         cmd, cmd_args, i_self = "", [], 0
         for i, arg in enumerate(sys.argv):
+            if arg == "--lazy" or arg.startswith("--to-"):
+                continue
             if arg == name:
                 i_self = i
             if i_self == 0:
                 cmd += f" {arg}"
-
             elif "=" not in arg and not arg.startswith("--"):
                 cmd += f" {arg}"
             elif "=" in arg and not arg.startswith("--"):
                 cmd_args.append(arg)
 
-        to_run = LazyEntrypoint(cmd, factory=self.factory)
-        to_run._add_overwrite(*cmd_args)
+        # Use the yaml file if provided
+        yaml_file = self.yaml
+        to_run = LazyEntrypoint(cmd, factory=self.factory, yaml=yaml_file)
         
+        # Filter out CLI flags from cmd_args
+        filtered_cmd_args = [arg for arg in cmd_args if not arg.startswith("--")]
+        to_run._add_overwrite(*filtered_cmd_args)
+
         # If any export flag is used, export the configuration and exit
         if any([self.to_yaml, self.to_toml, self.to_json]):
             _serialize_configuration(
@@ -1134,7 +1143,7 @@ class RunContext:
                 self.to_yaml, 
                 self.to_toml, 
                 self.to_json, 
-                is_lazy=True,  # Always use lazy mode in execute_lazy
+                is_lazy=True,
                 console=console
             )
             console.print("[bold cyan]Export complete. Skipping execution.[/bold cyan]")

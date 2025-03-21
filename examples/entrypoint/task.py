@@ -69,5 +69,15 @@ def train_model(
     print("Training completed!")
 
 
+@run.cli.factory(target=train_model)
+def train_recipe() -> run.Partial[train_model]:
+    return run.Partial(
+        train_model,
+        model=my_model(hidden_size=512),
+        optimizer=my_optimizer(learning_rate=0.0005),
+        epochs=50,
+        batch_size=2048,
+    )
+
 if __name__ == "__main__":
     run.cli.main(train_model, cmd_defaults={"skip_confirmation": True})
