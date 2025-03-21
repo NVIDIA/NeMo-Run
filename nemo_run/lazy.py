@@ -84,6 +84,9 @@ class LazyEntrypoint(Buildable):
         if isinstance(target, str) and (" " in target or target.endswith(".py")):
             cmd = []
             for arg in shlex.split(target):
+                # Skip the --lazy flag and export flags
+                if arg == "--lazy" or arg.startswith("--to-"):
+                    continue
                 if "=" in arg:
                     cmd_args.append(arg)
                 else:
@@ -214,6 +217,10 @@ class LazyEntrypoint(Buildable):
 
     def _add_overwrite(self, *overwrites: str):
         for overwrite in overwrites:
+            # Skip CLI flags like --lazy, --to-yaml, etc.
+            if overwrite.startswith("--"):
+                continue
+            
             # Split into key, op, value
             match = re.match(r"([^=]+)([*+-]?=)(.*)", overwrite)
             if not match:
@@ -274,11 +281,15 @@ class LazyEntrypoint(Buildable):
         remaining_overwrites = []
         if overwrites:
             for overwrite in overwrites:
+                # Skip CLI flags like --lazy, --to-yaml, etc.
+                if overwrite.startswith("--"):
+                    continue
+                
                 # Parse the overwrite to get key, op, value
                 match = re.match(r"([^=]+)([*+-]?=)(.*)", overwrite)
                 if not match:
                     raise ValueError(f"Invalid overwrite format: {overwrite}")
-                    
+                
                 key, op, value = match.groups()
                 
                 # If this is a @ syntax, load the config and merge it
@@ -777,6 +788,19 @@ def load_config_from_path(path_with_syntax: str) -> Any:
     This function handles loading configuration files with the @ syntax, including:
     - Basic file loading: @path/to/config.yaml
     - Section extraction: @path/to/config.yaml:section
+    - Automatic structure detection: Will handle both nested and flat configurations
+    
+    Examples:
+        # Nested config (model.yaml):
+        model:
+          _target_: Model
+          hidden_size: 256
+        
+        # Flat config (model.yaml):
+        _target_: Model
+        hidden_size: 256
+        
+        Both can be loaded with: model=@model.yaml
     
     Args:
         path_with_syntax (str): Path to the config file with @ syntax
@@ -812,9 +836,33 @@ def load_config_from_path(path_with_syntax: str) -> Any:
             if section not in config_data:
                 raise ValueError(f"Section '{section}' not found in config file {config_path}")
             config_data = config_data[section]
+            return OmegaConf.create(config_data)
         
-        # Convert to DictConfig
-        return OmegaConf.create(config_data)
+        # Check if this is a flat configuration (no top-level component name)
+        # We consider it flat if it has any of these indicators:
+        # 1. Has _target_ at root level
+        # 2. Has _factory_ at root level
+        # 3. All top-level keys are typical config keys (not component names)
+        is_flat = (
+            '_target_' in config_data or 
+            '_factory_' in config_data or
+            all(not isinstance(v, dict) for v in config_data.values())
+        )
+        
+        if is_flat:
+            # For flat configs, we return as-is
+            return OmegaConf.create(config_data)
+        else:
+            # For nested configs, check if there's a single component that matches a known parameter
+            # If we have a file with structure like: model: {...}, we should extract just the model part
+            if len(config_data) == 1:
+                component_name = next(iter(config_data.keys()))
+                # Return just the component configuration, not the wrapper
+                return OmegaConf.create(config_data[component_name])
+            else:
+                # Return the entire config for multi-component nested configs
+                return OmegaConf.create(config_data)
+            
     except Exception as e:
         raise ValueError(f"Error loading config file {config_path}: {str(e)}")
 
