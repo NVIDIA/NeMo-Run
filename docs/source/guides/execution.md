@@ -1,6 +1,6 @@
 # Execute NeMo Run
 
-After configuring NeMo-Run, the next step is to execute it. Nemo-Run decouples configuration from execution, allowing you to configure a function or task once and then execute it across multiple environments. With Nemo-Run, you can choose to execute a single task or multiple tasks simultaneously on different remote clusters, managing them under an experiment. This brings us to the core building blocks for execution: `run.Executor` and `run.Experiment`.
+After configuring NeMo-Run, the next step is to execute it. Nemo-Run decouples configuration from execution, allowing you to configure a function or task once and then execute it across multiple environments. With Nemo-Run, you can choose to execute a single task or multiple tasks simultaneously on different remote clusters, managing them under an experiment. This brings us to the core building blocks for execution: `run.Executor` and `run.Experiment`.
 
 Each execution of a single configured task requires an executor. Nemo-Run provides `run.Executor`, which are APIs to configure your remote executor and set up the packaging of your code. Currently we support:
 - `run.LocalExecutor`
@@ -20,7 +20,7 @@ The `run.Experiment` takes care of storing the run metadata, launching it on the
 ## Executors
 Executors are dataclasses that configure your remote executor and set up the packaging of your code. All supported executors inherit from the base class `run.Executor`, but have configuration parameters specific to their execution environment. There is an initial cost to understanding the specifics of your executor and setting it up, but this effort is easily amortized over time.
 
-Each `run.Executor` has the two attributes: `packager` and `launcher`. The `packager` specifies how to package the code for execution, while the `launcher` determines which tool to use for launching the task.
+Each `run.Executor` has the two attributes: `packager` and `launcher`. The `packager` specifies how to package the code for execution, while the `launcher` determines which tool to use for launching the task.
 
 ### Launchers
 We support the following `launchers`:
@@ -110,7 +110,7 @@ run.DockerExecutor(
 
 #### SlurmExecutor
 
-The SlurmExecutor enables launching the configured task on a Slurm Cluster with Pyxis.  Additionally, you can configure a `run.SSHTunnel`, which enables you to execute tasks on the Slurm cluster from your local machine while NeMo-Run manages the SSH connection for you. This setup supports use cases such as launching the same task on multiple Slurm clusters.
+The SlurmExecutor enables launching the configured task on a Slurm Cluster with Pyxis.  Additionally, you can configure a `run.SSHTunnel`, which enables you to execute tasks on the Slurm cluster from your local machine while NeMo-Run manages the SSH connection for you. This setup supports use cases such as launching the same task on multiple Slurm clusters.
 
 Below is an example of configuring a Slurm Executor
 ```python
@@ -150,7 +150,27 @@ def your_slurm_executor(nodes: int = 1, container_image: str = DEFAULT_IMAGE):
 executor = your_slurm_cluster(nodes=8, container_image="your-nemo-image")
 ```
 
-Use the SSH Tunnel when launching from your local machine, or the Local Tunnel if you’re already on the Slurm cluster.
+Use the SSH Tunnel when launching from your local machine, or the Local Tunnel if you're already on the Slurm cluster.
+
+##### Job Dependencies
+
+`SlurmExecutor` supports defining dependencies between [jobs](management.md#adding-tasks), allowing you to create workflows where jobs run in a specific order. Additionally, you can specify the `dependency_type` parameter:
+
+```python
+executor = run.SlurmExecutor(
+    # ... other parameters ...
+    dependency_type="afterok",
+)
+```
+
+The `dependency_type` parameter specifies the type of dependency relationship:
+
+- `afterok` (default): Job will start only after the specified jobs have completed successfully
+- `afterany`: Job will start after the specified jobs have terminated (regardless of exit code)
+- `afternotok`: Job will start after the specified jobs have failed
+- Other options are available as defined in the [Slurm documentation](https://slurm.schedmd.com/sbatch.html#OPT_dependency)
+
+This functionality enables you to create complex workflows with proper orchestration between different tasks, such as starting a training job only after data preparation is complete, or running an evaluation only after training finishes successfully.
 
 #### SkypilotExecutor
 This executor is used to configure [Skypilot](https://skypilot.readthedocs.io/en/latest/docs/index.html). Make sure Skypilot is installed and atleast one cloud is configured using `sky check`.
