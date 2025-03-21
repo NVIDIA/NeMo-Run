@@ -510,6 +510,7 @@ class TestSlurmBatchRequest:
             "--capture-range=cudaProfilerApi",
             "--capture-range-end=stop",
             "--cuda-graph-trace=node",
+            "--cuda-event-trace=false",
         ]
 
     def test_dummy_batch_request_warn(

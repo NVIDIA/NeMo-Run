@@ -32,6 +32,7 @@ class Launcher(ConfigurableMixin):
                 "--capture-range=cudaProfilerApi",
                 "--capture-range-end=stop",
                 "--cuda-graph-trace=node",
+                "--cuda-event-trace=false",
             ]
             return args
 
