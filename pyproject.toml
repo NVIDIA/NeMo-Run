@@ -29,7 +29,9 @@ dependencies = [
     "jinja2>=3.1.4",
     "cryptography < 43.0.0",
     "networkx >= 3.3",
-    "omegaconf>=2.3.0"
+    "omegaconf>=2.3.0",
+    "aiofiles>=23.2.1",
+    "lark"
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -45,13 +47,13 @@ local_persistent = "nemo_run.run.torchx_backend.schedulers.local:create_schedule
 docker_persistent = "nemo_run.run.torchx_backend.schedulers.docker:create_scheduler"
 dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
 
-[project.optional-dependencies]
-skypilot = [
-    "skypilot[kubernetes]>=v0.6.1",
-]
-skypilot-all = [
-    "skypilot[all]>=v0.6.1",
-]
+# [project.optional-dependencies]
+# skypilot = [
+#     "skypilot[kubernetes]>=v0.6.1",
+# ]
+# skypilot-all = [
+#     "skypilot[all]>=v0.6.1",
+# ]
 
 [dependency-groups]
 dev = [

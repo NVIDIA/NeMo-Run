@@ -60,7 +60,7 @@ def connect(host: str, path: str):
 def create() -> typer.Typer:
     app = typer.Typer(pretty_exceptions_enable=False)
 
-    from nemo_run.cli.api import Entrypoint
+    from nemo_run.cli.core.entrypoint import Entrypoint
 
     Entrypoint(launch, "devspace", enable_executor=False).cli(app)
     app.command(

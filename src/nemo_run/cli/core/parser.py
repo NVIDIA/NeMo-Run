@@ -36,13 +36,16 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    get_type_hints,
 )
 
 import fiddle as fdl
 
-from nemo_run.config import Config, Partial
+from nemo_run.config import Config, Partial, get_type_namespace
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 class Operation(Enum):
