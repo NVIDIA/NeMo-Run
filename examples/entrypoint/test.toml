@@ -1,0 +1,16 @@
+_partial_ = true
+_target_ = "__main__.train_model"
+batch_size = 32
+epochs = 10
+
+[model]
+_target_ = "__main__.Model"
+activation = "relu"
+hidden_size = 256
+num_layers = 5
+
+[optimizer]
+_target_ = "__main__.Optimizer"
+betas = [ 0.9, 0.999,]
+learning_rate = 0.001
+weight_decay = 1e-5
