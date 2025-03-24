@@ -24,7 +24,7 @@ import fiddle as fdl
 from torchx.specs import Role
 from typing_extensions import Self
 
-from nemo_run.config import NEMORUN_HOME, ConfigurableMixin
+from nemo_run.config import ConfigurableMixin, get_nemorun_home
 from nemo_run.core.execution.launcher import LAUNCHER_MAP, Launcher
 from nemo_run.core.packaging.base import Packager
 
@@ -110,9 +110,9 @@ class Executor(ConfigurableMixin):
             self._setup_launcher()
             self._launcher_setup = True
 
-        assert self.launcher is None or isinstance(
-            self.launcher, Launcher
-        ), f"{self.info()} could not setup the launcher."
+        assert self.launcher is None or isinstance(self.launcher, Launcher), (
+            f"{self.info()} could not setup the launcher."
+        )
         if self.launcher is None:
             self.launcher = Launcher()
 
@@ -201,17 +201,17 @@ def import_executor(
 
     Example:
         executor = import_executor("local", file_path="path/to/executors.py")
-        executor = import_executor("gpu")  # Uses the default location of os.path.join(NEMORUN_HOME, "executors.py")
+        executor = import_executor("gpu")  # Uses the default location of os.path.join(get_nemorun_home(), "executors.py")
 
     Args:
         name (str): The name of the executor to retrieve.
         file_path (Optional[str]): The path to the Python file containing the executor definitions.
-            Defaults to None, in which case the default location of os.path.join(NEMORUN_HOME, "executors.py") is used.
+            Defaults to None, in which case the default location of os.path.join(get_nemorun_home(), "executors.py") is used.
 
             The file_path is expected to be a string representing a file path with the following structure:
             - It should be a path to a Python file (with a .py extension).
             - The file should contain a dictionary named `EXECUTOR_MAP` that maps executor names to their corresponding instances.
-            - The file can be located anywhere in the file system, but if not provided, it defaults to `NEMORUN_HOME/executors.py`.
+            - The file can be located anywhere in the file system, but if not provided, it defaults to `get_nemorun_home()/executors.py`.
         call (bool): If True, the value from the module is called with the rest of the given kwargs.
 
     Returns:
@@ -219,7 +219,7 @@ def import_executor(
     """
 
     if not file_path:
-        file_path = os.path.join(NEMORUN_HOME, "executors.py")
+        file_path = os.path.join(get_nemorun_home(), "executors.py")
 
     spec = importlib.util.spec_from_file_location("executors", file_path)
     assert spec

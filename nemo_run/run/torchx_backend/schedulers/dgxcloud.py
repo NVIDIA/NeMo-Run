@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+import fiddle as fdl
+import fiddle._src.experimental.dataclasses as fdl_dc
 from torchx.schedulers.api import (
     AppDryRunInfo,
     DescribeAppResponse,
@@ -22,16 +24,14 @@ from torchx.specs import (
     runopts,
 )
 
-import fiddle as fdl
-import fiddle._src.experimental.dataclasses as fdl_dc
-from nemo_run.config import NEMORUN_HOME
+from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
 # Local placeholder for storing DGX job states
-DGX_JOB_DIRS = os.path.join(NEMORUN_HOME, ".dgx_jobs.json")
+DGX_JOB_DIRS = os.path.join(get_nemorun_home(), ".dgx_jobs.json")
 
 # Example mapping from some DGX statuses to the TorchX AppState
 DGX_STATES: dict[DGXCloudState, AppState] = {
@@ -86,9 +86,9 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         app: AppDef,
         cfg: Executor,
     ) -> AppDryRunInfo[DGXRequest]:
-        assert isinstance(
-            cfg, DGXCloudExecutor
-        ), f"{cfg.__class__} not supported for skypilot scheduler."
+        assert isinstance(cfg, DGXCloudExecutor), (
+            f"{cfg.__class__} not supported for skypilot scheduler."
+        )
         executor = cfg
 
         assert len(app.roles) == 1, "Only single-role apps are supported."
@@ -240,6 +240,10 @@ def _get_job_dirs() -> dict[str, dict[str, str]]:
 
     serializer = ZlibJSONSerializer()
     for app in data.values():
-        app["executor"] = fdl.build(serializer.deserialize(app["executor"]))
+        try:
+            app["executor"] = fdl.build(serializer.deserialize(app["executor"]))
+        except Exception as e:
+            log.debug(f"Failed to deserialize executor: {e}")
+            continue
 
     return data

@@ -44,10 +44,31 @@ _T = TypeVar("_T")
 _BuildableT = TypeVar("_BuildableT", bound=fdl.Buildable)
 
 RECURSIVE_TYPES = (typing.Union, typing.Optional)
-NEMORUN_HOME = os.environ.get("NEMORUN_HOME", os.path.expanduser("~/.nemo_run"))
+_NEMORUN_HOME = os.environ.get("NEMORUN_HOME", os.path.expanduser("~/.nemo_run"))
 RUNDIR_NAME = "nemo_run"
 RUNDIR_SPECIAL_NAME = "/$nemo_run"
 SCRIPTS_DIR = "scripts"
+
+
+def get_nemorun_home() -> str:
+    """
+    Get the current NEMORUN_HOME directory path.
+
+    Returns:
+        The path to the NEMORUN_HOME directory.
+    """
+    return _NEMORUN_HOME
+
+
+def set_nemorun_home(path: str) -> None:
+    """
+    Set the NEMORUN_HOME directory path.
+
+    Args:
+        path: The new path for NEMORUN_HOME.
+    """
+    global _NEMORUN_HOME
+    _NEMORUN_HOME = os.path.expanduser(path)
 
 
 def get_type_namespace(typ: Type | Callable) -> str:
@@ -97,9 +118,9 @@ def from_dict(raw_data: dict | list | str | float | int | bool, cls: Type[_T]) -
     if isinstance(raw_data, dict):
         underlying_types = get_underlying_types(cls)
         underlying_types = [tp for tp in underlying_types if tp is not type(None)]
-        assert (
-            len(underlying_types) == 1
-        ), f"Unable to load {cls}. Nested union types are not currently supported."
+        assert len(underlying_types) == 1, (
+            f"Unable to load {cls}. Nested union types are not currently supported."
+        )
         cls = underlying_types[0]  # type: ignore
 
     if dataclasses.is_dataclass(cls):

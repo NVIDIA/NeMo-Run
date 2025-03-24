@@ -775,3 +775,165 @@ class TestGlobalOptions:
             mock_configure.reset_mock()
             runner.invoke(app, ["error-command"])
             mock_configure.assert_called_once_with(False)
+
+
+class TestTorchrunAndConfirmation:
+    """Test torchrun detection and confirmation behavior."""
+
+    @patch("os.environ", {"WORLD_SIZE": "2"})
+    def test_is_torchrun_true(self):
+        """Test that _is_torchrun returns True when WORLD_SIZE > 1."""
+        from nemo_run.cli.api import _is_torchrun
+
+        assert _is_torchrun() is True
+
+    @patch("os.environ", {})
+    def test_is_torchrun_false_no_env(self):
+        """Test that _is_torchrun returns False when WORLD_SIZE not in environment."""
+        from nemo_run.cli.api import _is_torchrun
+
+        assert _is_torchrun() is False
+
+    @patch("os.environ", {"WORLD_SIZE": "1"})
+    def test_is_torchrun_false_size_one(self):
+        """Test that _is_torchrun returns False when WORLD_SIZE = 1."""
+        from nemo_run.cli.api import _is_torchrun
+
+        assert _is_torchrun() is False
+
+    @patch("nemo_run.cli.api._is_torchrun", return_value=True)
+    def test_should_continue_torchrun(self, mock_torchrun):
+        """Test that _should_continue returns True under torchrun."""
+        ctx = run.cli.RunContext(name="test")
+        assert ctx._should_continue(False) is True
+        mock_torchrun.assert_called_once()
+
+    @patch("nemo_run.cli.api._is_torchrun", return_value=False)
+    @patch("nemo_run.cli.api.NEMORUN_SKIP_CONFIRMATION", True)
+    def test_should_continue_global_flag_true(self, mock_torchrun):
+        """Test that _should_continue respects global NEMORUN_SKIP_CONFIRMATION flag."""
+        ctx = run.cli.RunContext(name="test")
+        assert ctx._should_continue(False) is True
+        mock_torchrun.assert_called_once()
+
+    @patch("nemo_run.cli.api._is_torchrun", return_value=False)
+    @patch("nemo_run.cli.api.NEMORUN_SKIP_CONFIRMATION", False)
+    def test_should_continue_global_flag_false(self, mock_torchrun):
+        """Test that _should_continue respects global NEMORUN_SKIP_CONFIRMATION flag."""
+        ctx = run.cli.RunContext(name="test")
+        assert ctx._should_continue(False) is False
+        mock_torchrun.assert_called_once()
+
+    @patch("nemo_run.cli.api._is_torchrun", return_value=False)
+    @patch("nemo_run.cli.api.NEMORUN_SKIP_CONFIRMATION", None)
+    def test_should_continue_skip_confirmation(self, mock_torchrun):
+        """Test that _should_continue respects skip_confirmation parameter."""
+        ctx = run.cli.RunContext(name="test")
+        assert ctx._should_continue(True) is True
+        mock_torchrun.assert_called_once()
+
+
+class TestRunContextLaunch:
+    """Test RunContext.launch method."""
+
+    def test_launch_with_dryrun(self):
+        """Test launch with dryrun."""
+        ctx = run.cli.RunContext(name="test_run", dryrun=True)
+        mock_experiment = Mock(spec=run.Experiment)
+
+        ctx.launch(mock_experiment)
+
+        mock_experiment.dryrun.assert_called_once()
+        mock_experiment.run.assert_not_called()
+
+    def test_launch_normal(self):
+        """Test launch without dryrun."""
+        ctx = run.cli.RunContext(name="test_run", direct=True, tail_logs=True)
+        mock_experiment = Mock(spec=run.Experiment)
+
+        ctx.launch(mock_experiment)
+
+        mock_experiment.run.assert_called_once_with(
+            sequential=False, detach=False, direct=True, tail_logs=True
+        )
+
+    def test_launch_with_executor(self):
+        """Test launch with executor specified."""
+        ctx = run.cli.RunContext(name="test_run")
+        ctx.executor = Mock(spec=run.LocalExecutor)
+        mock_experiment = Mock(spec=run.Experiment)
+
+        ctx.launch(mock_experiment)
+
+        mock_experiment.run.assert_called_once_with(
+            sequential=False, detach=False, direct=False, tail_logs=False
+        )
+
+    def test_launch_sequential(self):
+        """Test launch with sequential=True."""
+        ctx = run.cli.RunContext(name="test_run")
+        # Initialize executor to None explicitly
+        ctx.executor = None
+        mock_experiment = Mock(spec=run.Experiment)
+
+        ctx.launch(mock_experiment, sequential=True)
+
+        mock_experiment.run.assert_called_once_with(
+            sequential=True, detach=False, direct=True, tail_logs=False
+        )
+
+
+class TestParsePrefixedArgs:
+    """Test _parse_prefixed_args function."""
+
+    def test_parse_prefixed_args_simple(self):
+        """Test parsing simple prefixed arguments."""
+        from nemo_run.cli.api import _parse_prefixed_args
+
+        args = ["executor=local", "other=value"]
+        prefix_value, prefix_args, other_args = _parse_prefixed_args(args, "executor")
+
+        assert prefix_value == "local"
+        assert prefix_args == []
+        assert other_args == ["other=value"]
+
+    def test_parse_prefixed_args_with_dot_notation(self):
+        """Test parsing prefixed arguments with dot notation."""
+        from nemo_run.cli.api import _parse_prefixed_args
+
+        args = ["executor=local", "executor.gpu=2", "other=value"]
+        prefix_value, prefix_args, other_args = _parse_prefixed_args(args, "executor")
+
+        assert prefix_value == "local"
+        assert prefix_args == ["gpu=2"]
+        assert other_args == ["other=value"]
+
+    def test_parse_prefixed_args_with_brackets(self):
+        """Test parsing prefixed arguments with bracket notation."""
+        from nemo_run.cli.api import _parse_prefixed_args
+
+        args = ["plugins=list", "plugins[0].name=test", "other=value"]
+        prefix_value, prefix_args, other_args = _parse_prefixed_args(args, "plugins")
+
+        assert prefix_value == "list"
+        assert prefix_args == ["[0].name=test"]
+        assert other_args == ["other=value"]
+
+    def test_parse_prefixed_args_invalid_format(self):
+        """Test parsing prefixed arguments with invalid format."""
+        from nemo_run.cli.api import _parse_prefixed_args
+
+        args = ["executorblah", "other=value"]
+        with pytest.raises(ValueError, match="Executor overwrites must start with 'executor.'"):
+            _parse_prefixed_args(args, "executor")
+
+    def test_parse_prefixed_args_no_prefix(self):
+        """Test parsing when no prefixed arguments are present."""
+        from nemo_run.cli.api import _parse_prefixed_args
+
+        args = ["arg1=value1", "arg2=value2"]
+        prefix_value, prefix_args, other_args = _parse_prefixed_args(args, "executor")
+
+        assert prefix_value is None
+        assert prefix_args == []
+        assert other_args == ["arg1=value1", "arg2=value2"]

@@ -18,7 +18,7 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from torchx.schedulers.api import (
     AppDryRunInfo,
@@ -61,9 +61,9 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         self._scheduled_reqs: list[DockerJobRequest] = []
 
     def _submit_dryrun(self, app: AppDef, cfg: Executor) -> AppDryRunInfo[DockerJobRequest]:  # type: ignore
-        assert isinstance(
-            cfg, DockerExecutor
-        ), f"{cfg.__class__} not supported for docker scheduler."
+        assert isinstance(cfg, DockerExecutor), (
+            f"{cfg.__class__} not supported for docker scheduler."
+        )
         executor = cfg
 
         if len(app.roles) > 1:
@@ -272,9 +272,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             )
 
 
-def create_scheduler(
-    session_name: str,
-) -> PersistentDockerScheduler:
+def create_scheduler(session_name: str, **kwargs: Any) -> PersistentDockerScheduler:
     return PersistentDockerScheduler(
         session_name=session_name,
     )

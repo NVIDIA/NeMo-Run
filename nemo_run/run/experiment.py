@@ -41,11 +41,11 @@ from torchx.specs.api import AppState
 
 import nemo_run as run
 from nemo_run.config import (
-    NEMORUN_HOME,
     Config,
     ConfigurableMixin,
     Partial,
     Script,
+    get_nemorun_home,
     get_type_namespace,
 )
 from nemo_run.core.execution.base import Executor
@@ -101,7 +101,7 @@ class Experiment(ConfigurableMixin):
     The design is heavily inspired from `XManager <https://github.com/google-deepmind/xmanager/blob/main/docs/xm_launch_api_principles.md>`_.
 
     Under the hood, the Experiment metadata is stored in the local filesystem
-    inside a user specified directory controlled by NEMORUN_HOME env var.
+    inside a user specified directory controlled by get_nemorun_home() env var.
     We will explore making the metadata more persistent in the future.
 
     .. note::
@@ -206,9 +206,9 @@ nemo experiment cancel {exp_id} 0
         title: str = "",
     ) -> list[str]:
         """
-        List all experiments inside NEMORUN_HOME, optionally with the provided title.
+        List all experiments inside get_nemorun_home(), optionally with the provided title.
         """
-        parent_dir = os.path.join(NEMORUN_HOME, "experiments", title)
+        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         return _get_sorted_dirs(parent_dir)
 
     @classmethod
@@ -247,7 +247,7 @@ nemo experiment cancel {exp_id} 0
         Reconstruct an experiment with the specified id.
         """
         title, _, _ = id.rpartition("_")
-        parent_dir = os.path.join(NEMORUN_HOME, "experiments", title)
+        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         exp_dir = os.path.join(parent_dir, id)
 
         assert os.path.isdir(exp_dir), f"Experiment {id} not found."
@@ -263,7 +263,7 @@ nemo experiment cancel {exp_id} 0
         """
         Reconstruct an experiment with the specified title.
         """
-        parent_dir = os.path.join(NEMORUN_HOME, "experiments", title)
+        parent_dir = os.path.join(get_nemorun_home(), "experiments", title)
         exp_dir = _get_latest_dir(parent_dir)
 
         assert os.path.isdir(exp_dir), f"Experiment {id} not found."
@@ -303,11 +303,11 @@ nemo experiment cancel {exp_id} 0
         self._title = title
         self._id = id or f"{title}_{int(time.time())}"
 
-        base_dir = base_dir or NEMORUN_HOME
+        base_dir = str(base_dir or get_nemorun_home())
         self._exp_dir = os.path.join(base_dir, "experiments", title, self._id)
 
         self.log_level = log_level
-        self._runner = get_runner()
+        self._runner = get_runner(component_defaults=None, experiment=self)
 
         if not _reconstruct:
             self.executor = executor if executor else LocalExecutor()
@@ -528,9 +528,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         """
         Add a configured function along with its executor config to the experiment.
         """
-        assert (
-            _current_experiment.get(None) == self
-        ), "Using Experiment without it's context manager is not permitted."
+        assert _current_experiment.get(None) == self, (
+            "Using Experiment without it's context manager is not permitted."
+        )
 
         job_ids = set([job.id for job in self.jobs])
         for dep in dependencies or []:
@@ -612,9 +612,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             tail_logs: If True, tails logs from all tasks in the experiment. If False, relies on task specific setting. Defaults to False.
             direct: If True, runs all tasks in the experiment sequentially in the same process. Note that if direct=True, then sequential also will be True. Defaults to False.
         """
-        assert (
-            _current_experiment.get(None) == self
-        ), "Using Experiment without it's context manager is not permitted."
+        assert _current_experiment.get(None) == self, (
+            "Using Experiment without it's context manager is not permitted."
+        )
 
         if self._launched:
             self.console.log("[bold magenta]Experiment already running...")
@@ -636,13 +636,13 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 self.console.log("[bold red]No jobs to run in this experiment.")
                 return
 
-            assert all(
-                map(lambda job: isinstance(job, Job), self.jobs)
-            ), "Jobs in this experiment contain JobGroup which cannot be run directly for now."
+            assert all(map(lambda job: isinstance(job, Job), self.jobs)), (
+                "Jobs in this experiment contain JobGroup which cannot be run directly for now."
+            )
 
-            assert all(
-                map(lambda job: not job.dependencies, self.jobs)
-            ), "Jobs in this experiment contain dependencies which cannot be run directly for now."
+            assert all(map(lambda job: not job.dependencies, self.jobs)), (
+                "Jobs in this experiment contain dependencies which cannot be run directly for now."
+            )
 
             for job in self.jobs:
                 assert isinstance(job, Job)
@@ -674,9 +674,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             detach = False
 
         is_dag = any(map(lambda job: len(job.dependencies) > 0, self.jobs))
-        assert not (
-            is_dag and sequential
-        ), "Jobs in this experiment have dependencies, they cannot be run sequentially. Set sequential=False."
+        assert not (is_dag and sequential), (
+            "Jobs in this experiment have dependencies, they cannot be run sequentially. Set sequential=False."
+        )
 
         if sequential:
             for i in range(1, len(self.jobs)):
@@ -732,9 +732,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     )
         else:
             # All jobs will be executed in parallel
-            assert all(
-                map(lambda x: x in self._PARALLEL_SUPPORTED_EXECUTORS, executors)
-            ), f"Parallel mode not supported for atleast one of {executors}. Set sequential=True."
+            assert all(map(lambda x: x in self._PARALLEL_SUPPORTED_EXECUTORS, executors)), (
+                f"Parallel mode not supported for atleast one of {executors}. Set sequential=True."
+            )
             wait = False
             self.detach = detach
 
@@ -751,9 +751,9 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                         for dep_id in job.dependencies:
                             dep = job_map[dep_id]
                             handle = dep.handle
-                            assert (
-                                dep.launched and handle
-                            ), f"Dependency {dep.id} for {job.id} not yet launched."
+                            assert dep.launched and handle, (
+                                f"Dependency {dep.id} for {job.id} not yet launched."
+                            )
                             deps.append(handle)
 
                         job.executor.dependencies = deps  # type: ignore
@@ -963,11 +963,11 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             self.console.log(
                 f"[bold magenta]Experiment {self._id} has not run yet, skipping reset..."
             )
-            return
+            return self
 
         old_id, old_exp_dir, old_launched = self._id, self._exp_dir, self._launched
         self._id = f"{self._title}_{int(time.time())}"
-        self._exp_dir = os.path.join(NEMORUN_HOME, "experiments", self._title, self._id)
+        self._exp_dir = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
         self._launched = False
         self._live_progress = None
 
@@ -1017,7 +1017,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 f"[bold magenta]Failed resetting Experiment {self._id} due to error: {e}"
             )
             # Double check exp dir is unchanged
-            new_path = os.path.join(NEMORUN_HOME, "experiments", self._title, self._id)
+            new_path = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
             if self._exp_dir == new_path and new_path != old_exp_dir:
                 shutil.rmtree(self._exp_dir)
 
@@ -1233,18 +1233,19 @@ def maybe_load_external_main(exp_dir: str):
         _LOADED_MAINS.add(main_file)
 
         spec = importlib.util.spec_from_file_location("__external_main__", main_file)
-        new_main_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(new_main_module)
+        if spec is not None and spec.loader is not None:
+            new_main_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(new_main_module)
 
-        if "__external_main__" not in sys.modules:
-            sys.modules["__external_main__"] = new_main_module
-        else:
-            external = sys.modules["__external_main__"]
+            if "__external_main__" not in sys.modules:
+                sys.modules["__external_main__"] = new_main_module
+            else:
+                external = sys.modules["__external_main__"]
+                for attr in dir(new_main_module):
+                    if not attr.startswith("__"):
+                        setattr(external, attr, getattr(new_main_module, attr))
+
+            existing_main = sys.modules["__main__"]
             for attr in dir(new_main_module):
                 if not attr.startswith("__"):
-                    setattr(external, attr, getattr(new_main_module, attr))
-
-        existing_main = sys.modules["__main__"]
-        for attr in dir(new_main_module):
-            if not attr.startswith("__"):
-                setattr(existing_main, attr, getattr(new_main_module, attr))
+                    setattr(existing_main, attr, getattr(new_main_module, attr))
