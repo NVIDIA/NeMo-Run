@@ -79,5 +79,6 @@ def train_recipe() -> run.Partial[train_model]:
         batch_size=2048,
     )
 
+
 if __name__ == "__main__":
     run.cli.main(train_model, cmd_defaults={"skip_confirmation": True})
