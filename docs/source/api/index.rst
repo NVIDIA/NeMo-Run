@@ -7,4 +7,3 @@ API Reference
    configuration
    execution
    management
-   helpers
