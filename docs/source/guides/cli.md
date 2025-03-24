@@ -1,422 +1,348 @@
 # NeMo Run CLI Guide
 
-The NeMo Run Command Line Interface (CLI) is a powerful, Pythonic tool designed to streamline the configuration, execution, and management of machine learning experiments. This guide provides a comprehensive overview of the NeMo Run CLI, from installation to advanced features, with a special focus on an improved "Configuration Files" section as requested. Whether you're running simple tasks locally or managing distributed experiments, this guide will equip you with the knowledge to use NeMo Run effectively.
+NeMo Run CLI is a Python-based command-line tool designed to efficiently configure and execute machine learning experiments. It provides a type-safe, Python-centric alternative to argparse and Hydra, streamlining workflows from prototyping to scaling across diverse environments.
 
-## Table of Contents
-- [NeMo Run CLI Guide](#nemo-run-cli-guide)
-  - [Table of Contents](#table-of-contents)
-  - [Introduction](#introduction)
-    - [Key Features](#key-features)
-  - [Installation](#installation)
-  - [Core Concepts](#core-concepts)
-    - [Entrypoints](#entrypoints)
-    - [Factories](#factories)
-    - [Executors](#executors)
-    - [RunContext](#runcontext)
-  - [Basic Usage](#basic-usage)
-  - [Working with Factories](#working-with-factories)
-    - [Overview of Factories](#overview-of-factories)
-    - [Basic Factory Registration](#basic-factory-registration)
-    - [Advanced Factory Registration with `target` and `target_arg`](#advanced-factory-registration-with-target-and-target_arg)
-    - [Setting Default Factories with `is_target_default`](#setting-default-factories-with-is_target_default)
-    - [Customizing with `name` and `namespace`](#customizing-with-name-and-namespace)
-    - [Using Factories in Entrypoints](#using-factories-in-entrypoints)
-    - [Advanced Factory Usage](#advanced-factory-usage)
-  - [Configuration Files](#configuration-files)
-    - [Supported Formats](#supported-formats)
-    - [Factory Configuration File (`--factory @file.yaml`)](#factory-configuration-file---factory-fileyaml)
-    - [Argument-Specific Configuration File (`argument=@file.yaml`)](#argument-specific-configuration-file-argumentfileyaml)
-    - [Selecting a Section from a Config File (`argument=@file:section`)](#selecting-a-section-from-a-config-file-argumentfilesection)
-  - [Advanced Features](#advanced-features)
-    - [Partial Configurations](#partial-configurations)
-    - [Nested Configurations](#nested-configurations)
-    - [Experiment Management](#experiment-management)
-  - [Best Practices](#best-practices)
-  - [Troubleshooting](#troubleshooting)
-  - [Conclusion](#conclusion)
+## 1. Introduction
 
-## Introduction
+NeMo Run CLI simplifies experiment management by leveraging Python's capabilities:
 
-The NeMo Run CLI is designed to simplify machine learning workflows by integrating Python's intuitive syntax with a flexible command-line interface. It emphasizes type-driven configuration, portability, and reproducibility, making it suitable for both small experiments and large-scale deployments.
+- **Type-Safe Configurations**: Automatically validates arguments using Python's type annotations.
+- **Intuitive Overrides**: Enables modification of nested settings via command line (e.g., `model_config.size=256`).
+- **Flexible Configuration Inputs**: Supports configuration through Python defaults and external files (YAML, TOML, JSON).
+- **Executors**: Effortlessly transitions execution contexts (local, Docker, Slurm).
 
-### Key Features
-- **Pythonic Design**: Execute Python code via an intuitive CLI.
-- **Type-Driven**: Use Python type hints for structured, safe configurations.
-- **Portable Execution**: Run tasks locally or on clusters/cloud by switching executors.
-- **Rich Configuration**: Support for nested structures and file-based overrides.
-- **Reproducibility**: Save and share experiment configurations easily.
+### Comparison to Other CLI Solutions
 
-This guide covers everything you need to get started and master the CLI.
+#### vs. argparse
 
-## Installation
+**argparse** requires manually exposing each parameter and lacks support for nested configurations, resulting in verbose boilerplate code as complexity grows. **NeMo Run CLI** automatically exposes all nested parameters through intuitive dot notation (e.g., `model_config.layer_size=256`), allowing direct access to any level of configuration without additional code.
 
-To use the NeMo Run CLI, install the NeMo toolkit:
+#### vs. Hydra
 
-```bash
-pip install nemo-toolkit
+**Hydra** offers powerful YAML-based configuration but requires context-switching between YAML files and Python code, creating friction in the development workflow. **NeMo Run CLI** achieves similar nested override capabilities while maintaining a seamless Python-first approach through fiddle Configs, using the same OmegaConf library for config file integration to ensure compatibility with existing YAML configurations while also supporting TOML and JSON formats for additional flexibility.
+
+#### vs. Typer
+
+**Typer** provides excellent type-based CLI interfaces but has limited support for nested configurations common in ML workflows. **NeMo Run CLI** builds on Typer's foundations, adding support for nested configuration overwrites (like `model.hidden_size=256`) and fiddle Config integration for a complete ML experiment framework.
+
+#### Code Example Comparison
+
+```python
+# NeMo Run CLI - Simple, automatic parameter exposure
+@run.cli.entrypoint
+def train(model_config: ModelConfig, optimizer: OptimizerConfig):
+    # All nested parameters automatically available via CLI:
+    # python train.py model_config.hidden_size=1024 optimizer.lr=0.01
+    ...
+
+# argparse - Requires manual exposure of every parameter
+def train():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-hidden-size", type=int, default=512)
+    parser.add_argument("--optimizer-lr", type=float, default=0.001)
+    # Must manually add every nested parameter you want to expose
+    ...
 ```
 
-Ensure your Python version is 3.8 or higher. If NeMo Run is a standalone package, refer to its official documentation for specific instructions.
+#### Feature Comparison
 
-## Core Concepts
+| Feature | NeMo Run CLI | Hydra | Typer | argparse |
+|---------|-------------|-------|-------|----------|
+| Type checking | ✅ (Python types) | ⚠️ (via OmegaConf) | ✅ | ❌ (manual) |
+| Nested configs | ✅ (native) | ✅ | ❌ | ❌ |
+| Config files | ✅ (YAML/JSON/TOML) | ✅ (YAML) | ❌ (manual) | ❌ (manual) |
+| Python-native | ✅ | ⚠️ | ✅ | ✅ |
+| ML experiment focus | ✅ | ⚠️ | ❌ | ❌ |
+| Executor abstraction | ✅ | ❌ | ❌ | ❌ |
+| Default suggestions | ✅ | ❌ | ✅ | ❌ |
+| Factory system | ✅ | ❌ | ❌ | ❌ |
+| Learning curve | Medium | High | Low | Low |
 
-### Entrypoints
-An entrypoint is a Python function decorated with `@run.cli.entrypoint`, serving as the main CLI command. It defines the parameters your script accepts.
+#### When to Choose Each Solution
 
-### Factories
-A factory is a function decorated with `@run.cli.factory`, creating preconfigured objects (e.g., models, optimizers) for reuse in entrypoints.
+- **NeMo Run CLI**: ML experiments with complex nested configurations, particularly when moving between development and production environments
+- **Hydra**: Applications with extensive YAML configuration needs where Python integration is secondary
+- **Typer**: General-purpose CLIs with good documentation that don't require nested configuration
+- **argparse**: Simple scripts with minimal configuration needs and standard library requirements
 
-### Executors
-Executors control where and how your code runs:
-- **LocalExecutor**: Runs locally.
-- **SlurmExecutor**: Submits to SLURM clusters.
-- **SkypilotExecutor**: Deploys to the cloud.
+## 2. Core Concepts
 
-### RunContext
-The RunContext manages execution settings, such as the executor or configuration exports.
+- **Entrypoints**: Python functions decorated with `@run.cli.entrypoint` serving as primary CLI commands.
+- **Factories**: Functions decorated with `@run.cli.factory` that configure complex objects (e.g., models, optimizers).
+- **Partials**: Reusable, partially configured functions enabling flexible experiment definitions.
+- **Experiments**: Groups of tasks executed sequentially or concurrently.
+- **RunContext**: Manages execution settings, including executor configurations.
 
-## Basic Usage
+## 3. Getting Started
 
-Here's a simple example:
+### Example 1: Basic Entrypoint
+
+Create `script.py`:
 
 ```python
 import nemo_run as run
 
 @run.cli.entrypoint
-def train_model(model: str, epochs: int = 10):
+def train(model: str, epochs: int = 10):
     print(f"Training {model} for {epochs} epochs")
 
 if __name__ == "__main__":
-    run.cli.main(train_model)
+    run.cli.main(train)
 ```
 
-Run it:
+Execute:
+
 ```bash
-python script.py model=resnet50 epochs=20
+python script.py model=alexnet epochs=5
 ```
 
-Output: `Training resnet50 for 20 epochs`
+Output:
 
-This shows how NeMo Run maps CLI arguments to Python function calls using type hints.
+```
+Training alexnet for 5 epochs
+```
 
-## Working with Factories
+### Example 2: Error Correction
 
-Factories allow you to define reusable configurations for complex objects. Below, we explore their usage in detail.
+NeMo Run CLI helps prevent silent failures by catching typos:
 
-### Overview of Factories
-Factories are decorated with `@run.cli.factory` and instantiate objects for entrypoints. Parameters include:
-- `target`: Type or function to register under.
-- `target_arg`: Specific argument to target.
-- `is_target_default`: Sets as default for its type.
-- `name`: Custom factory name.
-- `namespace`: Groups factories.
+```bash
+python script.py model=alexnet epocks=5
+```
 
-### Basic Factory Registration
+Output:
 
-Register a factory for a type:
+```
+Unknown argument 'epocks'. Did you mean 'epochs'?
+```
+
+## 4. Advanced Configuration
+
+### Nested Configurations with Dataclasses
+
+Create structured configurations:
 
 ```python
 from dataclasses import dataclass
 import nemo_run as run
 
 @dataclass
-class Model:
-    hidden_size: int
-    num_layers: int
+class ModelConfig:
+    size: int = 128
+    layers: int = 2
 
-@run.cli.factory
-def my_model() -> run.Config[Model]:
-    return run.Config(Model, hidden_size=256, num_layers=3)
-```
-
-Run with an entrypoint:
-
-```python
 @run.cli.entrypoint
-def train(model: Model):
-    print(f"Training with {model.hidden_size} hidden units and {model.num_layers} layers")
+def train(model_config: ModelConfig):
+    print(f"Model size: {model_config.size}, layers: {model_config.layers}")
 
 if __name__ == "__main__":
     run.cli.main(train)
 ```
 
+Execute with overrides:
+
 ```bash
-python script.py model=my_model
+python script.py model_config.size=256
 ```
 
-### Advanced Factory Registration with `target` and `target_arg`
+Output:
+
+```
+Configuring global options
+Dry run for task __main__:train
+Resolved Arguments
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Argument Name        ┃ Resolved Value                                               ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ model_config         │ ModelConfig(size=256)                                        │
+└──────────────────────┴──────────────────────────────────────────────────────────────┘
+Continue? [y/N]: y
+Launching train...
+Model size: 256, layers: 2
+```
+
+### Configuration Files and the @ Syntax
+
+NeMo Run CLI supports external configuration files (YAML, TOML, JSON) using the `@` syntax:
+
+- Use `--factory` combined with `@` to load entire configurations:
+
+```bash
+python script.py --factory @path/to/config.yaml
+```
+
+- Load specific nested configurations using the `@` syntax:
+
+```bash
+python script.py model_config=@configs/model.yaml optimizer=@configs/optimizer.json
+```
+
+Overrides can still be applied directly alongside file-based inputs:
+
+```bash
+python script.py --factory @path/to/config.yaml model_config.layers=4
+```
+
+## 5. Executors
+
+Executors determine where your code runs, such as local environments, Docker containers, or Slurm clusters.
+
+### Docker Executor
+
+Define and register a Docker executor:
+
+```python
+import nemo_run as run
+
+@run.cli.factory
+@run.autoconvert
+def docker() -> run.Executor:
+    return run.DockerExecutor(
+        container_image="nvcr.io/nvidia/nemo:dev",
+        volumes=[
+            "/home/marc/models:/workspaces/models",
+            "/home/marc/data:/workspaces/data",
+            "/var/run/docker.sock:/var/run/docker.sock",
+            f"{BASE_DIR}/opt/NeMo-Run:/opt/NeMo-Run",
+            f"{BASE_DIR}/opt/NeMo:/opt/NeMo",
+            f"{BASE_DIR}/opt/megatron-lm:/opt/Megatron-LM",
+        ],
+        env_vars={
+            "HF_HOME": "/workspaces/models/hf",
+            "NEMO_HOME": "/workspaces/models/nemo",
+        }
+    )
+```
+
+Execute:
+
+```bash
+python script.py model=alexnet epochs=5 run.executor=docker
+```
+
+### Slurm Executor
+
+Define and register a Slurm executor:
 
 ```python
 @run.cli.factory
-def my_model(
-    hidden_size: int = 256,
-    num_layers: int = 3,
-    activation: str = 'relu'
-) -> run.Config[Model]:
-    return run.Config(Model, hidden_size=hidden_size, num_layers=num_layers, activation=activation)
-
-@run.cli.entrypoint
-def train_model(
-    model: Model = my_model(),
-    learning_rate: float = 0.001,
-    epochs: int = 10
-):
-    # Implementation...
+@run.autoconvert
+def slurm_cluster() -> run.Executor:
+    return run.SlurmExecutor(
+        account=ACCOUNT,
+        partition=SLURM_PARTITION,
+        job_name_prefix=f"{ACCOUNT}-nemo-ux:",
+        job_dir=BASE_DIR,
+        container_image="nvcr.io/nvidia/nemo:dev",
+        container_mounts=[
+            f"/home/{USER}:/home/{USER}", 
+            "/lustre:/lustre",
+        ],
+        time="4:00:00",
+        gpus_per_node=8,
+        tunnel=run.SSHTunnel(host=SLURM_LOGIN_NODE, user=USER, job_dir=BASE_DIR)
+    )
 ```
 
-Now you can use this factory in the CLI:
+Execute lazily:
 
 ```bash
-# Use the factory with default settings
-python train.py
-
-# Override specific parameters
-python train.py model.hidden_size=512 learning_rate=0.01
-
-# Use a different factory altogether
-python train.py model=large_model
+python script.py --lazy model=alexnet epochs=5 run.executor=slurm_cluster run.executor.nodes=2
 ```
 
-### Setting Default Factories with `is_target_default`
+## 6. Advanced CLI Features
 
-```python
-@run.cli.factory
-def my_model(
-    hidden_size: int = 256,
-    num_layers: int = 3,
-    activation: str = 'relu'
-) -> run.Config[Model]:
-    return run.Config(Model, hidden_size=hidden_size, num_layers=num_layers, activation=activation)
+### Dry Runs and Help Messages
 
-@run.cli.entrypoint
-def train_model(
-    model: Model = my_model(),
-    learning_rate: float = 0.001,
-    epochs: int = 10
-):
-    # Implementation...
-```
-
-Now you can use this factory in the CLI:
+Use `--dryrun` to preview execution:
 
 ```bash
-# Use the factory with default settings
-python train.py
-
-# Override specific parameters
-python train.py model.hidden_size=512 learning_rate=0.01
-
-# Use a different factory altogether
-python train.py model=large_model
+python task.py --yaml task.yaml --dryrun
 ```
 
-### Customizing with `name` and `namespace`
+Output:
 
-```python
-@run.cli.factory
-def my_model(
-    hidden_size: int = 256,
-    num_layers: int = 3,
-    activation: str = 'relu'
-) -> run.Config[Model]:
-    return run.Config(Model, hidden_size=hidden_size, num_layers=num_layers, activation=activation)
-
-@run.cli.entrypoint
-def train_model(
-    model: Model = my_model(),
-    learning_rate: float = 0.001,
-    epochs: int = 10
-):
-    # Implementation...
+```
+Configuring global options
+Dry run for task __main__:train_model
+Resolved Arguments
+┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Argument Name        ┃ Resolved Value                                               ┃
+┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ batch_size           │ 32                                                           │
+│ epochs               │ 10                                                           │
+│ model                │ Model(hidden_size=256, num_layers=3, activation='relu')      │
+│ optimizer            │ Optimizer(learning_rate=0.001, weight_decay=1e-05,           │
+│                      │ betas=[0.9, 0.999])                                          │
+└──────────────────────┴──────────────────────────────────────────────────────────────┘
+Dry run for train_model:
 ```
 
-Now you can use this factory in the CLI:
+Use `--help` to see detailed CLI usage information, including registered factory functions for each argument:
 
 ```bash
-# Use the factory with default settings
-python train.py
-
-# Override specific parameters
-python train.py model.hidden_size=512 learning_rate=0.01
-
-# Use a different factory altogether
-python train.py model=large_model
+python task.py --help
 ```
 
-### Using Factories in Entrypoints
+Output:
 
-```python
-@run.cli.entrypoint
-def train_model(
-    model: Model = my_model(),
-    learning_rate: float = 0.001,
-    epochs: int = 10
-):
-    # Implementation...
+```
+Usage: task.py [OPTIONS] [ARGUMENTS]
+
+[Entrypoint] train_model
+Train a model using the specified configuration.
+
+╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --name                  -n                           TEXT  Name of the run [default: None]
+│ --direct                    --no-direct                    Execute the run directly [default: no-direct]
+│ --dryrun                                                   Print the scheduler request without submitting
+│ --factory               -f                           TEXT  Predefined factory to use [default: None]
+│ --load                  -l                           TEXT  Load a factory from a directory [default: None]
+│ --yaml                  -y                           TEXT  Path to a YAML file to load [default: None]
+│ --repl                  -r                                 Enter interactive mode
+│ --detach                                                   Detach from the run
+│ --yes,--no-confirm      -y                                 Skip confirmation before execution
+│ --tail-logs                 --no-tail-logs                 Tail logs after execution [default: no-tail-logs]
+│ --verbose               -v                                 Enable verbose logging
+│ --rich-exceptions           --no-rich-exceptions           Enable rich exception formatting [default: no-rich-exceptions]
+│ --rich-traceback-short      --rich-traceback-full          Control traceback verbosity [default: rich-traceback-full]
+│ --rich-show-locals          --rich-hide-locals             Toggle local variables in exceptions [default: rich-show-locals]
+│ --rich-theme                                         TEXT  Color theme (dark/light/monochrome) [default: None]
+│ --to-yaml                                            TEXT  Export config to YAML file [default: None]
+│ --to-toml                                            TEXT  Export config to TOML file [default: None]
+│ --to-json                                            TEXT  Export config to JSON file [default: None]
+│ --install-completion                                       Install completion for the current shell.
+│ --show-completion                                          Show completion for the current shell, to copy it or customize
+│                                                            the installation.
+│ --help                                                     Show this message and exit.
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Pre-loaded entrypoint factories, run with --factory ────────────────────────────────────────────────────────────────────────╮
+│ train_recipe                               task.train_recipe                        line 72
+│
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Arguments ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ model                                      task.Model
+│ optimizer                                  task.Optimizer
+│ epochs                                     int                                      10
+│ batch_size                                 int                                      32
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Factory for model: task.Model ──────────────────────────────────────────────────────────────────────────────────────────────╮
+│ my_model                                   task.my_model                            line 25
+│
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Factory for optimizer: task.Optimizer ──────────────────────────────────────────────────────────────────────────────────────╮
+│ my_optimizer                               task.my_optimizer                        line 34
+│
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-```bash
-# Run locally
-python train.py
+The help output clearly shows:
 
-# Run in Docker
-python train.py executor=docker_executor
+1. The entrypoint function name and description
+2. Available command-line options with their descriptions and default values
+3. Pre-loaded entrypoint factories that can be used with the `--factory` option
+4. Arguments expected by the function with their types and default values
+5. Registered factory functions for each complex argument type
 
-# Run on a Slurm cluster
-python train.py executor=slurm_executor executor.nodes=2 executor.gpus_per_node=8
-```
+This makes it easy for users to discover what factory functions they can use to configure complex arguments like `model` and `optimizer`, along with information about where these factories are defined (module name and line number).
 
-### Advanced Factory Usage
-
-```python
-@run.cli.factory
-def my_model(
-    hidden_size: int = 256,
-    num_layers: int = 3,
-    activation: str = 'relu'
-) -> run.Config[Model]:
-    return run.Config(Model, hidden_size=hidden_size, num_layers=num_layers, activation=activation)
-
-@run.cli.entrypoint
-def train_model(
-    model: Model = my_model(),
-    learning_rate: float = 0.001,
-    epochs: int = 10
-):
-    # Implementation...
-```
-
-```bash
-# Use the factory with default settings
-python train.py
-
-# Override specific parameters
-python train.py model.hidden_size=512 learning_rate=0.01
-
-# Use a different factory altogether
-python train.py model=large_model
-```
-
-## Configuration Files
-
-NeMo Run provides powerful tools for managing your configurations, allowing you to load, modify, and export them with ease.
-
-### Supported Formats
-
-Load configurations from YAML, TOML, or JSON files:
-
-```bash
-python train.py --yaml config.yaml
-```
-
-Override specific values from the loaded configuration:
-
-```bash
-python train.py --yaml config.yaml learning_rate=0.01
-```
-
-### Factory Configuration File (`--factory @file.yaml`)
-
-```bash
-python train.py --factory @file.yaml
-```
-
-### Argument-Specific Configuration File (`argument=@file.yaml`)
-
-```bash
-python train.py argument=@file.yaml
-```
-
-### Selecting a Section from a Config File (`argument=@file:section`)
-
-```bash
-python train.py argument=@file:section
-```
-
-## Advanced Features
-
-### Partial Configurations
-
-```python
-@run.cli.entrypoint
-def train_model(
-    model: Model = my_model(),
-    learning_rate: float = 0.001,
-    epochs: int = 10
-):
-    # Implementation...
-```
-
-```bash
-# Run locally
-python train.py
-
-# Run in Docker
-python train.py executor=docker_executor
-
-# Run on a Slurm cluster
-python train.py executor=slurm_executor executor.nodes=2 executor.gpus_per_node=8
-```
-
-### Nested Configurations
-
-```python
-@run.cli.entrypoint
-def train_model(
-    model: Model = my_model(),
-    learning_rate: float = 0.001,
-    epochs: int = 10
-):
-    # Implementation...
-```
-
-```bash
-# Run locally
-python train.py
-
-# Run in Docker
-python train.py executor=docker_executor
-
-# Run on a Slurm cluster
-python train.py executor=slurm_executor executor.nodes=2 executor.gpus_per_node=8
-```
-
-### Experiment Management
-
-```python
-@run.cli.entrypoint
-def train_model(
-    model: Model = my_model(),
-    learning_rate: float = 0.001,
-    epochs: int = 10
-):
-    # Implementation...
-```
-
-```bash
-# Run locally
-python train.py
-
-# Run in Docker
-python train.py executor=docker_executor
-
-# Run on a Slurm cluster
-python train.py executor=slurm_executor executor.nodes=2 executor.gpus_per_node=8
-```
-
-## Best Practices
-
-1. **Use Type-Driven Configuration**: Leverage Python type hints for safe and structured configurations.
-2. **Portability**: Run tasks locally or on clusters/cloud by switching executors.
-3. **Reproducibility**: Save and share experiment configurations easily.
-4. **Configuration Management**: Use configuration files and command-line arguments effectively.
-
-## Troubleshooting
-
-1. **Installation Issues**: Ensure NeMo toolkit is installed correctly.
-2. **Configuration Errors**: Check your configuration files and command-line arguments.
-3. **Execution Issues**: Verify your environment and executor settings.
-
-## Conclusion
-
-The NeMo Run CLI is a powerful, Pythonic tool designed to streamline the configuration, execution, and management of machine learning experiments. Whether you're running simple tasks locally or managing distributed experiments, this guide has equipped you with the knowledge to use NeMo Run effectively.
