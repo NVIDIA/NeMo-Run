@@ -41,6 +41,7 @@ from typing import (
 import fiddle as fdl
 
 from nemo_run.config import Config, Partial
+from nemo_run.core.serialization.yaml import ConfigSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -1154,6 +1155,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
     """Parse a factory-style argument and instantiate the corresponding object(s).
 
     This function handles single factory calls, lists of factory calls, and dotted imports.
+    Configuration files using the @ syntax are handled by load_config_from_path in lazy.py.
 
     Args:
         parent (Type): The parent class or function where the argument is defined.
@@ -1167,22 +1169,6 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 
     Raises:
         ValueError: If the factory format is invalid or no matching factory is found.
-
-    Example:
-        >>> parse_factory(MyClass, "optimizer", OptimizerType, "Adam(lr=0.001)")
-        <Adam optimizer object>
-        >>> parse_factory(MyClass, "layers", List[LayerType], "[Conv2D(64), MaxPool2D(), Dense(128)]")
-        [<Conv2D layer>, <MaxPool2D layer>, <Dense layer>]
-        >>> parse_factory(MyClass, "custom_fn", Callable, "my_module.my_function(arg1=10)")
-        <result of my_function with arg1=10>
-
-    Notes:
-        - This function uses the catalogue library to look up registered factory functions.
-        - It supports nested factory calls and argument passing to the factory function.
-        - The function is designed to work with the NeMo Run configuration system.
-        - It supports parsing lists of factories.
-        - It supports dotted imports with or without arguments.
-        - It checks sys.modules["__main__"] if the factory is not found in the registry.
     """
     import catalogue
 

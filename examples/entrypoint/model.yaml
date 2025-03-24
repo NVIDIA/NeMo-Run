@@ -1,0 +1,5 @@
+model:
+  _target_: __main__.Model
+  activation: relu
+  hidden_size: 256
+  num_layers: 3
