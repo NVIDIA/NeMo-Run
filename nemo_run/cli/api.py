@@ -1681,7 +1681,8 @@ def _serialize_configuration(
     to_json: Optional[str] = None,
     is_lazy: bool = False,
     console: Optional[Console] = None,
-):
+    verbose: bool = False,
+) -> None:
     """
     Serialize configuration to specified file formats.
     
@@ -1692,53 +1693,85 @@ def _serialize_configuration(
         to_json: Path to export JSON configuration
         is_lazy: Whether to use lazy serialization
         console: Console instance for printing messages
+        verbose: Whether to show detailed output with syntax highlighting
+        
+    Raises:
+        ValueError: If no output format is specified
     """
     if not any([to_yaml, to_toml, to_json]):
-        return
+        raise ValueError("At least one output format must be provided")
         
-    console = console or Console()
+    console = console or Console() if verbose else None
     from nemo_run.core.serialization.yaml import ConfigSerializer
     serializer = ConfigSerializer()
-    
-    # Check if we're in lazy mode (based on the existing --lazy flag)
-    is_lazy = is_lazy or os.environ.get("LAZY_CLI", "false").lower() == "true"
-    
-    # For non-lazy mode
-    if not is_lazy:
-        # Simple helper to handle section extraction and serialization
-        def export_config(output_path, format=None):
-            if not output_path:
-                return
-                
+
+    def _export_config(output_path: str, format: Optional[str] = None) -> None:
+        """Export configuration to specified format and path."""
+        if not output_path:
+            return
+
+        format_name = format.upper() if format else 'YAML'
+        
+        try:
+            # Handle section extraction from path
             section = None
-            path = output_path
+            file_path = output_path
             if ':' in output_path:
-                path, section = output_path.split(':', 1)
-                
-            try:
-                if section:
-                    # Export just the section using getattr
-                    try:
-                        section_value = getattr(config, section)
-                        serializer.dump_dict({section: section_value}, path, format=format)
-                    except AttributeError:
-                        console.print(f"[bold red]Error:[/bold red] Section '{section}' not found in configuration")
-                        return
+                file_path, section = output_path.split(':', 1)
+
+            # Create appropriate section message for display
+            section_msg = f" (section: {section})" if section else ""
+
+            # Handle section extraction for Config objects
+            section_config = config
+            if section:
+                # For Config objects, use getattr to access the section
+                if hasattr(config, section):
+                    section_config = getattr(config, section)
                 else:
-                    # Export full config
-                    serializer.dump(config, path)
-            
-                # Format the file extension and name for display
-                format_name = format.upper() if format else 'YAML'
+                    raise ValueError(f"Section '{section}' not found in configuration")
+
+            # Now serialize the extracted section
+            if is_lazy:
+                # For lazy configs, create a nested structure
+                if section:
+                    # Section already extracted, just serialize it
+                    serializer.dump(section_config, file_path)
+                else:
+                    # Standard lazy config handling
+                    config_dict = {
+                        "_target_": config._target_path_ if hasattr(config, "_target_path_") else str(config._target_),
+                    }
+                    if config._factory_:
+                        config_dict["_factory_"] = str(config._factory_)
+                    
+                    # Convert _args_ to nested structure
+                    for path_arg, op, value in config._args_:
+                        current = config_dict
+                        parts = path_arg.split('.')
+                        
+                        # Handle nested paths
+                        for part in parts[:-1]:
+                            if part not in current:
+                                current[part] = {}
+                            current = current[part]
+                        
+                        # Handle the final value
+                        current[parts[-1]] = value
+
+                    serializer.dump_dict(config_dict, file_path, format=format)
+            else:
+                # For regular configs, we've already extracted the section if needed
+                serializer.dump(section_config, file_path)
+        
+            if verbose and console:
                 format_ext = format.lower() if format else 'yaml'
-                section_info = f" (section: {section})" if section else ""
-                
                 # Read the file to display its contents
-                with open(path, 'r') as f:
+                with open(file_path, 'r') as f:
                     file_content = f.read()
                 
                 # Display the content with syntax highlighting
-                console.print(f"[bold green]Configuration exported to {format_name}:[/bold green] {path}{section_info}")
+                console.print(f"[bold green]Configuration exported to {format_name}{section_msg}:[/bold green] {file_path}")
                 console.print(f"[bold cyan]File contents:[/bold cyan]")
                 console.print(Panel(
                     Syntax(
@@ -1749,80 +1782,27 @@ def _serialize_configuration(
                         word_wrap=True,
                         background_color="default"
                     ),
-                    title=f"[bold]{path}[/bold]",
+                    title=f"[bold]{file_path}[/bold]",
                     border_style="cyan",
                     padding=(1, 2)
                 ))
-            
-            except Exception as e:
-                console.print(f"[bold red]Failed to export configuration to {format_name if format else 'YAML'}:[/bold red] {str(e)}")
+            elif verbose:
+                print(f"Configuration exported to {format_name}{section_msg}: {file_path}")
         
-        # Only call export_config for formats that were requested
-        if to_yaml:
-            export_config(to_yaml, format='yaml')
-        if to_toml:
-            export_config(to_toml, format='toml')
-        if to_json:
-            export_config(to_json, format='json')
-        
-        return
-    
-    # For lazy mode, convert to dictionary first
-    if hasattr(config, "_target_") and hasattr(config, "_factory_") and hasattr(config, "_args_"):
-        # Handle LazyEntrypoint for lazy serialization
-        config_dict = {
-            "_target_": config._target_path_ if hasattr(config, "_target_path_") else str(config._target_),
-            "_args_": [(str(p), str(op), v) for p, op, v in config._args_],
-        }
-        if config._factory_:
-            config_dict["_factory_"] = str(config._factory_)
-            
-    elif hasattr(config, "__fn_or_cls__") and hasattr(config, "__arguments__"):
-        # Handle fiddle.Partial for lazy serialization
-        from fiddle.experimental import serialization
-        config_dict = serialization.dump(config)
-        
-    else:
-        # Handle other types of objects
-        from omegaconf import OmegaConf
-        config_dict = OmegaConf.to_container(config) if hasattr(config, "_content") else config.__dict__
-    
-    # Export to requested formats using dump_dict
+        except Exception as e:
+            if verbose and console:
+                console.print(f"[bold red]Failed to export configuration to {format_name}{section_msg}:[/bold red] {str(e)}")
+            else:
+                print(f"Failed to export configuration to {format_name}{section_msg}: {str(e)}")
+            raise  # Re-raise the exception so test cases can catch it
+
+    # Export to each requested format
     if to_yaml:
-        try:
-            section = None
-            path = to_yaml
-            if ':' in to_yaml:
-                path, section = to_yaml.split(':', 1)
-                
-            serializer.dump_dict(config_dict, path, format='yaml', section=section)
-            console.print(f"[green]Configuration exported to YAML: {path}{' (section: ' + section + ')' if section else ''} (lazy mode)[/green]")
-        except Exception as e:
-            console.print(f"[red]Failed to export configuration to YAML: {str(e)}[/red]")
-            
+        _export_config(to_yaml, format='yaml')
     if to_toml:
-        try:
-            section = None
-            path = to_toml
-            if ':' in to_toml:
-                path, section = to_toml.split(':', 1)
-                
-            serializer.dump_dict(config_dict, path, format='toml', section=section)
-            console.print(f"[green]Configuration exported to TOML: {path}{' (section: ' + section + ')' if section else ''} (lazy mode)[/green]")
-        except Exception as e:
-            console.print(f"[red]Failed to export configuration to TOML: {str(e)}[/red]")
-            
+        _export_config(to_toml, format='toml')
     if to_json:
-        try:
-            section = None
-            path = to_json
-            if ':' in to_json:
-                path, section = to_json.split(':', 1)
-                
-            serializer.dump_dict(config_dict, path, format='json', section=section)
-            console.print(f"[green]Configuration exported to JSON: {path}{' (section: ' + section + ')' if section else ''} (lazy mode)[/green]")
-        except Exception as e:
-            console.print(f"[red]Failed to export configuration to JSON: {str(e)}[/red]")
+        _export_config(to_json, format='json')
 
 
 if __name__ == "__main__":
