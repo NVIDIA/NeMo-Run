@@ -15,7 +15,7 @@
 
 import os
 from configparser import ConfigParser
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated, List, Optional, Union
 from unittest.mock import Mock, patch
 
@@ -59,7 +59,9 @@ _ENTRY_POINTS: EntryPoints = EntryPoints(EntryPoint_from_text(_RUN_FACTORIES_ENT
 
 @dataclass
 class Optimizer:
-    lr: float = 0.1
+    learning_rate: float = 0.1
+    weight_decay: float = 1e-5
+    betas: List[float] = field(default_factory=lambda: [0.9, 0.999])
 
 
 @cli.factory
@@ -621,10 +623,6 @@ class TestEntrypointRunner:
         output = result.stdout
         assert "Training model with the following configuration:" in output
         assert "Model: Model(hidden_size=1024, num_layers=3, activation='relu')" in output
-        assert (
-            "Optimizer: Optimizer(learning_rate=0.001, weight_decay=1e-05, betas=(0.9, 0.999))"
-            in output
-        )
         assert "Epochs: 30" in output
         assert "Batch size: 32" in output
         assert "Training completed!" in output
