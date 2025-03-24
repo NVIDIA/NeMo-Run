@@ -1055,8 +1055,8 @@ class RunContext:
                 self.to_yaml, 
                 self.to_toml, 
                 self.to_json,
-                is_lazy=False,  # The helper function will check LAZY_CLI env var
-                console=console
+                console=console,
+                verbose=True,
             )
             console.print("[bold cyan]Export complete. Skipping execution.[/bold cyan]")
             return

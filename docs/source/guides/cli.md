@@ -183,6 +183,54 @@ Overrides can still be applied directly alongside file-based inputs:
 python script.py --factory @path/to/config.yaml model_config.layers=4
 ```
 
+### Exporting Configurations
+
+NeMo Run CLI allows you to export your configuration (including all applied overrides) to YAML, TOML, or JSON files using the `--to-yaml`, `--to-toml`, and `--to-json` flags:
+
+```bash
+python script.py --factory @config.yaml model.num_layers=5 --to-yaml exported.yaml
+```
+
+This feature is particularly useful for:
+
+- Capturing the final configuration after applying command-line overrides
+- Creating a reproducible snapshot of your experiment's configuration
+- Converting between different configuration formats (e.g., YAML to TOML)
+- Sharing configurations with teammates
+
+When you use any export flag, NeMo Run will output the configuration file and skip execution:
+
+```bash
+python task.py --factory @task.yaml model.num_layers=5 --to-toml test.toml
+```
+
+Output:
+
+```
+File contents:
+╭───────────────────────────────────────────────────────── test.toml ──────────────────────────────────────────────────────────╮
+│ 1 partial = true
+│ 2 target = "main.train_model"
+│ 3 batch_size = 32
+│ 4 epochs = 10
+│ 5 
+│ 6 [model]
+│ 7 target = "main.Model"
+│ 8 activation = "relu"
+│ 9 hidden_size = 256
+│ 10 num_layers = 5
+│ 11 
+│ 12 [optimizer]
+│ 13 target = "main.Optimizer"
+│ 14 betas = [ 0.9, 0.999,]
+│ 15 learning_rate = 0.001
+│ 16 weight_decay = 1e-5
+│ 17 
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+Export complete. Skipping execution.
+
+```
+
 ## 5. Executors
 
 Executors determine where your code runs, such as local environments, Docker containers, or Slurm clusters.
