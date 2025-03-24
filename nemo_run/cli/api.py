@@ -531,13 +531,15 @@ def list_factories(type_or_namespace: Type | str) -> list[Callable]:
     return list(response.values())
 
 
-def create_cli(add_verbose_callback: bool = False, nested_entrypoints_creation: bool = True) -> Typer:
+def create_cli(
+    add_verbose_callback: bool = False, nested_entrypoints_creation: bool = True
+) -> Typer:
     app: Typer = Typer(pretty_exceptions_enable=False)
     entrypoints = metadata.entry_points().select(group="nemo_run.cli")
     metadata.entry_points().select(group="nemo_run.cli")
     for ep in entrypoints:
         _get_or_add_typer(app, name=ep.name)
-    
+
     # Check for --lazy flag
     is_lazy = "--lazy" in sys.argv
 
@@ -548,15 +550,15 @@ def create_cli(add_verbose_callback: bool = False, nested_entrypoints_creation: 
 
         # Set LAZY_CLI environment variable
         os.environ["LAZY_CLI"] = "true"
-        
+
         # remove --lazy from sys.argv but keep export flags
         export_flags = {}
         i = 0
         while i < len(sys.argv):
             if sys.argv[i] == "--lazy":
                 sys.argv.pop(i)
-            elif sys.argv[i] in ["--to-yaml", "--to-toml", "--to-json"] and i+1 < len(sys.argv):
-                export_flags[sys.argv[i]] = sys.argv[i+1]
+            elif sys.argv[i] in ["--to-yaml", "--to-toml", "--to-json"] and i + 1 < len(sys.argv):
+                export_flags[sys.argv[i]] = sys.argv[i + 1]
                 i += 2
             else:
                 i += 1
@@ -816,6 +818,7 @@ class RunContext:
     """
     Represents the context for executing a run in the NeMo Run framework.
     """
+
     name: str
     direct: bool = False
     dryrun: bool = False
@@ -826,11 +829,11 @@ class RunContext:
     skip_confirmation: bool = False
     tail_logs: bool = False
     yaml: Optional[str] = None
-    
+
     to_yaml: Optional[str] = None
     to_toml: Optional[str] = None
     to_json: Optional[str] = None
-    
+
     executor: Optional[Executor] = field(init=False)
     plugins: List[Plugin] = field(init=False)
 
@@ -1006,10 +1009,7 @@ class RunContext:
             )
 
     def cli_execute(
-        self, 
-        fn: Callable, 
-        args: List[str], 
-        entrypoint_type: Literal["task", "experiment"] = "task"
+        self, fn: Callable, args: List[str], entrypoint_type: Literal["task", "experiment"] = "task"
     ):
         """
         Execute the given function as a CLI command.
@@ -1047,13 +1047,13 @@ class RunContext:
 
         console = Console()
         task = self.parse_fn(fn, task_args)
-        
+
         # If any export flag is used, export the configuration and exit
         if any([self.to_yaml, self.to_toml, self.to_json]):
             _serialize_configuration(
-                task, 
-                self.to_yaml, 
-                self.to_toml, 
+                task,
+                self.to_yaml,
+                self.to_toml,
                 self.to_json,
                 console=console,
                 verbose=True,
@@ -1131,7 +1131,7 @@ class RunContext:
         # Use the yaml file if provided
         yaml_file = self.yaml
         to_run = LazyEntrypoint(cmd, factory=self.factory, yaml=yaml_file)
-        
+
         # Filter out CLI flags from cmd_args
         filtered_cmd_args = [arg for arg in cmd_args if not arg.startswith("--")]
         to_run._add_overwrite(*filtered_cmd_args)
@@ -1139,12 +1139,7 @@ class RunContext:
         # If any export flag is used, export the configuration and exit
         if any([self.to_yaml, self.to_toml, self.to_json]):
             _serialize_configuration(
-                to_run, 
-                self.to_yaml, 
-                self.to_toml, 
-                self.to_json, 
-                is_lazy=True,
-                console=console
+                to_run, self.to_yaml, self.to_toml, self.to_json, is_lazy=True, console=console
             )
             console.print("[bold cyan]Export complete. Skipping execution.[/bold cyan]")
             return
@@ -1175,16 +1170,16 @@ class RunContext:
 
         console = Console()
         partial = self.parse_fn(fn, experiment_args, ctx=self)
-        
+
         # If any export flag is used, export the configuration and exit
         if any([self.to_yaml, self.to_toml, self.to_json]):
             _serialize_configuration(
-                partial, 
-                self.to_yaml, 
-                self.to_toml, 
+                partial,
+                self.to_yaml,
+                self.to_toml,
                 self.to_json,
                 is_lazy=False,  # The helper function will check LAZY_CLI env var
-                console=console
+                console=console,
             )
             console.print("[bold cyan]Export complete. Skipping execution.[/bold cyan]")
             return
@@ -1675,7 +1670,7 @@ def _is_torchrun() -> bool:
 
 
 def _serialize_configuration(
-    config: Any, 
+    config: Any,
     to_yaml: Optional[str] = None,
     to_toml: Optional[str] = None,
     to_json: Optional[str] = None,
@@ -1685,7 +1680,7 @@ def _serialize_configuration(
 ) -> None:
     """
     Serialize configuration to specified file formats.
-    
+
     Args:
         config: The configuration object to serialize
         to_yaml: Path to export YAML configuration
@@ -1694,15 +1689,16 @@ def _serialize_configuration(
         is_lazy: Whether to use lazy serialization
         console: Console instance for printing messages
         verbose: Whether to show detailed output with syntax highlighting
-        
+
     Raises:
         ValueError: If no output format is specified
     """
     if not any([to_yaml, to_toml, to_json]):
         raise ValueError("At least one output format must be provided")
-        
+
     console = console or Console() if verbose else None
     from nemo_run.core.serialization.yaml import ConfigSerializer
+
     serializer = ConfigSerializer()
 
     def _export_config(output_path: str, format: Optional[str] = None) -> None:
@@ -1710,14 +1706,14 @@ def _serialize_configuration(
         if not output_path:
             return
 
-        format_name = format.upper() if format else 'YAML'
-        
+        format_name = format.upper() if format else "YAML"
+
         try:
             # Handle section extraction from path
             section = None
             file_path = output_path
-            if ':' in output_path:
-                file_path, section = output_path.split(':', 1)
+            if ":" in output_path:
+                file_path, section = output_path.split(":", 1)
 
             # Create appropriate section message for display
             section_msg = f" (section: {section})" if section else ""
@@ -1740,22 +1736,24 @@ def _serialize_configuration(
                 else:
                     # Standard lazy config handling
                     config_dict = {
-                        "_target_": config._target_path_ if hasattr(config, "_target_path_") else str(config._target_),
+                        "_target_": config._target_path_
+                        if hasattr(config, "_target_path_")
+                        else str(config._target_),
                     }
                     if config._factory_:
                         config_dict["_factory_"] = str(config._factory_)
-                    
+
                     # Convert _args_ to nested structure
                     for path_arg, op, value in config._args_:
                         current = config_dict
-                        parts = path_arg.split('.')
-                        
+                        parts = path_arg.split(".")
+
                         # Handle nested paths
                         for part in parts[:-1]:
                             if part not in current:
                                 current[part] = {}
                             current = current[part]
-                        
+
                         # Handle the final value
                         current[parts[-1]] = value
 
@@ -1763,46 +1761,52 @@ def _serialize_configuration(
             else:
                 # For regular configs, we've already extracted the section if needed
                 serializer.dump(section_config, file_path)
-        
+
             if verbose and console:
-                format_ext = format.lower() if format else 'yaml'
+                format_ext = format.lower() if format else "yaml"
                 # Read the file to display its contents
-                with open(file_path, 'r') as f:
+                with open(file_path, "r") as f:
                     file_content = f.read()
-                
+
                 # Display the content with syntax highlighting
-                console.print(f"[bold green]Configuration exported to {format_name}{section_msg}:[/bold green] {file_path}")
-                console.print(f"[bold cyan]File contents:[/bold cyan]")
-                console.print(Panel(
-                    Syntax(
-                        code=file_content,
-                        lexer=format_ext,
-                        theme="default",
-                        line_numbers=True,
-                        word_wrap=True,
-                        background_color="default"
-                    ),
-                    title=f"[bold]{file_path}[/bold]",
-                    border_style="cyan",
-                    padding=(1, 2)
-                ))
+                console.print(
+                    f"[bold green]Configuration exported to {format_name}{section_msg}:[/bold green] {file_path}"
+                )
+                console.print("[bold cyan]File contents:[/bold cyan]")
+                console.print(
+                    Panel(
+                        Syntax(
+                            code=file_content,
+                            lexer=format_ext,
+                            theme="default",
+                            line_numbers=True,
+                            word_wrap=True,
+                            background_color="default",
+                        ),
+                        title=f"[bold]{file_path}[/bold]",
+                        border_style="cyan",
+                        padding=(1, 2),
+                    )
+                )
             elif verbose:
                 print(f"Configuration exported to {format_name}{section_msg}: {file_path}")
-        
+
         except Exception as e:
             if verbose and console:
-                console.print(f"[bold red]Failed to export configuration to {format_name}{section_msg}:[/bold red] {str(e)}")
+                console.print(
+                    f"[bold red]Failed to export configuration to {format_name}{section_msg}:[/bold red] {str(e)}"
+                )
             else:
                 print(f"Failed to export configuration to {format_name}{section_msg}: {str(e)}")
             raise  # Re-raise the exception so test cases can catch it
 
     # Export to each requested format
     if to_yaml:
-        _export_config(to_yaml, format='yaml')
+        _export_config(to_yaml, format="yaml")
     if to_toml:
-        _export_config(to_toml, format='toml')
+        _export_config(to_toml, format="toml")
     if to_json:
-        _export_config(to_json, format='json')
+        _export_config(to_json, format="json")
 
 
 if __name__ == "__main__":

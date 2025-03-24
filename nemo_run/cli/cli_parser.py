@@ -41,7 +41,6 @@ from typing import (
 import fiddle as fdl
 
 from nemo_run.config import Config, Partial
-from nemo_run.core.serialization.yaml import ConfigSerializer
 
 logger = logging.getLogger(__name__)
 
