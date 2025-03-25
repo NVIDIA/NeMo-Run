@@ -166,7 +166,6 @@ class TestComplexTypeParsing:
         assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
 
     def test_forward_ref_parsing(self):
-        # Use string annotation to avoid needing the actual class at runtime
         def func(tokenizer: Optional[ForwardRef("TokenizerSpec")]):
             pass
 
@@ -181,6 +180,34 @@ class TestComplexTypeParsing:
         # Test with null (alternative None syntax)
         result = parse_cli_args(func, ["tokenizer=null"])
         assert result.tokenizer is None
+
+    def test_forward_ref_with_real_type_factory(self):
+        """Test that ForwardRef works when factory is registered for the actual type."""
+
+        # Define a real type in the test
+        class RealType:
+            def __init__(self, value=42):
+                self.value = value
+
+        # Function that uses ForwardRef to that type
+        def func(param: ForwardRef("RealType")):
+            pass
+
+        # Register a factory for the real type (not the ForwardRef)
+        from nemo_run.cli.api import factory
+
+        @factory
+        def real_type_factory() -> RealType:
+            return RealType(value=100)
+
+        # Now test parsing works using the factory name
+        result = parse_cli_args(func, ["param=real_type_factory"])
+        assert isinstance(result.param, RealType)
+        assert result.param.value == 100
+
+        # Clean up - remove the factory from registry
+        if hasattr(sys.modules["__main__"], "real_type_factory"):
+            delattr(sys.modules["__main__"], "real_type_factory")
 
 
 class TestFactoryFunctionParsing:

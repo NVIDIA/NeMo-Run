@@ -966,8 +966,19 @@ class TypeParser:
         Raises:
             ParseError: If the value cannot be parsed.
         """
-        # For ForwardRef types, we'll just return the value as is
-        # since the actual type resolution happens later
+        try:
+            # Try to get the real type from the ForwardRef
+            from typing import _eval_type
+
+            # Attempt to resolve the ForwardRef in the global namespace
+            real_type = _eval_type(annotation, globals(), {})
+            if real_type is not annotation:  # Successfully resolved
+                # Now use the real type to parse the value
+                return self.parse(value, real_type)
+        except Exception:
+            # If anything fails, fall back to the original behavior
+            pass
+
         return value
 
     def infer_type(self, value: str) -> Type:
