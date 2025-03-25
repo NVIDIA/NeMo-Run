@@ -36,6 +36,7 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    ForwardRef,
 )
 
 import fiddle as fdl
@@ -609,7 +610,7 @@ class TypeParser:
             Optional: self.parse_optional,
             Literal: self.parse_literal,
             Path: self.parse_path,
-            "ForwardRef": self.parse_forward_ref,
+            ForwardRef: self.parse_forward_ref,
         }
         self.custom_parsers = {}
         self.strict_mode = strict_mode
@@ -954,31 +955,6 @@ class TypeParser:
         return Path(value.strip("'\" "))
 
     def parse_forward_ref(self, value: str, annotation) -> Any:
-        """Parse a string value as a ForwardRef type.
-
-        Args:
-            value (str): The string value to parse.
-            annotation: The ForwardRef type annotation.
-
-        Returns:
-            Any: The parsed value.
-
-        Raises:
-            ParseError: If the value cannot be parsed.
-        """
-        try:
-            # Try to get the real type from the ForwardRef
-            from typing import _eval_type
-
-            # Attempt to resolve the ForwardRef in the global namespace
-            real_type = _eval_type(annotation, globals(), {})
-            if real_type is not annotation:  # Successfully resolved
-                # Now use the real type to parse the value
-                return self.parse(value, real_type)
-        except Exception:
-            # If anything fails, fall back to the original behavior
-            pass
-
         return value
 
     def infer_type(self, value: str) -> Type:
@@ -1136,6 +1112,10 @@ def parse_cli_args(
         if param.annotation != inspect.Parameter.empty:
             annotation = param.annotation
         logger.debug(f"Parsing value {value} as {annotation}")
+
+        if isinstance(annotation, str):
+            annotation = _resolve_string_annotation(fn, arg_name, annotation)
+            logger.debug(f"Resolved string annotation to: {annotation}")
 
         if annotation:
             try:
@@ -1383,3 +1363,58 @@ def parse_attribute(attr, nested):
                 ) from e
 
     return result
+
+
+def _resolve_string_annotation(fn: Callable, arg_name: str, annotation: str) -> Type:
+    """Internal function to resolve a string annotation to its actual type.
+    
+    This function looks for the type definition in TYPE_CHECKING blocks and their imports.
+    
+    Args:
+        fn (Callable): The function containing the annotation
+        arg_name (str): The name of the parameter with the annotation
+        annotation (str): The string annotation to resolve
+        
+    Returns:
+        Type: The resolved type, or the original string if resolution fails
+    """
+    try:
+        # Get the source file where the function is defined
+        source_file = inspect.getsourcefile(fn)
+        if not source_file:
+            return annotation
+            
+        # Read and parse the source file
+        with open(source_file, 'r') as f:
+            source = f.read()
+        tree = ast.parse(source)
+        
+        # Find all TYPE_CHECKING imports
+        type_checking_imports = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.If) and isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
+                for stmt in node.body:
+                    if isinstance(stmt, (ast.Import, ast.ImportFrom)):
+                        if isinstance(stmt, ast.Import):
+                            for name in stmt.names:
+                                type_checking_imports[name.asname or name.name] = name.name
+                        else:  # ImportFrom
+                            module = stmt.module or ""
+                            for name in stmt.names:
+                                full_name = f"{module}.{name.name}" if module else name.name
+                                type_checking_imports[name.asname or name.name] = full_name
+        
+        # If the annotation matches a TYPE_CHECKING import, try to import it
+        if annotation in type_checking_imports:
+            try:
+                full_path = type_checking_imports[annotation]
+                module_name, type_name = full_path.rsplit('.', 1)
+                module = importlib.import_module(module_name)
+                return getattr(module, type_name)
+            except (ImportError, AttributeError) as e:
+                logger.debug(f"Failed to import type '{full_path}': {str(e)}")
+                
+    except Exception as e:
+        logger.debug(f"Failed to resolve string annotation: {str(e)}")
+    
+    return annotation

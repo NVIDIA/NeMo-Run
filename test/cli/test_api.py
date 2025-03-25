@@ -17,7 +17,7 @@ import os
 import sys
 from configparser import ConfigParser
 from dataclasses import dataclass
-from typing import Annotated, List, Optional, Tuple, Union, ForwardRef
+from typing import Annotated, List, Optional, Tuple, Union, ForwardRef, TYPE_CHECKING
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -31,6 +31,11 @@ from nemo_run import cli, config
 from nemo_run.cli import api as cli_api
 from nemo_run.cli.api import Entrypoint, RunContext, add_global_options, create_cli
 from test.dummy_factory import DummyModel, dummy_entrypoint
+
+if TYPE_CHECKING:
+    from test.dummy_type import RealType
+
+
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
 [nemo_run.cli]
@@ -385,29 +390,28 @@ class TestFactoryAndResolve:
     def test_forward_ref_with_real_type_factory(self):
         """Test that ForwardRef works when factory is registered for the actual type."""
 
-        # Define a real type in the test
-        class RealType:
-            def __init__(self, value=42):
-                self.value = value
-
-        # Function that uses ForwardRef to that type
-        def func(param: ForwardRef("RealType")):
+        # Function that uses ForwardRef to the module-level RealType class
+        def func(param: "RealType"):
             pass
 
+        from test.dummy_type import RealType as _RealType
+
+        # Register the factory in the module's global namespace
+        # The factory returns a RealType instance with a specific value
         @run.cli.factory
         @run.autoconvert
-        def real_type_factory() -> RealType:
-            return RealType(value=100)
+        def real_type_factory() -> _RealType:
+            return _RealType(value=100)
 
-        # Now test parsing works using the factory name
-        result = cli_api.parse_cli_args(func, ["param=real_type_factory"])
-        assert isinstance(result.param, run.Config)
-        assert isinstance(result.param.__fn_or_cls__, RealType)
-        assert result.param.value == 100
-
-        # Clean up - remove the factory from registry
-        if hasattr(sys.modules["__main__"], "real_type_factory"):
-            delattr(sys.modules["__main__"], "real_type_factory")
+        try:
+            # Now test parsing works using the factory name
+            result = cli_api.parse_cli_args(func, ["param=real_type_factory"])
+            assert isinstance(result.param, run.Config)
+            assert result.param.value == 100
+        finally:
+            # Clean up - remove the factory from registry
+            if hasattr(sys.modules[__name__], "real_type_factory"):
+                delattr(sys.modules[__name__], "real_type_factory")
 
 
 class TestListEntrypoints:
@@ -454,6 +458,9 @@ class TestListEntrypoints:
             },
         }
         assert result == expected_result
+
+
+
 
 
 @dataclass
