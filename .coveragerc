@@ -9,3 +9,4 @@ omit =
     nemo_run/package_info.py
     nemo_run/_version.py
     nemo_run/__main__.py
+    nemo_run/**/help.py
