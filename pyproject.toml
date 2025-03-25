@@ -30,7 +30,8 @@ dependencies = [
     "cryptography < 43.0.0",
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
-    "packaging"
+    "packaging",
+    "toml"
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -50,9 +51,9 @@ dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
 skypilot = [
     "skypilot[kubernetes]>=0.8.0",
 ]
-skypilot-all = [
-    "skypilot[all]>=0.8.0",
-]
+# skypilot-all = [
+#     "skypilot[all]>=0.8.0",
+# ]
 
 [dependency-groups]
 dev = [
