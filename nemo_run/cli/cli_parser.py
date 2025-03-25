@@ -1367,14 +1367,14 @@ def parse_attribute(attr, nested):
 
 def _resolve_string_annotation(fn: Callable, arg_name: str, annotation: str) -> Type:
     """Internal function to resolve a string annotation to its actual type.
-    
+
     This function looks for the type definition in TYPE_CHECKING blocks and their imports.
-    
+
     Args:
         fn (Callable): The function containing the annotation
         arg_name (str): The name of the parameter with the annotation
         annotation (str): The string annotation to resolve
-        
+
     Returns:
         Type: The resolved type, or the original string if resolution fails
     """
@@ -1383,16 +1383,20 @@ def _resolve_string_annotation(fn: Callable, arg_name: str, annotation: str) -> 
         source_file = inspect.getsourcefile(fn)
         if not source_file:
             return annotation
-            
+
         # Read and parse the source file
-        with open(source_file, 'r') as f:
+        with open(source_file, "r") as f:
             source = f.read()
         tree = ast.parse(source)
-        
+
         # Find all TYPE_CHECKING imports
         type_checking_imports = {}
         for node in ast.walk(tree):
-            if isinstance(node, ast.If) and isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
+            if (
+                isinstance(node, ast.If)
+                and isinstance(node.test, ast.Name)
+                and node.test.id == "TYPE_CHECKING"
+            ):
                 for stmt in node.body:
                     if isinstance(stmt, (ast.Import, ast.ImportFrom)):
                         if isinstance(stmt, ast.Import):
@@ -1403,18 +1407,18 @@ def _resolve_string_annotation(fn: Callable, arg_name: str, annotation: str) -> 
                             for name in stmt.names:
                                 full_name = f"{module}.{name.name}" if module else name.name
                                 type_checking_imports[name.asname or name.name] = full_name
-        
+
         # If the annotation matches a TYPE_CHECKING import, try to import it
         if annotation in type_checking_imports:
             try:
                 full_path = type_checking_imports[annotation]
-                module_name, type_name = full_path.rsplit('.', 1)
+                module_name, type_name = full_path.rsplit(".", 1)
                 module = importlib.import_module(module_name)
                 return getattr(module, type_name)
             except (ImportError, AttributeError) as e:
                 logger.debug(f"Failed to import type '{full_path}': {str(e)}")
-                
+
     except Exception as e:
         logger.debug(f"Failed to resolve string annotation: {str(e)}")
-    
+
     return annotation

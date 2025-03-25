@@ -17,7 +17,7 @@ import os
 import sys
 from configparser import ConfigParser
 from dataclasses import dataclass
-from typing import Annotated, List, Optional, Tuple, Union, ForwardRef, TYPE_CHECKING
+from typing import Annotated, List, Optional, Tuple, Union, TYPE_CHECKING
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -34,7 +34,6 @@ from test.dummy_factory import DummyModel, dummy_entrypoint
 
 if TYPE_CHECKING:
     from test.dummy_type import RealType
-
 
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
@@ -458,9 +457,6 @@ class TestListEntrypoints:
             },
         }
         assert result == expected_result
-
-
-
 
 
 @dataclass
