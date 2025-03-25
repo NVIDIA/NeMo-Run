@@ -1,4 +1,4 @@
-API Reference
+Guides
 =================
 
 .. toctree::
@@ -7,3 +7,4 @@ API Reference
    configuration
    execution
    management
+   why-use-nemo-run
