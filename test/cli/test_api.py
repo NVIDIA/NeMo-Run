@@ -14,9 +14,10 @@
 # limitations under the License.
 
 import os
+import sys
 from configparser import ConfigParser
 from dataclasses import dataclass
-from typing import Annotated, List, Optional, Tuple, Union
+from typing import Annotated, List, Optional, Tuple, Union, ForwardRef
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -380,6 +381,32 @@ class TestFactoryAndResolve:
     def test_factory_for_entrypoint(self):
         cfg = run.cli.resolve_factory(dummy_entrypoint, "dummy_recipe")()
         assert cfg.dummy.hidden == 2000
+
+    def test_forward_ref_with_real_type_factory(self):
+        """Test that ForwardRef works when factory is registered for the actual type."""
+
+        # Define a real type in the test
+        class RealType:
+            def __init__(self, value=42):
+                self.value = value
+
+        # Function that uses ForwardRef to that type
+        def func(param: ForwardRef("RealType")):
+            pass
+
+        @run.cli.factory
+        @run.autoconvert
+        def real_type_factory() -> RealType:
+            return RealType(value=100)
+
+        # Now test parsing works using the factory name
+        result = cli_api.parse_cli_args(func, ["param=real_type_factory"])
+        assert isinstance(result.param, RealType)
+        assert result.param.value == 100
+
+        # Clean up - remove the factory from registry
+        if hasattr(sys.modules["__main__"], "real_type_factory"):
+            delattr(sys.modules["__main__"], "real_type_factory")
 
 
 class TestListEntrypoints:
