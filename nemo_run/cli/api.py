@@ -67,6 +67,7 @@ from nemo_run.config import (
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
+from nemo_run.core.serialization.yaml import ConfigSerializer
 from nemo_run.lazy import LazyEntrypoint
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
@@ -1697,8 +1698,6 @@ def _serialize_configuration(
         raise ValueError("At least one output format must be provided")
 
     console = console or Console() if verbose else None
-    from nemo_run.core.serialization.yaml import ConfigSerializer
-
     serializer = ConfigSerializer()
 
     def _export_config(output_path: str, format: Optional[str] = None) -> None:

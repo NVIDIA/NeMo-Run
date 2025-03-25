@@ -110,9 +110,12 @@ class LazyEntrypoint(Buildable):
                 if "_factory_" in factory_config:
                     factory = factory_config["_factory_"]
                     # Remove _factory_ from the config so it's not processed twice
-                    factory_config = OmegaConf.create(
+                    remaining_config = OmegaConf.create(
                         {k: v for k, v in factory_config.items() if k != "_factory_"}
                     )
+                    # Convert remaining config to arguments and add them
+                    factory_args = dictconfig_to_dot_list(remaining_config)
+                    cmd_args.extend([f"{name}{op}{value}" for name, op, value in factory_args])
                 else:
                     # If no _factory_ key, just add the config to arguments and clear the factory
                     factory_args = dictconfig_to_dot_list(factory_config)
