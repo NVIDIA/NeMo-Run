@@ -401,7 +401,8 @@ class TestFactoryAndResolve:
 
         # Now test parsing works using the factory name
         result = cli_api.parse_cli_args(func, ["param=real_type_factory"])
-        assert isinstance(result.param, RealType)
+        assert isinstance(result.param, run.Config)
+        assert isinstance(result.param.__fn_or_cls__, RealType)
         assert result.param.value == 100
 
         # Clean up - remove the factory from registry
