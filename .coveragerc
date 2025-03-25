@@ -6,3 +6,6 @@ source =
 [run]
 omit =
     nemo_run/scripts/*
+    nemo_run/package_info.py
+    nemo_run/_version.py
+    nemo_run/__main__.py
