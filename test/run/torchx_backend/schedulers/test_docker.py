@@ -93,7 +93,7 @@ def test_schedule(docker_scheduler, mock_app_def, docker_executor):
         docker_executor.job_name = "test_job"
 
         dryrun_info = docker_scheduler._submit_dryrun(mock_app_def, docker_executor)
-        app_id = docker_scheduler.schedule(dryrun_info)
+        docker_scheduler.schedule(dryrun_info)
 
         mock_package.assert_called_once()
         mock_run.assert_called_once()
