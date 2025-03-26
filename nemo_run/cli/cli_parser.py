@@ -37,6 +37,9 @@ from typing import (
     get_args,
     get_origin,
     ForwardRef,
+    Set,
+    Tuple,
+    FrozenSet,
 )
 
 import fiddle as fdl
@@ -1113,9 +1116,7 @@ def parse_cli_args(
             annotation = param.annotation
         logger.debug(f"Parsing value {value} as {annotation}")
 
-        if isinstance(annotation, str):
-            annotation = _resolve_string_annotation(fn, arg_name, annotation)
-            logger.debug(f"Resolved string annotation to: {annotation}")
+        annotation = _maybe_resolve_annotation(fn, arg_name, annotation)
 
         if annotation:
             try:
@@ -1365,31 +1366,62 @@ def parse_attribute(attr, nested):
     return result
 
 
-def _resolve_string_annotation(fn: Callable, arg_name: str, annotation: str) -> Type:
-    """Internal function to resolve a string annotation to its actual type.
+def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> Any:
+    """Internal function to resolve an annotation to its actual type.
 
-    This function looks for the type definition in TYPE_CHECKING blocks and their imports.
+    This function handles string annotations, ForwardRef, and generic types (e.g., Optional, List)
+    by resolving string annotations within them, using TYPE_CHECKING blocks and their imports.
 
     Args:
         fn (Callable): The function containing the annotation
         arg_name (str): The name of the parameter with the annotation
-        annotation (str): The string annotation to resolve
+        annotation (Any): The annotation to resolve (string, ForwardRef, or type)
 
     Returns:
-        Type: The resolved type, or the original string if resolution fails
+        Any: The resolved type, or the original annotation if resolution fails
     """
+    # Case 1: Annotation is a string
+    if isinstance(annotation, str):
+        resolved = _resolve_type_checking_annotation(fn, annotation)
+        return resolved if resolved != annotation else annotation
+
+    # Case 2: Annotation is a ForwardRef
+    elif isinstance(annotation, ForwardRef):
+        return _resolve_type_checking_annotation(fn, annotation.__forward_arg__)
+
+    # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
+    elif (origin := get_origin(annotation)) is not None:
+        args = get_args(annotation)
+        resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
+        if origin is list:
+            return List[resolved_args[0]]
+        elif origin is dict:
+            return Dict[resolved_args[0], resolved_args[1]]
+        elif origin is tuple:
+            return Tuple[resolved_args]
+        elif origin is set:
+            return Set[resolved_args[0]]
+        elif origin is frozenset:
+            return FrozenSet[resolved_args[0]]
+        elif origin is Union:
+            return Union[resolved_args]
+        else:
+            return annotation  # Unhandled generic types return as-is
+
+    # Case 4: Annotation is a non-generic type (e.g., int, str)
+    else:
+        return annotation
+
+
+def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
+    """Helper function to resolve a string annotation to its actual type using TYPE_CHECKING imports."""
     try:
-        # Get the source file where the function is defined
         source_file = inspect.getsourcefile(fn)
         if not source_file:
             return annotation
-
-        # Read and parse the source file
         with open(source_file, "r") as f:
             source = f.read()
         tree = ast.parse(source)
-
-        # Find all TYPE_CHECKING imports
         type_checking_imports = {}
         for node in ast.walk(tree):
             if (
@@ -1407,18 +1439,14 @@ def _resolve_string_annotation(fn: Callable, arg_name: str, annotation: str) -> 
                             for name in stmt.names:
                                 full_name = f"{module}.{name.name}" if module else name.name
                                 type_checking_imports[name.asname or name.name] = full_name
-
-        # If the annotation matches a TYPE_CHECKING import, try to import it
         if annotation in type_checking_imports:
             try:
                 full_path = type_checking_imports[annotation]
                 module_name, type_name = full_path.rsplit(".", 1)
                 module = importlib.import_module(module_name)
                 return getattr(module, type_name)
-            except (ImportError, AttributeError) as e:
-                logger.debug(f"Failed to import type '{full_path}': {str(e)}")
-
-    except Exception as e:
-        logger.debug(f"Failed to resolve string annotation: {str(e)}")
-
+            except (ImportError, AttributeError):
+                pass
+    except Exception:
+        pass
     return annotation

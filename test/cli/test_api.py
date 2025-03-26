@@ -390,7 +390,7 @@ class TestFactoryAndResolve:
         """Test that ForwardRef works when factory is registered for the actual type."""
 
         # Function that uses ForwardRef to the module-level RealType class
-        def func(param: "RealType"):
+        def func(param: Optional["RealType"] = None):
             pass
 
         from test.dummy_type import RealType as _RealType
@@ -402,11 +402,21 @@ class TestFactoryAndResolve:
         def real_type_factory() -> _RealType:
             return _RealType(value=100)
 
+        @run.cli.factory(target=func, target_arg="param")
+        @run.autoconvert
+        def other_factory() -> _RealType:
+            return _RealType(value=200)
+
         try:
             # Now test parsing works using the factory name
             result = cli_api.parse_cli_args(func, ["param=real_type_factory"])
             assert isinstance(result.param, run.Config)
             assert result.param.value == 100
+
+            result = cli_api.parse_cli_args(func, ["param=other_factory"])
+            assert isinstance(result.param, run.Config)
+            assert result.param.value == 200
+
         finally:
             # Clean up - remove the factory from registry
             if hasattr(sys.modules[__name__], "real_type_factory"):
