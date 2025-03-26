@@ -14,9 +14,10 @@
 # limitations under the License.
 
 import os
+import sys
 from configparser import ConfigParser
 from dataclasses import dataclass
-from typing import Annotated, List, Optional, Tuple, Union
+from typing import Annotated, List, Optional, Tuple, Union, TYPE_CHECKING
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -30,6 +31,10 @@ from nemo_run import cli, config
 from nemo_run.cli import api as cli_api
 from nemo_run.cli.api import Entrypoint, RunContext, add_global_options, create_cli
 from test.dummy_factory import DummyModel, dummy_entrypoint
+
+if TYPE_CHECKING:
+    from test.dummy_type import RealType
+
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
 [nemo_run.cli]
@@ -380,6 +385,42 @@ class TestFactoryAndResolve:
     def test_factory_for_entrypoint(self):
         cfg = run.cli.resolve_factory(dummy_entrypoint, "dummy_recipe")()
         assert cfg.dummy.hidden == 2000
+
+    def test_forward_ref_with_real_type_factory(self):
+        """Test that ForwardRef works when factory is registered for the actual type."""
+
+        # Function that uses ForwardRef to the module-level RealType class
+        def func(param: Optional["RealType"] = None):
+            pass
+
+        from test.dummy_type import RealType as _RealType
+
+        # Register the factory in the module's global namespace
+        # The factory returns a RealType instance with a specific value
+        @run.cli.factory
+        @run.autoconvert
+        def real_type_factory() -> _RealType:
+            return _RealType(value=100)
+
+        @run.cli.factory(target=func, target_arg="param")
+        @run.autoconvert
+        def other_factory() -> _RealType:
+            return _RealType(value=200)
+
+        try:
+            # Now test parsing works using the factory name
+            result = cli_api.parse_cli_args(func, ["param=real_type_factory"])
+            assert isinstance(result.param, run.Config)
+            assert result.param.value == 100
+
+            result = cli_api.parse_cli_args(func, ["param=other_factory"])
+            assert isinstance(result.param, run.Config)
+            assert result.param.value == 200
+
+        finally:
+            # Clean up - remove the factory from registry
+            if hasattr(sys.modules[__name__], "real_type_factory"):
+                delattr(sys.modules[__name__], "real_type_factory")
 
 
 class TestListEntrypoints:
