@@ -184,7 +184,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
         if not executor:
             return None
-        executor.delete(job_id)
+        executor.cancel(job_id)
 
     def list(self) -> list[ListAppResponse]: ...
 
