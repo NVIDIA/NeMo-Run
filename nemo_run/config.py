@@ -128,16 +128,30 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
 
     # Handle older style type hints (_GenericAlias)
     if hasattr(typing, "_GenericAlias") and isinstance(type_hint, typing._GenericAlias):  # type: ignore
-        if str(type_hint).startswith("typing.Annotated"):
-            origin = type_hint.__origin__.__origin__
+        # Correctly handle Annotated by getting the first argument (the actual type)
+        if str(type_hint).startswith("typing.Annotated") or str(type_hint).startswith("typing_extensions.Annotated"):
+            # Recurse on the actual type, skipping metadata
+            return get_underlying_types(type_hint.__args__[0])
         else:
             origin = type_hint.__origin__
+
         if origin in RECURSIVE_TYPES:
             types = set()
             for arg in type_hint.__args__:
-                types.update(get_underlying_types(arg))
+                # Add check to skip NoneType here as well
+                if arg is not type(None):
+                    types.update(get_underlying_types(arg))
             return types
-        return {type_hint}
+        # If not a recursive type handled above, treat it like a concrete generic
+        # Collect types from arguments
+        result = set()
+        for arg in type_hint.__args__:
+            if arg is not type(None):  # Also skip NoneType here for generics like list[Optional[int]]
+                result.update(get_underlying_types(arg))
+        # Add the origin itself (e.g., list, dict)
+        if isinstance(origin, type):
+            result.add(origin)
+        return result  # Return collected types
 
     # Handle Python 3.9+ style type hints
     origin = typing.get_origin(type_hint)
@@ -145,9 +159,17 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
 
     # Base case: no origin or args means it's a simple type
     if origin is None:
+        # Explicitly return empty set for NoneType to match test expectation
+        if type_hint is type(None):
+            return set()
         if isinstance(type_hint, type):
             return {type_hint}
-        return {type_hint}  # Return the hint itself if not a type
+        return {type_hint}  # Return the hint itself if not a type (e.g., TypeVar)
+
+    # Handle Annotated for Python 3.9+
+    if origin is Annotated:
+        # Recurse on the actual type argument, skipping metadata
+        return get_underlying_types(args[0])
 
     # Union type (including Optional)
     if origin is typing.Union:
