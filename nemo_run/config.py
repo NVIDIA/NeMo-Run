@@ -129,7 +129,9 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
     # Handle older style type hints (_GenericAlias)
     if hasattr(typing, "_GenericAlias") and isinstance(type_hint, typing._GenericAlias):  # type: ignore
         # Correctly handle Annotated by getting the first argument (the actual type)
-        if str(type_hint).startswith("typing.Annotated") or str(type_hint).startswith("typing_extensions.Annotated"):
+        if str(type_hint).startswith("typing.Annotated") or str(type_hint).startswith(
+            "typing_extensions.Annotated"
+        ):
             # Recurse on the actual type, skipping metadata
             return get_underlying_types(type_hint.__args__[0])
         else:
@@ -146,7 +148,9 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
         # Collect types from arguments
         result = set()
         for arg in type_hint.__args__:
-            if arg is not type(None):  # Also skip NoneType here for generics like list[Optional[int]]
+            if arg is not type(
+                None
+            ):  # Also skip NoneType here for generics like list[Optional[int]]
                 result.update(get_underlying_types(arg))
         # Add the origin itself (e.g., list, dict)
         if isinstance(origin, type):
