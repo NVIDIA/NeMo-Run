@@ -32,7 +32,7 @@ class Outer:
 
 
 @dataclass
-class TestClass:
+class DummyClass:
     values: list
 
 
