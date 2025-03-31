@@ -24,7 +24,17 @@ import sys
 import typing
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Generic, Iterable, Optional, Type, TypeVar, Union, get_args
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+)
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -112,6 +122,10 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
     Returns:
         A set of all underlying types
     """
+    # Special case for functions and classes - return the type itself
+    if inspect.isfunction(type_hint) or inspect.isclass(type_hint):
+        return {type_hint}
+
     # Handle older style type hints (_GenericAlias)
     if hasattr(typing, "_GenericAlias") and isinstance(type_hint, typing._GenericAlias):  # type: ignore
         if str(type_hint).startswith("typing.Annotated"):
@@ -133,7 +147,7 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
     if origin is None:
         if isinstance(type_hint, type):
             return {type_hint}
-        return set()
+        return {type_hint}  # Return the hint itself if not a type
 
     # Union type (including Optional)
     if origin is typing.Union:
@@ -152,6 +166,10 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
     # This handles both typing module types and Python 3.9+ built-in generic types
     if isinstance(origin, type):
         result.add(origin)
+
+    # If no types were added, return the original type hint to preserve behavior
+    if not result:
+        return {type_hint}
 
     return result
 
@@ -203,7 +221,9 @@ def set_value(cfg: config.Buildable, key: str, value: Any) -> None:
         else:
             raise run_exceptions.SetValueError(f"Unexpected path element {last}.")
     except Exception as e:
-        raise run_exceptions.SetValueError(f'Could not set "{key}" to "{value}".') from e
+        raise run_exceptions.SetValueError(
+            f'Could not set "{key}" to "{value}".'
+        ) from e
 
 
 class _CloneAndFNMixin:
@@ -318,7 +338,9 @@ class Config(Generic[_T], fdl.Config[_T], _CloneAndFNMixin, _VisualizeMixin):
         **kwargs,
     ):
         # Handle dict types by converting to _kwargs_to_dict function
-        if fn_or_cls == {} or (hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict):
+        if fn_or_cls == {} or (
+            hasattr(fn_or_cls, "__origin__") and fn_or_cls.__origin__ is dict
+        ):
             fn_or_cls = dict  # type: ignore
             bind_args = False
 
@@ -400,7 +422,9 @@ class ConfigurableMixin(_VisualizeMixin):
         Returns:
             graphviz.Digraph: A graph representing the differences between configurations.
         """
-        return render_diff(old=old.to_config(), new=self.to_config(), trim=trim, **kwargs)
+        return render_diff(
+            old=old.to_config(), new=self.to_config(), trim=trim, **kwargs
+        )
 
     def to_config(self) -> Config[Self]:
         """
@@ -424,7 +448,8 @@ class ConfigurableMixin(_VisualizeMixin):
         if dataclasses.is_dataclass(self):
             try:
                 return fdl.cast(
-                    Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True)
+                    Config,
+                    fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True),
                 )
             except Exception as e:
                 raise NotImplementedError(
@@ -505,7 +530,10 @@ class Script(ConfigurableMixin):
             return os.path.basename(self.path)
 
     def to_command(
-        self, with_entrypoint: bool = False, filename: Optional[str] = None, is_local: bool = False
+        self,
+        with_entrypoint: bool = False,
+        filename: Optional[str] = None,
+        is_local: bool = False,
     ) -> list[str]:
         if self.inline:
             if filename:
@@ -516,7 +544,11 @@ class Script(ConfigurableMixin):
                 if is_local:
                     cmd = [filename]
                 else:
-                    cmd = [os.path.join(f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name)]
+                    cmd = [
+                        os.path.join(
+                            f"/{RUNDIR_NAME}", SCRIPTS_DIR, Path(filename).name
+                        )
+                    ]
 
                 if with_entrypoint:
                     cmd = [self.entrypoint] + cmd
@@ -540,7 +572,9 @@ class Script(ConfigurableMixin):
             if self.entrypoint:
                 cmd = [self.entrypoint] + cmd
             else:
-                raise ValueError("Cannot use with_entrypoint=True without specifying entrypoint")
+                raise ValueError(
+                    "Cannot use with_entrypoint=True without specifying entrypoint"
+                )
 
         return cmd
 
