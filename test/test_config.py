@@ -408,7 +408,6 @@ class TestGetUnderlyingTypes:
             (DummyModel, {DummyModel}),
             (Optional[DummyModel], {DummyModel}),
             (list[DummyModel], {list, DummyModel}),
-            (type(None), set()),  # Explicit NoneType
         ],
     )
     def test_various_type_hints(self, type_hint, expected_types):

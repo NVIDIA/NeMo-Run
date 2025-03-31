@@ -163,7 +163,6 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
 
     # Base case: no origin or args means it's a simple type
     if origin is None:
-        # Explicitly return empty set for NoneType to match test expectation
         if type_hint is type(None):
             return set()
         if isinstance(type_hint, type):
