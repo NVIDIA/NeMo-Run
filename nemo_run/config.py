@@ -124,17 +124,17 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
                 types.update(get_underlying_types(arg))
             return types
         return {type_hint}
-    
+
     # Handle Python 3.9+ style type hints
     origin = typing.get_origin(type_hint)
     args = typing.get_args(type_hint)
-    
+
     # Base case: no origin or args means it's a simple type
     if origin is None:
         if isinstance(type_hint, type):
             return {type_hint}
         return set()
-    
+
     # Union type (including Optional)
     if origin is typing.Union:
         result = set()
@@ -142,17 +142,17 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
             if arg is not type(None):  # Skip NoneType in Unions
                 result.update(get_underlying_types(arg))
         return result
-    
+
     # List, Dict, etc. - collect types from arguments
     result = set()
     for arg in args:
         result.update(get_underlying_types(arg))
-    
+
     # Include the origin type itself if it's a class
     # This handles both typing module types and Python 3.9+ built-in generic types
     if isinstance(origin, type):
         result.add(origin)
-    
+
     return result
 
 

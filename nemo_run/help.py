@@ -230,20 +230,20 @@ def help_for_type(
 def class_to_str(class_obj):
     """
     Convert a class object or type annotation to a string representation.
-    
-    Handles both older style typing types (Python 3.8 and earlier) and 
+
+    Handles both older style typing types (Python 3.8 and earlier) and
     newer style direct subscriptable types (Python 3.9+).
-    
+
     Args:
         class_obj: The class or type annotation object
-        
+
     Returns:
         str: A string representation of the type
     """
     # Check if None or NoneType
     if class_obj is None or class_obj is type(None):
         return "None"
-        
+
     # Try to get origin and arguments using typing helpers
     # This works for both older and newer Python versions
     try:
@@ -253,7 +253,7 @@ def class_to_str(class_obj):
         # If typing helpers fail, we'll handle through other means
         origin = None
         args = []
-    
+
     # Handle typing module types with __origin__ attribute (older style)
     if hasattr(class_obj, "__origin__"):
         try:
@@ -261,53 +261,53 @@ def class_to_str(class_obj):
             if hasattr(class_obj, "_name") and class_obj._name == "Optional":
                 inner_type = typing.get_args(class_obj)[0]
                 return f"Optional[{class_to_str(inner_type)}]"
-            
+
             # Get the base type name
             if hasattr(class_obj.__origin__, "__name__"):
                 base = class_obj.__origin__.__name__
             else:
                 base = str(class_obj.__origin__)
-                
+
             # Get arguments as strings
             if hasattr(class_obj, "__args__"):
                 args_str = ", ".join(class_to_str(arg) for arg in class_obj.__args__)
                 return f"{base}[{args_str}]"
-            
+
             return base
         except (AttributeError, IndexError, TypeError):
             # Fall back to string representation if anything goes wrong
             return str(class_obj)
-    
+
     # Handle modern Python 3.9+ style subscriptable types
     if origin is not None:
         # Handle Optional types (Union[T, None])
         if origin is typing.Union and len(args) == 2 and args[1] is type(None):
             inner_type = args[0]
             return f"Optional[{class_to_str(inner_type)}]"
-            
+
         # Get base type name
         if hasattr(origin, "__name__"):
             base = origin.__name__
         else:
             base = str(origin)
-            
+
         # Get arguments as strings
         if args:
             args_str = ", ".join(class_to_str(arg) for arg in args)
             return f"{base}[{args_str}]"
-            
+
         return base
-    
+
     # Handle builtins
     if hasattr(class_obj, "__module__") and class_obj.__module__ == "builtins":
         return class_obj.__name__
-    
+
     # Handle everything else
     try:
         module = _get_module(class_obj)
         class_name = class_obj.__name__ if hasattr(class_obj, "__name__") else str(class_obj)
         full_class_name = f"{module}.{class_name}"
-        
+
         # Shorten common types
         if full_class_name in (
             "lightning.pytorch.core.module.LightningModule",

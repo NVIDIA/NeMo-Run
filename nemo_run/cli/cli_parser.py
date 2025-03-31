@@ -49,7 +49,7 @@ BUILTIN_TO_TYPING = {
     list: List,
     dict: Dict,
     tuple: tuple,  # typing.Tuple in older Python
-    set: set,      # typing.Set in older Python
+    set: set,  # typing.Set in older Python
     type: Type,
     # Add more as needed
 }
@@ -665,15 +665,15 @@ class TypeParser:
             origin = get_origin(annotation)
         except (TypeError, AttributeError):
             origin = None
-        
+
         # Handle direct type references (int, str, etc.)
         if annotation in self.parsers:
             return self.parsers[annotation]
-        
+
         # Handle custom parsers
         if annotation in self.custom_parsers:
             return self.custom_parsers[annotation]
-        
+
         # If we have an origin, map it to the correct parser
         if origin is not None:
             # Map built-in container origins to their corresponding parser
@@ -684,17 +684,17 @@ class TypeParser:
             elif origin is Union:
                 return self.parse_union
             # Add other mappings as needed
-            
+
             # Check for custom parsers for the origin
             if origin in self.custom_parsers:
                 return self.custom_parsers[origin]
             if origin in self.parsers:
                 return self.parsers[origin]
-        
+
         # Handle older-style generic aliases
         if hasattr(annotation, "__origin__"):
             origin = annotation.__origin__
-            
+
             # Map older-style typing module generics
             if origin is list or origin is List:
                 return self.parse_list
@@ -702,13 +702,13 @@ class TypeParser:
                 return self.parse_dict
             elif origin is Union:
                 return self.parse_union
-            
+
             # Check for parsers registered for the origin
             if origin in self.custom_parsers:
                 return self.custom_parsers[origin]
             if origin in self.parsers:
                 return self.parsers[origin]
-        
+
         # Fall back to the unknown type parser
         return self.parse_unknown
 
@@ -864,10 +864,10 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, list):
                 raise ValueError("Not a list")
-            
+
             # Get the element type - handle both old and new style type hints safely
             elem_type = None
-            
+
             # Try to get args using get_args (works for Python 3.9+)
             try:
                 type_args = get_args(annotation)
@@ -877,11 +877,11 @@ class TypeParser:
                 # If that fails, try older __args__ style (Python 3.8 and earlier)
                 if hasattr(annotation, "__args__") and annotation.__args__:
                     elem_type = annotation.__args__[0]
-            
+
             # Default to Any if we can't determine the element type
             if elem_type is None:
                 return parsed
-            
+
             # Parse each element with the determined type
             return [self.parse(str(item), elem_type) for item in parsed]
         except Exception as e:
@@ -904,11 +904,11 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, dict):
                 raise ValueError("Not a dict")
-            
+
             # Get the key and value types - handle both old and new style type hints
             key_type = None
             val_type = None
-            
+
             # Try to get args using get_args (works for Python 3.9+)
             try:
                 type_args = get_args(annotation)
@@ -918,11 +918,11 @@ class TypeParser:
                 # If that fails, try older __args__ style (Python 3.8 and earlier)
                 if hasattr(annotation, "__args__") and len(annotation.__args__) >= 2:
                     key_type, val_type = annotation.__args__[0], annotation.__args__[1]
-            
+
             # If we can't determine the types, return the parsed dict as is
             if key_type is None or val_type is None:
                 return parsed
-            
+
             # Parse each key-value pair with the determined types
             return {
                 self.parse(str(k), key_type): self.parse(str(v), val_type)
