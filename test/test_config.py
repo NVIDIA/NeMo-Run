@@ -408,11 +408,13 @@ class TestGetUnderlyingTypes:
             (DummyModel, {DummyModel}),
             (Optional[DummyModel], {DummyModel}),
             (list[DummyModel], {list, DummyModel}),
-            (type(None), set()), # Explicit NoneType
+            (type(None), set()),  # Explicit NoneType
         ],
     )
     def test_various_type_hints(self, type_hint, expected_types):
         """Test get_underlying_types with various type hints."""
-        from nemo_run.config import get_underlying_types # Import locally to avoid circular deps if run alone
+        from nemo_run.config import (
+            get_underlying_types,
+        )  # Import locally to avoid circular deps if run alone
 
         assert get_underlying_types(type_hint) == expected_types
