@@ -201,6 +201,7 @@ class DGXCloudExecutor(Executor):
         """
         url = f"{self.base_url}/workloads/distributed"
         headers = self._default_headers(token=token)
+        ##do we need to include this as a script? this could be in the command instead
         launch_script = f"""
 ln -s {self.job_dir} /nemo_run
 cd /nemo_run/code
@@ -329,6 +330,9 @@ cd /nemo_run/code
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
         self.experiment_id = exp_id
+
+        ## TODO: need to figure out how to track location of data in PVC and in the local environment 
+
         assert any(
             map(
                 lambda x: os.path.commonpath(
