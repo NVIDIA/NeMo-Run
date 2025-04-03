@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import os
@@ -5,6 +6,8 @@ import subprocess
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+import time
+import tempfile
 from typing import Any, Optional, Type
 
 import requests
@@ -89,6 +92,106 @@ class DGXCloudExecutor(Executor):
                 )
                 break
         return project_id, cluster_id
+
+    def copy_directory_command(self):
+        # Local directory path to copy
+        local_dir_path = "/home/roclark/.nemo_run/experiments/nemo.collections.llm.api.pretrain/nemo.collections.llm.api.pretrain_1743621953"
+
+        # Destination path inside the pod
+        dest_path = self.job_dir
+
+        # Create a temporary directory to hold the tarball
+        with tempfile.TemporaryDirectory() as temp_dir:
+
+            tarball_path = os.path.join(temp_dir, "archive.tar.gz")
+
+            # Create a tarball of the directory
+            subprocess.run(f"tar -czf {tarball_path} -C {local_dir_path} .", shell=True, check=True)
+
+            # Read the tarball
+            with open(tarball_path, "rb") as file:
+                file_data = file.read()
+
+            # Encode the tarball data to base64
+            encoded_data = base64.b64encode(file_data).decode("utf-8")
+
+            # Command to decode base64 data, save to a file, and extract inside the pod
+            cmd = f"mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
+            return cmd
+
+
+    def create_data_mover_workload(
+        self, token: str, project_id: str, cluster_id: str, name: str, cmd: list[str]
+    ):
+        """
+        Creates an cpu only workload to move data into PVC using the provided project/cluster IDs.
+        """
+        headers = self._default_headers(token=token)
+        url = f"{self.base_url}/workloads/workspaces"
+        headers = self._default_headers(token=token)
+
+        payload = {
+            "name": name,
+            "useGivenNameAsPrefix": True,
+            "projectId": project_id,
+            "clusterId": cluster_id,
+            "spec": {
+                "command": "sh -c",
+                "args": f"'{cmd}'",
+                "image": "busybox:1.37.0",
+                "storage": {"pvc": self.pvcs},
+            }
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+
+        logger.debug(
+            "Created workload; response code=%s, content=%s",
+            response.status_code,
+            response.text.strip(),
+        )
+
+        return response
+
+    def workload_completed(
+            self, token: str, workload_id: str
+    ):
+        """
+        Checks the status of the interactive workload
+        """
+
+        url = f"{self.base_url}/workloads/{workload_id}"
+        headers = self._default_headers(token=token)
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code not in [200, 202]:
+            raise RuntimeError(f"Failed to get workload status, status_code={response.status_code}")
+
+        phase = response.json()["phase"]
+
+        if phase == "Completed":
+            return True
+        else:
+            return False
+
+    def delete_workload(
+            self, token: str, workload_id: str
+    ):
+        while not self.workload_completed(token, workload_id):
+            time.sleep(10)
+
+        url = f"{self.base_url}/workloads/{workload_id}"
+        headers = self._default_headers(token=token)
+
+        response = requests.delete(url, headers=headers)
+
+        logger.debug(
+            "Delete interactive workspace; response code=%s, content=%s",
+            response.status_code,
+            response.text.strip(),
+        )
+        return response
 
     def create_distributed_job(
         self, token: str, project_id: str, cluster_id: str, name: str, cmd: list[str]
