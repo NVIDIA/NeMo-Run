@@ -16,15 +16,14 @@ Please click into each link to learn more.
 This is also the typical order Nemo Run users will follow to setup and launch experiments.
 
 .. toctree::
-   :glob:
    :maxdepth: 1
 
-   api/index.rst
    guides/index.rst
-   faq*
+   API Reference <api/nemo_run/index>
+   faqs
 
 Installation
----------
+------------
 To install the project, use the following command:
 
 ``pip install git+https://github.com/NVIDIA/NeMo-Run.git``

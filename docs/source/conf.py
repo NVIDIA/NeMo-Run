@@ -6,8 +6,13 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path("../../examples").resolve()))
+
 project = "NeMo-Run"
-copyright = "2024, NVIDIA"
+copyright = "2025, NVIDIA"
 author = "NVIDIA"
 release = "0.1.0"
 
@@ -16,6 +21,7 @@ release = "0.1.0"
 
 extensions = [
     "myst_parser",
+    "autoapi.extension",
     "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
@@ -29,16 +35,30 @@ extensions = [
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 python_maximum_signature_line_length = 88
-autodoc_default_options = {
-    "member-order": "bysource",
-    "special-members": "__init__",
-    "undoc-members": True,
-    "exclude-members": "__weakref__",
-}
-autodoc_class_signature = "separated"
-autodoc_inherit_docstrings = True
+
+# Autoapi settings
+autoapi_generate_api_docs = True
+autoapi_keep_files = False
+autoapi_add_toctree_entry = False
+autoapi_type = "python"
+autoapi_dirs = ["../../nemo_run"]
+autoapi_file_pattern = "*.py"
+autoapi_root = "api"
+autoapi_options = [
+    "members",
+    "show-inheritance",
+    "show-module-summary",
+    "special-members",
+    "imported-members",
+]
+
+# Autodoc settings
+autodoc_typehints = "signature"
+
+# MyST settings
+myst_heading_anchors = 3
 
 # Napoleon settings
 napoleon_google_docstring = True
@@ -56,5 +76,4 @@ napoleon_use_rtype = True
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "alabaster"
-html_static_path = ["_static"]
+html_theme = "nvidia_sphinx_theme"
