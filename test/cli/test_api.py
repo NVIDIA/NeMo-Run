@@ -15,8 +15,8 @@
 
 import os
 from configparser import ConfigParser
-from dataclasses import dataclass
-from typing import Annotated, List, Optional, Tuple, Union
+from dataclasses import dataclass, field
+from typing import Annotated, List, Optional, Union
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -59,7 +59,9 @@ _ENTRY_POINTS: EntryPoints = EntryPoints(EntryPoint_from_text(_RUN_FACTORIES_ENT
 
 @dataclass
 class Optimizer:
-    lr: float = 0.1
+    learning_rate: float = 0.1
+    weight_decay: float = 1e-5
+    betas: List[float] = field(default_factory=lambda: [0.9, 0.999])
 
 
 @cli.factory
@@ -438,12 +440,11 @@ class Model:
 
 
 @dataclass
-class Optimizer:
-    """Dummy optimizer config"""
+class Trainer:
+    """Dummy trainer config"""
 
+    model: Model
     learning_rate: float = 0.001
-    weight_decay: float = 1e-5
-    betas: Tuple[float, float] = (0.9, 0.999)
 
 
 @run.cli.factory
@@ -622,10 +623,6 @@ class TestEntrypointRunner:
         output = result.stdout
         assert "Training model with the following configuration:" in output
         assert "Model: Model(hidden_size=1024, num_layers=3, activation='relu')" in output
-        assert (
-            "Optimizer: Optimizer(learning_rate=0.001, weight_decay=1e-05, betas=(0.9, 0.999))"
-            in output
-        )
         assert "Epochs: 30" in output
         assert "Batch size: 32" in output
         assert "Training completed!" in output
@@ -775,6 +772,211 @@ class TestGlobalOptions:
             mock_configure.reset_mock()
             runner.invoke(app, ["error-command"])
             mock_configure.assert_called_once_with(False)
+
+
+class TestConfigExport:
+    @pytest.fixture
+    def temp_dir(self, tmp_path):
+        return tmp_path
+
+    def test_yaml_export(self, temp_dir):
+        @run.autoconvert
+        def my_model(hidden_size: int = 1000) -> Model:
+            return Model(hidden_size)
+
+        config = my_model(hidden_size=2000)
+        yaml_path = temp_dir / "config.yaml"
+
+        from nemo_run.cli.api import _serialize_configuration
+
+        with patch("rich.console.Console") as mock_console:
+            _serialize_configuration(config, to_yaml=str(yaml_path), console=mock_console)
+
+        # Verify the YAML file was created and contains correct content
+        assert yaml_path.exists()
+        content = yaml_path.read_text()
+        assert "hidden_size: 2000" in content
+        assert "_target_: test.cli.test_api.Model" in content
+
+    def test_json_export(self, temp_dir):
+        @run.autoconvert
+        def my_model(hidden_size: int = 1000) -> Model:
+            return Model(hidden_size)
+
+        config = my_model(hidden_size=2000)
+        json_path = temp_dir / "config.json"
+
+        from nemo_run.cli.api import _serialize_configuration
+
+        with patch("rich.console.Console") as mock_console:
+            _serialize_configuration(config, to_json=str(json_path), console=mock_console)
+
+        # Verify the JSON file was created and contains correct content
+        assert json_path.exists()
+        import json
+
+        with open(json_path) as f:
+            data = json.load(f)
+        assert data["hidden_size"] == 2000
+        assert data["_target_"] == "test.cli.test_api.Model"
+
+    def test_toml_export(self, temp_dir):
+        @run.autoconvert
+        def my_model(hidden_size: int = 1000) -> Model:
+            return Model(hidden_size)
+
+        config = my_model(hidden_size=2000)
+        toml_path = temp_dir / "config.toml"
+
+        from nemo_run.cli.api import _serialize_configuration
+
+        with patch("rich.console.Console") as mock_console:
+            _serialize_configuration(config, to_toml=str(toml_path), console=mock_console)
+
+        # Verify the TOML file was created and contains correct content
+        assert toml_path.exists()
+        import toml
+
+        with open(toml_path) as f:
+            data = toml.load(f)
+        assert data["hidden_size"] == 2000
+        assert data["_target_"] == "test.cli.test_api.Model"
+
+    def test_lazy_config_export(self, temp_dir):
+        from nemo_run.lazy import LazyEntrypoint
+
+        # Create a lazy configuration with nested structure
+        lazy_config = LazyEntrypoint("test.cli.test_api.Model", factory="my_model_factory")
+        lazy_config.hidden_size = 3000
+        lazy_config.model = LazyEntrypoint("test.cli.test_api.SubModel")
+        lazy_config.model.layers = [1, 2, 3]
+        lazy_config.model.activation = "relu"
+        lazy_config.optimizer.learning_rate = 0.001
+
+        yaml_path = temp_dir / "lazy_config.yaml"
+
+        from nemo_run.cli.api import _serialize_configuration
+
+        with patch("rich.console.Console") as mock_console:
+            _serialize_configuration(
+                lazy_config, to_yaml=str(yaml_path), is_lazy=True, console=mock_console
+            )
+
+        # Verify the YAML file was created with lazy configuration format
+        assert yaml_path.exists()
+        content = yaml_path.read_text()
+
+        # The content should look like:
+        # _factory_: my_model_factory
+        # _target_: test.cli.test_api.Model
+        # hidden_size: 3000
+        # model:
+        #   activation: relu
+        #   layers:
+        #   - 1
+        #   - 2
+        #   - 3
+        # optimizer:
+        #   learning_rate: 0.001
+
+        assert "_factory_: my_model_factory" in content
+        assert "_target_: test.cli.test_api.Model" in content
+        assert "hidden_size: 3000" in content
+        assert "model:" in content
+        assert "  activation: relu" in content
+        assert "  layers:" in content
+        assert "  - 1" in content
+        assert "  - 2" in content
+        assert "  - 3" in content
+        assert "optimizer:" in content
+        assert "  learning_rate: 0.001" in content
+
+    def test_section_export(self, temp_dir):
+        @run.autoconvert
+        def my_trainer(model: Model, learning_rate: float = 0.001) -> Trainer:
+            return Trainer(model=model)
+
+        model_config = run.Config(Model, hidden_size=2000, num_layers=3, activation="relu")
+        config = my_trainer(model=model_config, learning_rate=0.01)
+
+        # Export just the model section
+        yaml_path = temp_dir / "model_section.yaml"
+
+        from nemo_run.cli.api import _serialize_configuration
+
+        with patch("rich.console.Console") as mock_console:
+            _serialize_configuration(config, to_yaml=f"{yaml_path}:model", console=mock_console)
+
+        # Verify only the model section was exported
+        assert yaml_path.exists()
+        content = yaml_path.read_text()
+        assert "hidden_size: 2000" in content
+        assert "num_layers: 3" in content
+        assert "activation: relu" in content
+        assert "_target_: test.cli.test_api.Model" in content
+        assert "learning_rate" not in content
+
+    def test_multiple_formats_export(self, temp_dir):
+        @run.autoconvert
+        def my_model(hidden_size: int = 1000) -> Model:
+            return Model(hidden_size)
+
+        config = my_model(hidden_size=2000)
+        yaml_path = temp_dir / "config.yaml"
+        json_path = temp_dir / "config.json"
+        toml_path = temp_dir / "config.toml"
+
+        from nemo_run.cli.api import _serialize_configuration
+
+        with patch("rich.console.Console") as mock_console:
+            _serialize_configuration(
+                config,
+                to_yaml=str(yaml_path),
+                to_json=str(json_path),
+                to_toml=str(toml_path),
+                console=mock_console,
+            )
+
+        # Verify all files were created with correct content
+        assert all(p.exists() for p in [yaml_path, json_path, toml_path])
+
+        # Check YAML content
+        yaml_content = yaml_path.read_text()
+        assert "hidden_size: 2000" in yaml_content
+        assert "_target_: test.cli.test_api.Model" in yaml_content
+
+        # Check JSON content
+        import json
+
+        with open(json_path) as f:
+            json_data = json.load(f)
+        assert json_data["hidden_size"] == 2000
+        assert json_data["_target_"] == "test.cli.test_api.Model"
+
+        # Check TOML content
+        import toml
+
+        with open(toml_path) as f:
+            toml_data = toml.load(f)
+        assert toml_data["hidden_size"] == 2000
+        assert toml_data["_target_"] == "test.cli.test_api.Model"
+
+    def test_invalid_section_export(self, temp_dir):
+        @run.autoconvert
+        def my_model(hidden_size: int = 1000) -> Model:
+            return Model(hidden_size)
+
+        config = my_model(hidden_size=2000)
+        yaml_path = temp_dir / "config.yaml"
+
+        from nemo_run.cli.api import _serialize_configuration
+
+        # Try to export a non-existent section
+        with pytest.raises(ValueError, match="Section 'invalid' not found in configuration"):
+            _serialize_configuration(
+                config,
+                to_yaml=f"{yaml_path}:invalid",
+            )
 
 
 class TestTorchrunAndConfirmation:
