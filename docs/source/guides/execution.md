@@ -241,7 +241,7 @@ def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
     # Define the PVC that will be mounted in the job pods
     # Ensure the path specified here contains your NEMORUN_HOME
     pvc_name = "your-pvc-k8s-name" # The Kubernetes name of the PVC
-    pvc_mount_path = "/nemo-workspace" # The path where the PVC will be mounted inside the container
+    pvc_mount_path = "/your_custom_path" # The path where the PVC will be mounted inside the container
 
     executor = run.DGXCloudExecutor(
         base_url=base_url,
