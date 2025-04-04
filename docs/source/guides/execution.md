@@ -37,9 +37,10 @@ The packager support matrix is described below:
 | Executor | Packagers |
 |----------|----------|
 | LocalExecutor | run.Packager |
-| DockerExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager |
-| SlurmExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager |
-| SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager |
+| DockerExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| SlurmExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| DGXCloudExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 
 `run.Packager` is a passthrough base packager.
 
@@ -77,6 +78,27 @@ You can use `run.PatternPackager` to package your code by specifying `include_pa
 # relative_include_pattern = os.path.relpath(self.include_pattern, self.relative_path)
 cd {relative_path} && find {relative_include_pattern} -type f
 ```
+
+`run.HybridPackager` allows combining multiple packagers into a single archive. This is useful when you need to package different parts of your project using different strategies (e.g., a git archive for committed code and a pattern packager for generated artifacts).
+
+Each sub-packager in the `sub_packagers` dictionary is assigned a key, which becomes the directory name under which its contents are placed in the final archive. If `extract_at_root` is set to `True`, all contents are placed directly in the root of the archive, potentially overwriting files if names conflict.
+
+Example:
+```python
+import nemo_run as run
+import os
+
+hybrid_packager = run.HybridPackager(
+    sub_packagers={
+        "code": run.GitArchivePackager(subpath="src"),
+        "configs": run.PatternPackager(include_pattern="configs/*.yaml", relative_path=os.getcwd())
+    }
+)
+
+# Usage with an executor:
+# executor.packager = hybrid_packager
+```
+This would create an archive where the contents of `src` are under a `code/` directory and matched `configs/*.yaml` files are under a `configs/` directory.
 
 ### Defining Executors
 Next, We'll describe details on setting up each of the executors below.
@@ -199,3 +221,46 @@ executor = your_skypilot_cluster(nodes=8, devices=8, container_image="your-nemo-
 ```
 
 As demonstrated in the examples, defining executors in Python offers great flexibility. You can easily mix and match things like common environment variables, and the separation of tasks from executors enables you to run the same configured task on any supported executor.
+
+#### DGXCloudExecutor
+
+The `DGXCloudExecutor` integrates with a DGX Cloud cluster's Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
+
+> **_WARNING:_** Currently, the `DGXCloudExecutor` is only supported when launching experiments *from* a pod running on the DGX Cloud cluster itself. Furthermore, this launching pod must have access to a Persistent Volume Claim (PVC) where the experiment/job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
+
+Here's an example configuration:
+
+```python
+def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
+    # Ensure these are set correctly for your DGX Cloud environment
+    # You might fetch these from environment variables or a config file
+    base_url = "YOUR_DGX_CLOUD_API_ENDPOINT" # e.g., https://<cluster-name>.<domain>/api/v1
+    app_id = "YOUR_RUNAI_APP_ID"
+    app_secret = "YOUR_RUNAI_APP_SECRET"
+    project_name = "YOUR_RUNAI_PROJECT_NAME"
+    # Define the PVC that will be mounted in the job pods
+    # Ensure the path specified here contains your NEMORUN_HOME
+    pvc_name = "your-pvc-k8s-name" # The Kubernetes name of the PVC
+    pvc_mount_path = "/nemo-workspace" # The path where the PVC will be mounted inside the container
+
+    executor = run.DGXCloudExecutor(
+        base_url=base_url,
+        app_id=app_id,
+        app_secret=app_secret,
+        project_name=project_name,
+        container_image=container_image,
+        nodes=nodes,
+        gpus_per_node=gpus_per_node,
+        pvcs=[{"name": pvc_name, "path": pvc_mount_path}],
+        # Optional: Add custom environment variables or Slurm specs if needed
+        env_vars=common_envs(),
+        # packager=run.GitArchivePackager() # Choose appropriate packager
+    )
+    return executor
+
+# Example usage:
+# executor = your_dgx_executor(nodes=4, gpus_per_node=8, container_image="your-nemo-image")
+
+```
+
+For a complete end-to-end example using DGX Cloud with NeMo, refer to the [NVIDIA DGX Cloud NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
