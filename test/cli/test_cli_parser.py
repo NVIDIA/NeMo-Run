@@ -51,12 +51,29 @@ from nemo_run.cli.cli_parser import (
     parse_value,
     parse_config,
     parse_partial,
+    type_parser,
+    _maybe_resolve_annotation,
+    _args_to_kwargs,
+    _signature,
 )
 from nemo_run.config import Config, Partial
 from test.dummy_factory import DummyModel
 
 if TYPE_CHECKING:
     from test.dummy_type import TokenizerSpec
+
+from test.dummy_type import TokenizerSpec
+import nemo_run as run
+from nemo_run.cli.cli_parser import (
+    TypeParser, type_parser, ParseError, _maybe_resolve_annotation,
+    PythonicParser, _args_to_kwargs, _signature, ArgumentValueError,
+    Operation, UndefinedVariableError
+)
+import sys
+import pytest
+from unittest.mock import patch
+import inspect
+from typing import Any
 
 
 class TestSimpleValueParsing:
@@ -874,3 +891,131 @@ class TestCLIException:
         # Test with custom vocab size
         result = parse_cli_args(func, ["tokenizer=null_tokenizer(vocab_size=128000)"])
         assert result.tokenizer.vocab_size == 128000
+
+
+class TestForwardRefFactoryParsing:
+    def test_forward_ref_with_factory_function(self):
+        """Test that factory function call is parsed correctly"""
+        def dummy_fn(tokenizer: "TokenizerSpec"):
+            pass
+            
+        args = ["tokenizer=null_tokenizer()"]  # Use default value
+        result = parse_cli_args(dummy_fn, args)
+        assert isinstance(result.tokenizer, TokenizerSpec)
+        assert result.tokenizer.hidden == 1000  # Default value
+
+    def test_forward_ref_with_factory_function_error_case(self):
+        """Test that trying to resolve ForwardRef first raises ParseError"""
+        def dummy_fn(tokenizer: "TokenizerSpec"):
+            pass
+            
+        def old_parse_cli_args(fn, args, output_type=run.Partial):
+            parser = PythonicParser()
+            if isinstance(fn, (run.Config, run.Partial)):
+                output = fn
+            elif isinstance(fn, (list, tuple)) and all(isinstance(item, (run.Config, run.Partial)) for item in fn):
+                output = fn
+            else:
+                if output_type in (run.Partial, run.Config):
+                    output = output_type(fn)
+                else:
+                    output = output_type
+
+            for arg in _args_to_kwargs(fn, args):
+                parsed = parser.parse(arg)
+                key, (op, value) = next(iter(parsed.items()))
+
+                if "." not in key:
+                    if isinstance(fn, (run.Config, run.Partial)):
+                        signature = inspect.signature(fn.__fn_or_cls__)
+                    else:
+                        try:
+                            signature = inspect.signature(fn)
+                        except Exception:
+                            signature = inspect.signature(fn.__class__)
+                    arg_name, nested = key, output
+                else:
+                    dot_split, nested = key.split("."), output
+                    for attr in dot_split[:-1]:
+                        nested = parse_attribute(attr, nested)
+                    signature = _signature(nested.__fn_or_cls__)
+                    arg_name = dot_split[-1]
+
+                param = signature.parameters.get(arg_name)
+                if param is None:
+                    kwargs_param = next(
+                        (p for p in signature.parameters.values() if p.kind == inspect.Parameter.VAR_KEYWORD),
+                        None,
+                    )
+                    if kwargs_param:
+                        param = inspect.Parameter(
+                            arg_name,
+                            inspect.Parameter.KEYWORD_ONLY,
+                            annotation=kwargs_param.annotation
+                            if kwargs_param.annotation != inspect.Parameter.empty
+                            else Any,
+                        )
+                    else:
+                        raise ArgumentValueError(
+                            f"Invalid argument: No parameter named '{arg_name}' exists for {fn}",
+                            arg,
+                            {"key": key, "value": value},
+                        )
+
+                annotation = None
+                if param.annotation != inspect.Parameter.empty:
+                    annotation = param.annotation
+                
+                # The key difference: resolve ForwardRef first, then try to parse factory
+                parsed_value = None
+                if annotation:
+                    annotation = _maybe_resolve_annotation(fn, arg_name, annotation)
+                    if str(annotation).startswith("ForwardRef"):
+                        # Try to parse as TokenizerSpec first
+                        try:
+                            parsed_value = parse_value(value, TokenizerSpec)
+                            raise ParseError(value, TokenizerSpec, "Failed to parse value as TokenizerSpec")
+                        except Exception:
+                            # Now try factory parsing
+                            try:
+                                parsed_value = parse_factory(fn, arg_name, annotation, value)
+                            except Exception:
+                                try:
+                                    parsed_value = parse_value(value, annotation)
+                                except ParseError as e:
+                                    raise e.__class__(
+                                        f"Error parsing argument: {str(e)}",
+                                        arg,
+                                        {"key": key, "value": value, "expected_type": param.annotation},
+                                    ) from e
+
+                if parsed_value is None:
+                    raise ParseError(value, annotation, "Failed to parse value")
+
+                try:
+                    if op == Operation.ASSIGN:
+                        setattr(nested, arg_name, parsed_value)
+                    else:
+                        if not hasattr(nested, arg_name):
+                            raise UndefinedVariableError(
+                                f"Cannot use '{op.value}' on undefined variable",
+                                arg,
+                                {"key": key},
+                            )
+                        setattr(
+                            nested,
+                            arg_name,
+                            parser.apply_operation(op, getattr(nested, arg_name), parsed_value),
+                        )
+                except AttributeError as e:
+                    raise ArgumentValueError(
+                        f"Invalid argument: {str(e)}", arg, {"key": key, "value": value}
+                    )
+
+            return output
+            
+        # This should raise ParseError because it tries to resolve ForwardRef first
+        with pytest.raises(ParseError) as exc_info:
+            old_parse_cli_args(dummy_fn, ["tokenizer=null_tokenizer()"])
+                
+        assert "Failed to parse" in str(exc_info.value)

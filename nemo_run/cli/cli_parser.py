@@ -1138,14 +1138,12 @@ def parse_cli_args(
             annotation = param.annotation
         logger.debug(f"Parsing value {value} as {annotation}")
 
-        annotation = _maybe_resolve_annotation(fn, arg_name, annotation)
-
-        if annotation:
-            try:
-                parsed_value = parse_factory(fn, arg_name, annotation, value)
-            except Exception:
-                pass
-        if not parsed_value:
+        # Try parse_factory first before resolving annotation
+        try:
+            parsed_value = parse_factory(fn, arg_name, annotation, value)
+        except Exception:
+            # If factory parsing fails, proceed with normal parsing
+            annotation = _maybe_resolve_annotation(fn, arg_name, annotation)
             try:
                 parsed_value = parse_value(value, annotation)
                 logger.debug(f"Parsed value: {parsed_value}")
