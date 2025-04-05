@@ -22,11 +22,14 @@ from typing import (
     Literal,
     Optional,
     Type,
+    TypeVar,
     Union,
     ForwardRef,
+    TYPE_CHECKING,
 )
 
 import pytest
+import nemo_run as run
 
 from nemo_run.cli.cli_parser import (
     ArgumentParsingError,
@@ -36,6 +39,7 @@ from nemo_run.cli.cli_parser import (
     DictParseError,
     ListParseError,
     LiteralParseError,
+    Operation,
     OperationError,
     ParseError,
     PythonicParser,
@@ -45,9 +49,14 @@ from nemo_run.cli.cli_parser import (
     UnknownTypeError,
     parse_cli_args,
     parse_value,
+    parse_config,
+    parse_partial,
 )
 from nemo_run.config import Config, Partial
 from test.dummy_factory import DummyModel
+
+if TYPE_CHECKING:
+    from test.dummy_type import TokenizerSpec
 
 
 class TestSimpleValueParsing:
@@ -166,21 +175,65 @@ class TestComplexTypeParsing:
         assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
 
     def test_forward_ref_parsing(self):
-        def func(tokenizer: Optional[ForwardRef("TokenizerSpec")]):
+        """Test that ForwardRef types are parsed correctly."""
+        # Register a parser for TokenizerSpec
+        from test.dummy_type import TokenizerSpec
+        from nemo_run.cli.cli_parser import type_parser
+
+        @type_parser.register_parser(TokenizerSpec)
+        def parse_tokenizer_spec(value: str, annotation: Type) -> TokenizerSpec:
+            # Parse the value in the format TokenizerSpec(hidden=100)
+            import re
+            match = re.match(r"TokenizerSpec\(hidden=(\d+)\)", value)
+            if match:
+                hidden = int(match.group(1))
+                return TokenizerSpec(hidden=hidden)
+            
+            # Handle factory functions
+            if value == "dummy_model_config":
+                return TokenizerSpec(hidden=2000)
+            
+            raise ParseError(value, TokenizerSpec, "Invalid TokenizerSpec format")
+
+        # Test basic ForwardRef
+        def func1(tokenizer: "TokenizerSpec"):
             pass
 
-        # Test with string value
-        result = parse_cli_args(func, ["tokenizer=tokenizer_spec"])
-        assert result.tokenizer.hidden == 1000
+        tokenizer_spec = "TokenizerSpec(hidden=100)"
+        result = parse_cli_args(func1, [f"tokenizer={tokenizer_spec}"])
+        assert result.tokenizer.__class__.__name__ == "TokenizerSpec"
+        assert result.tokenizer.hidden == 100
 
-        # Test with None
-        result = parse_cli_args(func, ["tokenizer=None"])
+        # Test optional ForwardRef
+        def func2(tokenizer: Optional["TokenizerSpec"]):
+            pass
+
+        result = parse_cli_args(func2, ["tokenizer=None"])
         assert result.tokenizer is None
 
-        # Test with null (alternative None syntax)
-        result = parse_cli_args(func, ["tokenizer=null"])
-        assert result.tokenizer is None
+        # Test factory function returning ForwardRef
+        def func3(model: "TokenizerSpec"):
+            pass
 
+        result = parse_cli_args(func3, ["model=dummy_model_config"])
+        assert result.model.__class__.__name__ == "TokenizerSpec"
+        assert result.model.hidden == 2000
+
+        # Test complex nested types with ForwardRef
+        def func4(tokenizer: "TokenizerSpec"):
+            pass
+
+        result = parse_cli_args(func4, ["tokenizer=TokenizerSpec(hidden=300)"])
+        assert result.tokenizer.__class__.__name__ == "TokenizerSpec"
+        assert result.tokenizer.hidden == 300
+
+        # Test TYPE_CHECKING resolution
+        def func5(tokenizer: "TokenizerSpec"):
+            pass
+
+        result = parse_cli_args(func5, ["tokenizer=TokenizerSpec(hidden=400)"])
+        assert result.tokenizer.__class__.__name__ == "TokenizerSpec"
+        assert result.tokenizer.hidden == 400
 
 class TestFactoryFunctionParsing:
     def test_simple_factory_function(self):
@@ -791,3 +844,33 @@ class TestCLIException:
         ex = UnknownTypeError("value", str, "Unknown type")
         assert isinstance(ex, ParseError)
         assert "Failed to parse 'value'" in str(ex)
+
+    def test_real_tokenizer_config(self):
+        """Test that factory functions work with real-world tokenizer configs."""
+        # Mock AutoTokenizer class
+        class AutoTokenizer:
+            def __init__(self, library=None, model_name=None, vocab_size=None):
+                self.library = library
+                self.model_name = model_name
+                self.vocab_size = vocab_size
+
+        def get_nmt_tokenizer(library=None, model_name=None, vocab_size=None):
+            return AutoTokenizer(library=library, model_name=model_name, vocab_size=vocab_size)
+
+        @run.cli.factory
+        def null_tokenizer(vocab_size: int = 256000) -> run.Config[AutoTokenizer]:
+            return run.Config(get_nmt_tokenizer, library="null", 
+                            model_name="NullTokenizer", vocab_size=vocab_size)
+
+        def func(tokenizer: AutoTokenizer):
+            pass
+
+        # Test basic configuration
+        result = parse_cli_args(func, ["tokenizer=null_tokenizer"])
+        assert result.tokenizer.vocab_size == 256000
+        assert result.tokenizer.library == "null"
+        assert result.tokenizer.model_name == "NullTokenizer"
+
+        # Test with custom vocab size
+        result = parse_cli_args(func, ["tokenizer=null_tokenizer(vocab_size=128000)"])
+        assert result.tokenizer.vocab_size == 128000

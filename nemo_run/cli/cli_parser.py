@@ -593,7 +593,7 @@ class TypeParser:
         [1, 2, 3]
     """
 
-    __slots__ = ("parsers", "custom_parsers", "strict_mode")
+    __slots__ = ("parsers", "custom_parsers", "strict_mode", "_current_fn", "_current_arg_name")
 
     def __init__(self, strict_mode: bool = True):
         """Initialize the TypeParser.
@@ -617,6 +617,8 @@ class TypeParser:
         }
         self.custom_parsers = {}
         self.strict_mode = strict_mode
+        self._current_fn = None
+        self._current_arg_name = None
 
     def register_parser(self, type_: Type):
         """Decorator to register a custom parser for a specific type.
@@ -957,8 +959,28 @@ class TypeParser:
             raise ParseError(value, Path, "Invalid path: contains null character")
         return Path(value.strip("'\" "))
 
-    def parse_forward_ref(self, value: str, annotation) -> Any:
-        return value
+    def parse_forward_ref(self, value: str, annotation: ForwardRef) -> Any:
+        try:
+            resolved_type = _maybe_resolve_annotation(self._current_fn, self._current_arg_name, annotation)
+            if isinstance(resolved_type, ForwardRef):
+                logger.debug(f"Could not resolve ForwardRef via TYPE_CHECKING, attempting direct evaluation")
+                try:
+                    resolved_type = eval(annotation.__forward_arg__, 
+                                       annotation.__forward_code__.co_globals,
+                                       {})
+                except (NameError, AttributeError) as e:
+                    logger.debug(f"Could not evaluate ForwardRef directly: {e}")
+                    return value
+                
+            if resolved_type and resolved_type != annotation:
+                logger.debug(f"Successfully resolved ForwardRef to {resolved_type}")
+                return self.parse(value, resolved_type)
+            else:
+                logger.warning(f"Could not resolve ForwardRef {annotation}, using raw value")
+                return value
+        except Exception as e:
+            logger.error(f"Error parsing ForwardRef: {e}")
+            return value
 
     def infer_type(self, value: str) -> Type:
         """Infer the type of a string value.
