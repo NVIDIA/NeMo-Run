@@ -14,6 +14,8 @@
 # limitations under the License.
 
 import sys
+import pytest
+import typing
 from pathlib import Path
 from typing import (
     Any,
@@ -27,10 +29,11 @@ from typing import (
     ForwardRef,
     TYPE_CHECKING,
 )
+from unittest.mock import patch
 
-import pytest
-import nemo_run as run
+import fiddle as fdl
 
+from nemo_run import run
 from nemo_run.cli.cli_parser import (
     ArgumentParsingError,
     ArgumentValueError,
@@ -58,6 +61,7 @@ from nemo_run.cli.cli_parser import (
 )
 from nemo_run.config import Config, Partial
 from test.dummy_factory import DummyModel
+from test.dummy_type import TokenizerSpec
 
 if TYPE_CHECKING:
     from test.dummy_type import TokenizerSpec
@@ -899,10 +903,42 @@ class TestForwardRefFactoryParsing:
         def dummy_fn(tokenizer: "TokenizerSpec"):
             pass
             
+        # Mock AutoTokenizer that inherits from TokenizerSpec
+        class AutoTokenizer(TokenizerSpec):
+            def __init__(self, library=None, model_name=None, vocab_size=None):
+                self.library = library
+                self.model_name = model_name
+                self.vocab_size = vocab_size
+                
+            def text_to_tokens(self, text): pass
+            def tokens_to_text(self, tokens): pass
+            def tokens_to_ids(self, tokens): pass
+            def ids_to_tokens(self, ids): pass
+            def text_to_ids(self, text): pass
+            def ids_to_text(self, ids): pass
+
+        def get_nmt_tokenizer(library=None, model_name=None, vocab_size=None):
+            return AutoTokenizer(library=library, model_name=model_name, vocab_size=vocab_size)
+            
+        # Register the factory for both TokenizerSpec and the specific argument
+        @run.cli.factory(target=dummy_fn, target_arg="tokenizer")
+        @run.cli.factory(target=TokenizerSpec)
+        @run.autoconvert
+        def null_tokenizer(vocab_size: int = 256000) -> run.Config[TokenizerSpec]:
+            return run.Config(get_nmt_tokenizer, library="null",
+                            model_name="NullTokenizer", vocab_size=vocab_size)
+            
         args = ["tokenizer=null_tokenizer()"]  # Use default value
         result = parse_cli_args(dummy_fn, args)
-        assert isinstance(result.tokenizer, TokenizerSpec)
-        assert result.tokenizer.hidden == 1000  # Default value
+        
+        # First check it's a Config object
+        assert isinstance(result.tokenizer, run.Config)
+        # Build the config to get the actual tokenizer
+        built = fdl.build(result.tokenizer)
+        assert isinstance(built, AutoTokenizer)
+        assert built.vocab_size == 256000
+        assert built.library == "null"
+        assert built.model_name == "NullTokenizer"
 
     def test_forward_ref_with_factory_function_error_case(self):
         """Test that trying to resolve ForwardRef first raises ParseError"""
@@ -966,28 +1002,16 @@ class TestForwardRefFactoryParsing:
                 if param.annotation != inspect.Parameter.empty:
                     annotation = param.annotation
                 
-                # The key difference: resolve ForwardRef first, then try to parse factory
+                # The key difference: resolve ForwardRef first, then try to parse as TokenizerSpec
                 parsed_value = None
                 if annotation:
                     annotation = _maybe_resolve_annotation(fn, arg_name, annotation)
                     if str(annotation).startswith("ForwardRef"):
-                        # Try to parse as TokenizerSpec first
+                        # Try to parse as TokenizerSpec directly
                         try:
                             parsed_value = parse_value(value, TokenizerSpec)
-                            raise ParseError(value, TokenizerSpec, "Failed to parse value as TokenizerSpec")
                         except Exception:
-                            # Now try factory parsing
-                            try:
-                                parsed_value = parse_factory(fn, arg_name, annotation, value)
-                            except Exception:
-                                try:
-                                    parsed_value = parse_value(value, annotation)
-                                except ParseError as e:
-                                    raise e.__class__(
-                                        f"Error parsing argument: {str(e)}",
-                                        arg,
-                                        {"key": key, "value": value, "expected_type": param.annotation},
-                                    ) from e
+                            raise ParseError(value, TokenizerSpec, "Failed to parse value")
 
                 if parsed_value is None:
                     raise ParseError(value, annotation, "Failed to parse value")
@@ -1016,6 +1040,8 @@ class TestForwardRefFactoryParsing:
             
         # This should raise ParseError because it tries to resolve ForwardRef first
         with pytest.raises(ParseError) as exc_info:
-            old_parse_cli_args(dummy_fn, ["tokenizer=null_tokenizer()"])
+            old_parse_cli_args(dummy_fn, ["tokenizer=null_tokenizer(vocab_size=256000)"])
                 
         assert "Failed to parse" in str(exc_info.value)
+        assert "null_tokenizer(vocab_size=256000)" in str(exc_info.value)
+        assert "TokenizerSpec" in str(exc_info.value)

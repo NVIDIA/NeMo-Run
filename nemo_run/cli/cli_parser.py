@@ -961,6 +961,16 @@ class TypeParser:
 
     def parse_forward_ref(self, value: str, annotation: ForwardRef) -> Any:
         try:
+            # First try to parse as a factory function
+            try:
+                from nemo_run.cli.factory import parse_factory
+                factory_result = parse_factory(self._current_fn, self._current_arg_name, annotation, value)
+                if factory_result is not None:
+                    return factory_result
+            except Exception as e:
+                logger.debug(f"Failed to parse as factory function: {e}")
+
+            # If factory parsing fails, try to resolve the ForwardRef
             resolved_type = _maybe_resolve_annotation(self._current_fn, self._current_arg_name, annotation)
             if isinstance(resolved_type, ForwardRef):
                 logger.debug(f"Could not resolve ForwardRef via TYPE_CHECKING, attempting direct evaluation")
