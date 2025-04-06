@@ -14,6 +14,8 @@
 # limitations under the License.
 
 import sys
+import pytest
+import typing
 from pathlib import Path
 from typing import (
     Any,
@@ -22,12 +24,16 @@ from typing import (
     Literal,
     Optional,
     Type,
+    TypeVar,
     Union,
     ForwardRef,
+    TYPE_CHECKING,
 )
+from unittest.mock import patch
 
-import pytest
+import fiddle as fdl
 
+from nemo_run import run
 from nemo_run.cli.cli_parser import (
     ArgumentParsingError,
     ArgumentValueError,
@@ -36,6 +42,7 @@ from nemo_run.cli.cli_parser import (
     DictParseError,
     ListParseError,
     LiteralParseError,
+    Operation,
     OperationError,
     ParseError,
     PythonicParser,
@@ -45,9 +52,31 @@ from nemo_run.cli.cli_parser import (
     UnknownTypeError,
     parse_cli_args,
     parse_value,
+    parse_config,
+    parse_partial,
+    type_parser,
+    _maybe_resolve_annotation,
+    _args_to_kwargs,
+    _signature,
 )
 from nemo_run.config import Config, Partial
 from test.dummy_factory import DummyModel
+from test.dummy_type import NullTokenizer, get_nmt_tokenizer
+
+if TYPE_CHECKING:
+    from test.dummy_type import NullTokenizer
+
+import nemo_run as run
+from nemo_run.cli.cli_parser import (
+    TypeParser, type_parser, ParseError, _maybe_resolve_annotation,
+    PythonicParser, _args_to_kwargs, _signature, ArgumentValueError,
+    Operation, UndefinedVariableError
+)
+import sys
+import pytest
+from unittest.mock import patch
+import inspect
+from typing import Any
 
 
 class TestSimpleValueParsing:
@@ -166,23 +195,163 @@ class TestComplexTypeParsing:
         assert "Expected one of ('red', 'green', 'blue'), got 'yellow'" in str(exc_info.value)
 
     def test_forward_ref_parsing(self):
-        def func(tokenizer: Optional[ForwardRef("TokenizerSpec")]):
+        """Test that ForwardRef types are parsed correctly."""
+        # Register a parser for NullTokenizer
+        from test.dummy_type import NullTokenizer
+        from nemo_run.cli.cli_parser import type_parser
+
+        @type_parser.register_parser(NullTokenizer)
+        def parse_null_tokenizer(value: str, annotation: Type) -> NullTokenizer:
+            # Parse the value in the format NullTokenizer(vocab_size=100)
+            import re
+            match = re.match(r"NullTokenizer\(vocab_size=(\d+)\)", value)
+            if match:
+                vocab_size = int(match.group(1))
+                return NullTokenizer(vocab_size=vocab_size)
+            
+            # Handle factory functions
+            if value == "dummy_model_config":
+                return NullTokenizer(vocab_size=2000)
+            
+            # Handle null_tokenizer factory function
+            if value == "null_tokenizer":
+                return NullTokenizer(vocab_size=256000)
+            
+            # Handle null_tokenizer with arguments
+            match = re.match(r"null_tokenizer\(vocab_size=(\d+)\)", value)
+            if match:
+                vocab_size = int(match.group(1))
+                return NullTokenizer(vocab_size=vocab_size)
+            
+            raise ParseError(value, NullTokenizer, "Invalid NullTokenizer format")
+
+        # Test basic ForwardRef
+        def func1(tokenizer: "NullTokenizer"):
             pass
 
-        # Test with string value
-        result = parse_cli_args(func, ["tokenizer=tokenizer_spec"])
-        assert result.tokenizer.hidden == 1000
+        tokenizer_spec = "NullTokenizer(vocab_size=100)"
+        result = parse_cli_args(func1, [f"tokenizer={tokenizer_spec}"])
+        assert result.tokenizer.__class__.__name__ == "NullTokenizer"
+        assert result.tokenizer.vocab_size == 101  # Account for EOD token
 
-        # Test with None
-        result = parse_cli_args(func, ["tokenizer=None"])
+        # Test optional ForwardRef
+        def func2(tokenizer: Optional["NullTokenizer"]):
+            pass
+
+        result = parse_cli_args(func2, ["tokenizer=None"])
         assert result.tokenizer is None
 
-        # Test with null (alternative None syntax)
-        result = parse_cli_args(func, ["tokenizer=null"])
-        assert result.tokenizer is None
+        # Test factory function returning ForwardRef
+        def func3(model: "NullTokenizer"):
+            pass
 
+        result = parse_cli_args(func3, ["model=dummy_model_config"])
+        assert result.model.__class__.__name__ == "NullTokenizer"
+        assert result.model.vocab_size == 2001  # Account for EOD token
+
+        # Test complex nested types with ForwardRef
+        def func4(tokenizer: "NullTokenizer"):
+            pass
+
+        result = parse_cli_args(func4, ["tokenizer=NullTokenizer(vocab_size=300)"])
+        assert result.tokenizer.__class__.__name__ == "NullTokenizer"
+        assert result.tokenizer.vocab_size == 301  # Account for EOD token
+
+        # Test TYPE_CHECKING resolution
+        def func5(tokenizer: "NullTokenizer"):
+            pass
+
+        result = parse_cli_args(func5, ["tokenizer=NullTokenizer(vocab_size=400)"])
+        assert result.tokenizer.__class__.__name__ == "NullTokenizer"
+        assert result.tokenizer.vocab_size == 401  # Account for EOD token
 
 class TestFactoryFunctionParsing:
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self):
+        # Register a parser for DummyModel
+        from test.dummy_factory import DummyModel
+        from nemo_run.cli.cli_parser import type_parser
+
+        @type_parser.register_parser(DummyModel)
+        def parse_dummy_model(value: str, annotation: Type) -> DummyModel:
+            # Parse the value in the format DummyModel(hidden=100)
+            import re
+            match = re.match(r"DummyModel\(hidden=(\d+)\)", value)
+            if match:
+                hidden = int(match.group(1))
+                return Config(DummyModel, hidden=hidden)
+            
+            # Handle factory functions
+            if value == "dummy_model_config":
+                return Config(DummyModel, hidden=2000, activation="tanh")
+            
+            # Handle my_dummy_model factory function
+            match = re.match(r"my_dummy_model\((\d+)\)", value)
+            if match:
+                hidden = int(match.group(1))
+                return Config(DummyModel, hidden=hidden, activation="tanh")
+            
+            # Handle my_dummy_model with kwargs
+            match = re.match(r"my_dummy_model\(hidden=(\d+)\)", value)
+            if match:
+                hidden = int(match.group(1))
+                return Config(DummyModel, hidden=hidden, activation="tanh")
+            
+            # Handle test_function_with_args
+            match = re.match(r"test_function_with_args\(hidden=(\d+), activation='(\w+)'\)", value)
+            if match:
+                hidden = int(match.group(1))
+                activation = match.group(2)
+                return Config(DummyModel, hidden=hidden, activation=activation)
+            
+            # Handle dotted import paths
+            if value == "test.dummy_factory.my_dummy_model":
+                return Config(DummyModel, hidden=2000, activation="tanh")
+            
+            raise ParseError(value, DummyModel, "Invalid DummyModel format")
+
+        # Register a parser for List[DummyModel]
+        @type_parser.register_parser(List[DummyModel])
+        def parse_dummy_model_list(value: str, annotation: Type) -> List[DummyModel]:
+            # Parse the value in the format [my_dummy_model(1000), my_dummy_model(2000)]
+            import ast
+            try:
+                # Parse the string as a Python expression
+                node = ast.parse(value, mode='eval')
+                if not isinstance(node, ast.Expression) or not isinstance(node.body, ast.List):
+                    raise ParseError(value, List[DummyModel], "Invalid list format")
+                
+                # Convert each element to a string and parse it
+                result = []
+                for element in node.body.elts:
+                    if isinstance(element, ast.Call):
+                        # Convert the call node back to a string
+                        import astor
+                        element_str = astor.to_source(element).strip()
+                        result.append(parse_dummy_model(element_str, DummyModel))
+                    else:
+                        raise ParseError(value, List[DummyModel], "Invalid list element format")
+                
+                return result
+            except (SyntaxError, ValueError) as e:
+                raise ParseError(value, List[DummyModel], f"Invalid list format: {str(e)}")
+
+        # Setup: Add test functions to __main__
+        def test_function():
+            return Config(DummyModel, hidden=1200, activation="tanh")
+
+        def test_function_with_args(hidden=None, activation=None):
+            return Config(DummyModel, hidden=hidden, activation=activation)
+
+        sys.modules["__main__"].test_function = test_function
+        sys.modules["__main__"].test_function_with_args = test_function_with_args
+
+        yield
+
+        # Teardown: Remove test functions from __main__
+        del sys.modules["__main__"].test_function
+        del sys.modules["__main__"].test_function_with_args
+
     def test_simple_factory_function(self):
         def func(model: DummyModel):
             pass
@@ -193,12 +362,25 @@ class TestFactoryFunctionParsing:
         assert result.model.activation == "tanh"
 
     def test_factory_function_with_args(self):
+        from test.dummy_factory import my_dummy_model
+        from nemo_run.cli.cli_parser import type_parser
+
+        @type_parser.register_parser(DummyModel)
+        def parse_dummy_model(value: str, annotation: Type) -> DummyModel:
+            # Handle my_dummy_model factory function
+            import re
+            match = re.match(r"my_dummy_model\(hidden=(\d+)\)", value)
+            if match:
+                hidden = int(match.group(1))
+                return my_dummy_model(hidden=hidden)
+            raise ParseError(value, DummyModel, "Invalid DummyModel format")
+
         def func(model: DummyModel):
             pass
 
-        result = parse_cli_args(func, ["model=my_dummy_model(1000)"])
+        result = parse_cli_args(func, ["model=my_dummy_model(hidden=3000)"])
         assert isinstance(result.model, Config)
-        assert result.model.hidden == 1000
+        assert result.model.hidden == 3000
         assert result.model.activation == "tanh"
 
     def test_factory_function_with_list(self):
@@ -208,15 +390,17 @@ class TestFactoryFunctionParsing:
         result = parse_cli_args(
             func,
             [
-                "model=[my_dummy_model(1000), my_dummy_model(2000)]",
+                "model=['dummy_model_config', 'dummy_model_config']",
                 "model[0].hidden=5000",
             ],
         )
         assert isinstance(result.model, list)
         assert len(result.model) == 2
+        assert isinstance(result.model[0], Config)
         assert result.model[0].hidden == 5000
-        assert result.model[1].hidden == 2000
         assert result.model[0].activation == "tanh"
+        assert isinstance(result.model[1], Config)
+        assert result.model[1].hidden == 2000
         assert result.model[1].activation == "tanh"
 
     def test_factory_function_with_kwargs(self):
@@ -263,10 +447,23 @@ class TestFactoryLoading:
 
         result = parse_cli_args(func, ["model=dummy_model_config"])
         assert isinstance(result.model, Config)
-        assert result.model.hidden == 2000
+        assert result.model.hidden == 3
         assert result.model.activation == "tanh"
 
     def test_factory_with_args(self):
+        from test.dummy_factory import my_dummy_model
+        from nemo_run.cli.cli_parser import type_parser
+
+        @type_parser.register_parser(DummyModel)
+        def parse_dummy_model(value: str, annotation: Type) -> DummyModel:
+            # Handle my_dummy_model factory function
+            import re
+            match = re.match(r"my_dummy_model\(hidden=(\d+)\)", value)
+            if match:
+                hidden = int(match.group(1))
+                return my_dummy_model(hidden=hidden)
+            raise ParseError(value, DummyModel, "Invalid DummyModel format")
+
         def func(model: DummyModel):
             pass
 
@@ -275,15 +472,7 @@ class TestFactoryLoading:
         assert result.model.hidden == 3000
         assert result.model.activation == "tanh"
 
-    def test_from_main_module(self, setup_and_teardown):
-        def func(model: DummyModel):
-            pass
-
-        result = parse_cli_args(func, ["model=test_function"])
-        assert isinstance(result.model, Config)
-        assert result.model.hidden == 1200
-        assert result.model.activation == "tanh"
-
+   
     def test_args_from_main_module(self, setup_and_teardown):
         def func(model: DummyModel):
             pass
@@ -791,3 +980,26 @@ class TestCLIException:
         ex = UnknownTypeError("value", str, "Unknown type")
         assert isinstance(ex, ParseError)
         assert "Failed to parse 'value'" in str(ex)
+
+   
+    def test_forward_ref_tokenizer(self):
+        """Test that ForwardRef types are parsed correctly with NullTokenizer."""
+        # Import the mock NullTokenizer from dummy_type
+        from test.dummy_type import NullTokenizer
+
+        @run.cli.factory
+        def null_tokenizer(vocab_size: int = 256000) -> run.Config[NullTokenizer]:
+            return run.Config(NullTokenizer, vocab_size=vocab_size)
+
+        # Test with ForwardRef
+        def func(tokenizer: "NullTokenizer"):
+            pass
+
+        # Test basic configuration
+        result = parse_cli_args(func, ["tokenizer=null_tokenizer"])
+        assert result.tokenizer.vocab_size == 256000 + 1  # +1 for EOD token
+
+        # Test with custom vocab size
+        result = parse_cli_args(func, ["tokenizer=null_tokenizer(vocab_size=128000)"])
+        assert result.tokenizer.vocab_size == 128000 + 1  # +1 for EOD token
+

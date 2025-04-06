@@ -87,6 +87,28 @@ def get_type_namespace(typ: Type | Callable) -> str:
         >>> get_type_namespace(MyClass)
         'your_module.MyClass'
     """
+    # Handle string type annotations
+    if isinstance(typ, str):
+        # Try to resolve the type from the current module
+        frame = inspect.currentframe()
+        try:
+            while frame:
+                if 'self' in frame.f_locals:
+                    module = frame.f_locals['self'].__module__
+                    try:
+                        resolved_type = getattr(sys.modules[module], typ)
+                        return f"{module}.{typ}"
+                    except (AttributeError, KeyError):
+                        pass
+                frame = frame.f_back
+        finally:
+            del frame
+        return typ
+
+    # Handle forward references
+    if isinstance(typ, typing.ForwardRef):
+        return get_type_namespace(typ.__forward_arg__)
+
     module = typ.__module__
     if module == "__main__":
         # Get the filename without extension
