@@ -43,7 +43,7 @@ from typing import (
 )
 
 import fiddle as fdl
-
+import nemo_run as run
 from nemo_run.config import Config, Partial
 
 logger = logging.getLogger(__name__)
@@ -1244,11 +1244,23 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 
         return catalogue._get((str(annotation), val))
 
-    def parse_single_factory(factory_str):
+    def parse_single_factory(value: str) -> Any:
+        """Parse a single factory-style argument and instantiate the corresponding object.
+
+        Args:
+            value: The string value to parse, expected to be in factory format.
+
+        Returns:
+            The instantiated object created by the factory function.
+
+        Raises:
+            ValueError: If the factory format is invalid or no matching factory is found.
+            TypeParsingError: If the factory return type doesn't match the expected type.
+        """
         # Extract factory name and arguments
-        match = re.match(r"^([\w\.]+)(?:\((.*)\))?$", factory_str.strip())
+        match = re.match(r"^([\w\.]+)(?:\((.*)\))?$", value.strip())
         if not match:
-            raise ValueError(f"Invalid factory format: {factory_str}")
+            raise ValueError(f"Invalid factory format: {value}")
 
         factory_name, args_str = match.groups()
         args_str = args_str or ""
@@ -1288,15 +1300,54 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
             if main_module and hasattr(main_module, factory_name):
                 factory_fn = getattr(main_module, factory_name)
 
+        # If not found in main module, try to find it in the local scope
         if not factory_fn:
-            raise ValueError(f"No matching factory found for: {factory_str}")
+            frame = inspect.currentframe()
+            try:
+                while frame:
+                    if factory_name in frame.f_locals:
+                        factory_fn = frame.f_locals[factory_name]
+                        break
+                    frame = frame.f_back
+            finally:
+                del frame
+
+        if not factory_fn:
+            raise ValueError(f"No matching factory found for: {value}")
+
+        # Get the factory's return type annotation
+        factory_return_type = inspect.signature(factory_fn).return_annotation
+        if factory_return_type == inspect.Parameter.empty:
+            logger.warning(f"Factory {factory_name} has no return type annotation")
+        else:
+            # Resolve any ForwardRefs in the return type
+            factory_return_type = _maybe_resolve_annotation(factory_fn, "return", factory_return_type)
 
         if args_str:
             cli_args = [arg.strip() for arg in args_str.split(",") if arg.strip()]
             partial_factory = parse_cli_args(factory_fn, cli_args, output_type=Partial)
-            return fdl.build(partial_factory)()
+            result = fdl.build(partial_factory)()
+        else:
+            result = factory_fn()
 
-        return factory_fn()
+        # Wrap the result in a Config object if it's not already one
+        if not isinstance(result, Config):
+            result = Config(result)
+
+        # Check if the result matches the expected type
+        if factory_return_type != inspect.Parameter.empty:
+            _check_type_compatibility(
+                result, 
+                factory_return_type,
+                f" in factory {factory_name} return value"
+            )
+        _check_type_compatibility(
+            result,
+            arg_type,
+            f" for argument {arg_name}"
+        )
+
+        return result
 
     # Check if the value is a list
     list_match = re.match(r"^\s*\[(.*)\]\s*$", value)
@@ -1305,7 +1356,15 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
         if get_origin(arg_type) is list:
             arg_type = get_args(arg_type)[0]
         items = re.findall(r"([^,]+(?:\([^)]*\))?)", list_match.group(1))
-        return [parse_single_factory(item.strip()) for item in items]
+        results = [parse_single_factory(item.strip()) for item in items]
+        # Check if all results match the expected type
+        for result in results:
+            _check_type_compatibility(
+                result,
+                arg_type,
+                f" in list for argument {arg_name}"
+            )
+        return results
 
     return parse_single_factory(value)
 
@@ -1417,12 +1476,42 @@ def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> A
 
     # Case 2: Annotation is a ForwardRef
     elif isinstance(annotation, ForwardRef):
-        return _resolve_type_checking_annotation(fn, annotation.__forward_arg__)
+        try:
+            # Get the global namespace from the function's module
+            globalns = fn.__globals__
+            # Resolve the ForwardRef
+            resolved = annotation._evaluate(globalns, None, set())
+            
+            # Handle nested types (e.g., run.Config[NullTokenizer])
+            if hasattr(resolved, '__origin__') and resolved.__origin__ is not None:
+                # Get the type arguments
+                args = getattr(resolved, '__args__', ())
+                # Resolve any ForwardRefs in the arguments
+                resolved_args = tuple(
+                    _maybe_resolve_annotation(fn, arg_name, arg) if isinstance(arg, ForwardRef) else arg
+                    for arg in args
+                )
+                # Reconstruct the type with resolved arguments
+                return resolved.__origin__[resolved_args]
+            
+            return resolved
+        except Exception as e:
+            raise ParseError(None, annotation, f"Failed to resolve ForwardRef: {str(e)}")
 
     # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
     elif (origin := get_origin(annotation)) is not None:
         args = get_args(annotation)
         resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
+        
+        # Special handling for run.Config
+        if origin is run.Config:
+            # Ensure we have exactly one type argument
+            if len(resolved_args) != 1:
+                raise ParseError(None, annotation, f"run.Config requires exactly one type argument, got {len(resolved_args)}")
+            # Return a new Config type with the resolved argument
+            return run.Config[resolved_args[0]]
+        
+        # Handle other generic types
         if origin is list:
             return List[resolved_args[0]]
         elif origin is dict:
@@ -1436,7 +1525,11 @@ def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> A
         elif origin is Union:
             return Union[resolved_args]
         else:
-            return annotation  # Unhandled generic types return as-is
+            # For other generic types, try to reconstruct them
+            try:
+                return origin[resolved_args]
+            except Exception:
+                return annotation  # Unhandled generic types return as-is
 
     # Case 4: Annotation is a non-generic type (e.g., int, str)
     else:
@@ -1480,3 +1573,104 @@ def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
     except Exception:
         pass
     return annotation
+
+
+def _is_subtype(value_type: Type, expected_type: Type) -> bool:
+    """Check if a type is a subtype of another type, handling special cases.
+    
+    Args:
+        value_type (Type): The type to check
+        expected_type (Type): The expected supertype
+        
+    Returns:
+        bool: True if value_type is a subtype of expected_type
+    """
+    # Handle Any type
+    if expected_type is Any:
+        return True
+        
+    # Handle Union types
+    if get_origin(expected_type) is Union:
+        return any(_is_subtype(value_type, t) for t in get_args(expected_type))
+        
+    # Handle Optional types
+    if get_origin(expected_type) is Optional:
+        return _is_subtype(value_type, get_args(expected_type)[0])
+        
+    # Handle generic types
+    if get_origin(value_type) is not None and get_origin(expected_type) is not None:
+        if get_origin(value_type) != get_origin(expected_type):
+            return False
+        value_args = get_args(value_type)
+        expected_args = get_args(expected_type)
+        return all(_is_subtype(v, e) for v, e in zip(value_args, expected_args))
+        
+    # Handle regular types
+    try:
+        return issubclass(value_type, expected_type)
+    except TypeError:
+        # Handle cases where types are not classes
+        return value_type == expected_type
+
+def _check_type_compatibility(value: Any, expected_type: Type, context: str = "") -> None:
+    """Check if a value is compatible with an expected type.
+    
+    Args:
+        value: The value to check
+        expected_type: The expected type
+        context: Additional context for error messages
+        
+    Raises:
+        TypeParsingError if the value is not compatible with the expected type
+    """
+    value_type = type(value)
+    
+    # Handle generic types
+    if get_origin(expected_type) is not None:
+        # Special case for Config objects
+        if isinstance(value, Config):
+            # Get the target type from the Config object's metadata
+            value_target = value.__fn_or_cls__
+            # Get the expected target type from the generic type
+            expected_target = get_args(expected_type)[0]
+            # Check if the target types are compatible
+            if not _is_subtype(value_target, expected_target):
+                raise TypeParsingError(
+                    f"Type mismatch{context}: expected {expected_type}, got Config[{value_target}]",
+                    str(value),
+                    {"expected_type": expected_type, "actual_type": type(value)}
+                )
+            return
+            
+        if not _is_subtype(value_type, expected_type):
+            raise TypeParsingError(
+                f"Type mismatch{context}: expected {expected_type}, got {value_type}",
+                str(value),
+                {"expected_type": expected_type, "actual_type": value_type}
+            )
+        return
+        
+    # Handle regular types
+    try:
+        if not isinstance(value, expected_type):
+            raise TypeParsingError(
+                f"Type mismatch{context}: expected {expected_type}, got {value_type}",
+                str(value),
+                {"expected_type": expected_type, "actual_type": value_type}
+            )
+    except TypeError:
+        # If isinstance fails, try to check if the value is a Config of the expected type
+        if isinstance(value, Config):
+            value_target = value.__fn_or_cls__
+            if not _is_subtype(value_target, expected_type):
+                raise TypeParsingError(
+                    f"Type mismatch{context}: expected {expected_type}, got Config[{value_target}]",
+                    str(value),
+                    {"expected_type": expected_type, "actual_type": type(value)}
+                )
+        else:
+            raise TypeParsingError(
+                f"Type mismatch{context}: expected {expected_type}, got {value_type}",
+                str(value),
+                {"expected_type": expected_type, "actual_type": value_type}
+            )
