@@ -23,7 +23,7 @@ if pre := Version(__version__).pre:
 else:
     PRE_RELEASE = ""
 
-DEV = Version(__version__).dev
+DEV = 'dev0'
 
 __package_name__ = "nemo_curator"
 __contact_names__ = "NVIDIA"
