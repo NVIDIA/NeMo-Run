@@ -17,7 +17,7 @@ __version__ = "0.3.0rc0.dev0"
 
 MAJOR = Version(__version__).major
 MINOR = Version(__version__).minor
-MINOR = Version(__version__).micro
+PATCH = Version(__version__).micro
 if pre := Version(__version__).pre:
     PRE_RELEASE = "".join(map(str, pre))
 else:
