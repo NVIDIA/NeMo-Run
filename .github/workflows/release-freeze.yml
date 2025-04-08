@@ -21,7 +21,7 @@ on:
         default: true
 jobs:
   code-freeze:
-    uses: NVIDIA/NeMo-FW-CI-templates/.github/workflows/_code_freeze.yml@v0.25.1
+    uses: NVIDIA/NeMo-FW-CI-templates/.github/workflows/_code_freeze.yml@v0.25.2
     with:
       library-name: NeMo Run
       python-package: nemo_run
