@@ -114,7 +114,7 @@ class DGXCloudExecutor(Executor):
             # Encode the tarball data to base64
             encoded_data = base64.b64encode(file_data).decode("utf-8")
 
-            # Delete and recreate directory if it exists already, command to decode base64 data, save to a file, and extract inside the pod
+            # Delete and recreate directory if it already exists, command to decode base64 data, save to a file, and extract inside the pod
             cmd = f"rm -rf {dest_path} && mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
             return cmd
 
@@ -122,7 +122,7 @@ class DGXCloudExecutor(Executor):
         self, token: str, project_id: str, cluster_id: str, name: str
     ):
         """
-        Creates an cpu only workload to move project directory into PVC using the provided project/cluster IDs.
+        Creates an cpu only workload to move job directory into PVC using the provided project/cluster IDs.
         """
 
         cmd=self.copy_directory_data_command(self.job_dir, self.pvc_job_dir)
@@ -353,8 +353,8 @@ cd /nemo_run/code
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
         
-        ## setting linked PVC experiment and job directories 
-        job_subdir = self.job_dir[len(get_nemorun_home())+1:] #+1 to remove the initial backslash
+        # setting linked PVC job directory
+        job_subdir = self.job_dir[len(get_nemorun_home())+1:] # +1 to remove the initial backslash
         self.pvc_job_dir = os.path.join(self.pvc_nemo_run_dir, job_subdir)
 
         logger.info(
