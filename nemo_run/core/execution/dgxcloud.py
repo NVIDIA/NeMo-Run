@@ -96,30 +96,23 @@ class DGXCloudExecutor(Executor):
                 break
         return project_id, cluster_id
 
-    def copy_directory_data_command(self, local_dir_path, dest_path):
-        # Create a temporary directory to hold the tarball
-        directory_name=os.path.basename(local_dir_path)
-
+    def copy_directory_data_command(self, local_dir_path, dest_path) -> str:
         with tempfile.TemporaryDirectory() as temp_dir:
 
             tarball_path = os.path.join(temp_dir, "archive.tar.gz")
-
-            # Create a tarball of the directory
             subprocess.run(f"tar -czf {tarball_path} -C {local_dir_path} .", shell=True, check=True)
-
-            # Read the tarball
             with open(tarball_path, "rb") as file:
                 file_data = file.read()
-
-            # Encode the tarball data to base64
             encoded_data = base64.b64encode(file_data).decode("utf-8")
 
             # Delete and recreate directory if it already exists, command to decode base64 data, save to a file, and extract inside the pod
             cmd = f"rm -rf {dest_path} && mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
             return cmd
 
+        raise RuntimeError(f"Failed to generate data movement command")
+
     def create_data_mover_workload(
-        self, token: str, project_id: str, cluster_id: str, name: str
+        self, token: str, project_id: str, cluster_id: str
     ):
         """
         Creates an cpu only workload to move job directory into PVC using the provided project/cluster IDs.
@@ -131,7 +124,7 @@ class DGXCloudExecutor(Executor):
         headers = self._default_headers(token=token)
 
         payload = {
-            "name": name,
+            "name": "data-mover",
             "useGivenNameAsPrefix": True,
             "projectId": project_id,
             "clusterId": cluster_id,
@@ -153,34 +146,9 @@ class DGXCloudExecutor(Executor):
 
         return response
 
-    def workload_completed(
-            self, token: str, workload_id: str
-    ):
-        """
-        Checks the status of the interactive workload
-        """
-
-        url = f"{self.base_url}/workloads/{workload_id}"
-        headers = self._default_headers(token=token)
-
-        response = requests.get(url, headers=headers)
-
-        if response.status_code not in [200, 202]:
-            raise RuntimeError(f"Failed to get workload status, status_code={response.status_code}")
-
-        phase = response.json()["phase"]
-
-        if phase == "Completed":
-            return True
-        else:
-            return False
-
     def delete_workload(
             self, token: str, workload_id: str, sleep: int = 10
     ):
-        while not self.workload_completed(token, workload_id):
-            time.sleep(sleep)
-
         url = f"{self.base_url}/workloads/workspaces/{workload_id}"
         headers = self._default_headers(token=token)
 
@@ -192,6 +160,43 @@ class DGXCloudExecutor(Executor):
             response.text.strip(),
         )
         return response
+    
+    def move_data(
+            self, token: str, project_id: str, cluster_id: str, sleep: float = 10
+    ) -> None:
+        """
+            Moves job directory into PVC and deletes the workload after completion
+        """
+
+        resp = self.create_data_mover_workload(token, project_id, cluster_id)
+        if resp.status_code not in [200, 202]:
+            raise RuntimeError(f"Failed to create data mover workload, status_code={resp.status_code}")
+
+        resp_json = resp.json()
+        workload_id = resp_json["workloadId"]
+        status = DGXCloudState(resp_json["actualPhase"])
+
+        while status is DGXCloudState.PENDING or status is DGXCloudState.CREATING or status is DGXCloudState.INITIALIZING or status is DGXCloudState.RUNNING:
+            time.sleep(sleep)
+            status=self.status(workload_id)
+
+        if status is not DGXCloudState.COMPLETED:
+            raise RuntimeError(f"Failed to move data to PVC")
+
+        resp = self.delete_workload(token, workload_id)
+        if resp.status_code >= 200 and resp.status_code < 300:
+            logger.info(
+                "Successfully deleted data movement workload %s on DGXCloud with response code %d",
+                workload_id,
+                resp.status_code,
+            )
+        else:
+            logger.error(
+                "Failed to delete data movement workload %s, response code=%d, reason=%s",
+                workload_id,
+                resp.status_code,
+                resp.text,
+            )
 
     def create_distributed_job(
         self, token: str, project_id: str, cluster_id: str, name: str
@@ -199,6 +204,7 @@ class DGXCloudExecutor(Executor):
         """
         Creates a distributed PyTorch job using the provided project/cluster IDs.
         """
+
         url = f"{self.base_url}/workloads/distributed"
         headers = self._default_headers(token=token)
 
@@ -251,34 +257,17 @@ cd /nemo_run/code
             f.write(launch_script)
 
         logger.info("Creating data movement workload")
-        resp = self.create_data_mover_workload(token, project_id, cluster_id, "data-mover")
-        if resp.status_code not in [200, 202]:
-            raise RuntimeError(f"Failed to copy data to PVC, status_code={resp.status_code}")
+        self.move_data(token, project_id, cluster_id)
+        return "", ""
 
-        workload_id= resp.json()["workloadId"]
-        resp = self.delete_workload(token, workload_id)
-        if resp.status_code >= 200 and resp.status_code < 300:
-            logger.info(
-                "Successfully delete data movement workload %s on DGX with response code %d",
-                workload_id,
-                resp.status_code,
-            )
-        else:
-            logger.error(
-                "Failed to delete data movement workload %s, response code=%d, reason=%s",
-                workload_id,
-                resp.status_code,
-                resp.text,
-            )
+        # logger.info("Creating distributed workload")
+        # resp = self.create_distributed_job(token, project_id, cluster_id, name)
+        # if resp.status_code not in [200, 202]:
+        #     raise RuntimeError(f"Failed to create job, status_code={resp.status_code}")
 
-        logger.info("Creating distributed workload")
-        resp = self.create_distributed_job(token, project_id, cluster_id, name)
-        if resp.status_code not in [200, 202]:
-            raise RuntimeError(f"Failed to create job, status_code={resp.status_code}")
-
-        r_json = resp.json()
-        job_id = r_json["workloadId"]
-        status = r_json["actualPhase"]
+        # r_json = resp.json()
+        # job_id = r_json["workloadId"]
+        # status = r_json["actualPhase"]
         return job_id, status
 
     def nnodes(self) -> int:
@@ -294,10 +283,10 @@ cd /nemo_run/code
         return 1
 
     def status(self, job_id: str) -> Optional[DGXCloudState]:
-        url = f"{self.base_url}/workloads/distributed/{job_id}"
+        url = f"{self.base_url}/workloads/{job_id}"
         token = self.get_auth_token()
         if not token:
-            logger.error("Failed to retrieve auth token for cancellation request.")
+            logger.error("Failed to retrieve auth token for status request.")
             return None
 
         headers = self._default_headers(token=token)
@@ -306,7 +295,7 @@ cd /nemo_run/code
             return DGXCloudState("Unknown")
 
         r_json = response.json()
-        return DGXCloudState(r_json["actualPhase"])
+        return DGXCloudState(r_json["phase"])
 
     def cancel(self, job_id: str):
         # Retrieve the authentication token for the REST calls
@@ -377,7 +366,6 @@ cd /nemo_run/code
                     name,
                 )
             )
-
         return filenames
 
     def package(self, packager: Packager, job_name: str):
