@@ -16,6 +16,7 @@ from invoke.context import Context
 from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
+from nemo_run.config import get_nemorun_home
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,8 @@ class DGXCloudExecutor(Executor):
     nodes: int = 1
     gpus_per_node: int = 0
     nprocs_per_node: int = 1
+    pvc_nemo_run_dir: str
+    pvc_job_dir: str = field(init=False, default="")
     pvcs: list[dict[str, Any]] = field(default_factory=list)
     distributed_framework: str = "PyTorch"
     custom_spec: dict[str, Any] = field(default_factory=dict)
@@ -93,14 +96,10 @@ class DGXCloudExecutor(Executor):
                 break
         return project_id, cluster_id
 
-    def copy_directory_command(self):
-        # Local directory path to copy
-        local_dir_path = "/home/roclark/.nemo_run/experiments/nemo.collections.llm.api.pretrain/nemo.collections.llm.api.pretrain_1743621953"
-
-        # Destination path inside the pod
-        dest_path = self.job_dir
-
+    def copy_directory_data_command(self, local_dir_path, dest_path):
         # Create a temporary directory to hold the tarball
+        directory_name=os.path.basename(local_dir_path)
+
         with tempfile.TemporaryDirectory() as temp_dir:
 
             tarball_path = os.path.join(temp_dir, "archive.tar.gz")
@@ -115,18 +114,19 @@ class DGXCloudExecutor(Executor):
             # Encode the tarball data to base64
             encoded_data = base64.b64encode(file_data).decode("utf-8")
 
-            # Command to decode base64 data, save to a file, and extract inside the pod
-            cmd = f"mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
+            # Delete and recreate directory if it exists already, command to decode base64 data, save to a file, and extract inside the pod
+            cmd = f"rm -rf {dest_path} && mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
             return cmd
 
-
     def create_data_mover_workload(
-        self, token: str, project_id: str, cluster_id: str, name: str, cmd: list[str]
+        self, token: str, project_id: str, cluster_id: str, name: str
     ):
         """
-        Creates an cpu only workload to move data into PVC using the provided project/cluster IDs.
+        Creates an cpu only workload to move project directory into PVC using the provided project/cluster IDs.
         """
-        headers = self._default_headers(token=token)
+
+        cmd=self.copy_directory_data_command(self.job_dir, self.pvc_job_dir)
+
         url = f"{self.base_url}/workloads/workspaces"
         headers = self._default_headers(token=token)
 
@@ -176,12 +176,12 @@ class DGXCloudExecutor(Executor):
             return False
 
     def delete_workload(
-            self, token: str, workload_id: str
+            self, token: str, workload_id: str, sleep: int = 10
     ):
         while not self.workload_completed(token, workload_id):
-            time.sleep(10)
+            time.sleep(sleep)
 
-        url = f"{self.base_url}/workloads/{workload_id}"
+        url = f"{self.base_url}/workloads/workspaces/{workload_id}"
         headers = self._default_headers(token=token)
 
         response = requests.delete(url, headers=headers)
@@ -194,21 +194,13 @@ class DGXCloudExecutor(Executor):
         return response
 
     def create_distributed_job(
-        self, token: str, project_id: str, cluster_id: str, name: str, cmd: list[str]
+        self, token: str, project_id: str, cluster_id: str, name: str
     ):
         """
         Creates a distributed PyTorch job using the provided project/cluster IDs.
         """
         url = f"{self.base_url}/workloads/distributed"
         headers = self._default_headers(token=token)
-        ##do we need to include this as a script? this could be in the command instead
-        launch_script = f"""
-ln -s {self.job_dir} /nemo_run
-cd /nemo_run/code
-{" ".join(cmd)}
-"""
-        with open(os.path.join(self.job_dir, "launch_script.sh"), "w+") as f:
-            f.write(launch_script)
 
         payload = {
             "name": name,
@@ -216,7 +208,7 @@ cd /nemo_run/code
             "projectId": project_id,
             "clusterId": cluster_id,
             "spec": {
-                "command": f"/bin/bash {self.job_dir}/launch_script.sh",
+                "command": f"/bin/bash {self.pvc_job_dir}/launch_script.sh",
                 "image": self.container_image,
                 "distributedFramework": self.distributed_framework,
                 "minReplicas": self.nodes,
@@ -248,8 +240,39 @@ cd /nemo_run/code
         project_id, cluster_id = self.get_project_and_cluster_id(token)
         if not project_id or not cluster_id:
             raise RuntimeError("Unable to determine project/cluster IDs for job submission")
+        
+        #prepare launch script and move data to PVC 
+        launch_script = f"""
+ln -s {self.pvc_job_dir}/ /nemo_run
+cd /nemo_run/code
+{" ".join(cmd)}
+"""
+        with open(os.path.join(self.job_dir, "launch_script.sh"), "w+") as f:
+            f.write(launch_script)
 
-        resp = self.create_distributed_job(token, project_id, cluster_id, name, cmd)
+        logger.info("Creating data movement workload")
+        resp = self.create_data_mover_workload(token, project_id, cluster_id, "data-mover")
+        if resp.status_code not in [200, 202]:
+            raise RuntimeError(f"Failed to copy data to PVC, status_code={resp.status_code}")
+
+        workload_id= resp.json()["workloadId"]
+        resp = self.delete_workload(token, workload_id)
+        if resp.status_code >= 200 and resp.status_code < 300:
+            logger.info(
+                "Successfully delete data movement workload %s on DGX with response code %d",
+                workload_id,
+                resp.status_code,
+            )
+        else:
+            logger.error(
+                "Failed to delete data movement workload %s, response code=%d, reason=%s",
+                workload_id,
+                resp.status_code,
+                resp.text,
+            )
+
+        logger.info("Creating distributed workload")
+        resp = self.create_distributed_job(token, project_id, cluster_id, name)
         if resp.status_code not in [200, 202]:
             raise RuntimeError(f"Failed to create job, status_code={resp.status_code}")
 
@@ -329,21 +352,33 @@ cd /nemo_run/code
         self.job_name = task_id
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
+        
+        ## setting linked PVC experiment and job directories 
+        job_subdir = self.job_dir[len(get_nemorun_home())+1:] #+1 to remove the initial backslash
+        self.pvc_job_dir = os.path.join(self.pvc_nemo_run_dir, job_subdir)
+
+        logger.info(
+                "PVC job directory set as:  %s",
+                self.pvc_job_dir,
+            )
         self.experiment_id = exp_id
 
-        ## TODO: need to figure out how to track location of data in PVC and in the local environment 
-
-        assert any(
-            map(
-                lambda x: os.path.commonpath(
-                    [os.path.abspath(x["path"]), os.path.abspath(self.job_dir)]
+    def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
+        filenames = []
+        basepath = os.path.join(self.job_dir, "configs")
+        for name, cfg in cfgs:
+            filename = os.path.join(basepath, name)
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            with open(filename, "w") as f:
+                f.write(cfg)
+            filenames.append(
+                os.path.join(
+                    "/nemo_run/configs",
+                    name,
                 )
-                == os.path.abspath(x["path"]),
-                self.pvcs,
             )
-        ), (
-            f"Need to specify atleast one PVC containing {self.job_dir}.\nTo update job dir to a PVC path, you can use set_nemorun_home() or the NEMORUN_HOME env var."
-        )
+
+        return filenames
 
     def package(self, packager: Packager, job_name: str):
         assert self.experiment_id, "Executor not assigned to an experiment."
