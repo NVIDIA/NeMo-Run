@@ -13,6 +13,7 @@ from nemo_run.core.execution.utils import fill_template
 class Launcher(ConfigurableMixin):
     nsys_profile: bool = False
     nsys_folder: str = "nsys_profile"
+    nsys_filename: str = "profile_%p"
     nsys_trace: list[str] = field(default_factory=lambda: ["nvtx", "cuda"])
     nsys_extra_args: list[str] = field(
         default_factory=lambda: [
@@ -35,7 +36,7 @@ class Launcher(ConfigurableMixin):
                 "-t",
                 ",".join(self.nsys_trace),
                 "-o",
-                f"{profile_out_path}/profile_%p",
+                f"{profile_out_path}/{self.nsys_filename}",
             ] + self.nsys_extra_args
             return args
 
