@@ -258,16 +258,15 @@ cd /nemo_run/code
 
         logger.info("Creating data movement workload")
         self.move_data(token, project_id, cluster_id)
-        return "", ""
 
-        # logger.info("Creating distributed workload")
-        # resp = self.create_distributed_job(token, project_id, cluster_id, name)
-        # if resp.status_code not in [200, 202]:
-        #     raise RuntimeError(f"Failed to create job, status_code={resp.status_code}")
+        logger.info("Creating distributed workload")
+        resp = self.create_distributed_job(token, project_id, cluster_id, name)
+        if resp.status_code not in [200, 202]:
+            raise RuntimeError(f"Failed to create job, status_code={resp.status_code}")
 
-        # r_json = resp.json()
-        # job_id = r_json["workloadId"]
-        # status = r_json["actualPhase"]
+        r_json = resp.json()
+        job_id = r_json["workloadId"]
+        status = r_json["actualPhase"]
         return job_id, status
 
     def nnodes(self) -> int:
