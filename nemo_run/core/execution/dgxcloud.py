@@ -98,7 +98,6 @@ class DGXCloudExecutor(Executor):
 
     def copy_directory_data_command(self, local_dir_path, dest_path) -> str:
         with tempfile.TemporaryDirectory() as temp_dir:
-
             tarball_path = os.path.join(temp_dir, "archive.tar.gz")
             subprocess.run(f"tar -czf {tarball_path} -C {local_dir_path} .", shell=True, check=True)
             with open(tarball_path, "rb") as file:
@@ -109,16 +108,14 @@ class DGXCloudExecutor(Executor):
             cmd = f"rm -rf {dest_path} && mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
             return cmd
 
-        raise RuntimeError(f"Failed to generate data movement command")
+        raise RuntimeError("Failed to generate data movement command")
 
-    def create_data_mover_workload(
-        self, token: str, project_id: str, cluster_id: str
-    ):
+    def create_data_mover_workload(self, token: str, project_id: str, cluster_id: str):
         """
         Creates an cpu only workload to move job directory into PVC using the provided project/cluster IDs.
         """
 
-        cmd=self.copy_directory_data_command(self.job_dir, self.pvc_job_dir)
+        cmd = self.copy_directory_data_command(self.job_dir, self.pvc_job_dir)
 
         url = f"{self.base_url}/workloads/workspaces"
         headers = self._default_headers(token=token)
@@ -133,7 +130,7 @@ class DGXCloudExecutor(Executor):
                 "args": f"'{cmd}'",
                 "image": "busybox:1.37.0",
                 "storage": {"pvc": self.pvcs},
-            }
+            },
         }
 
         response = requests.post(url, json=payload, headers=headers)
@@ -146,9 +143,7 @@ class DGXCloudExecutor(Executor):
 
         return response
 
-    def delete_workload(
-            self, token: str, workload_id: str, sleep: int = 10
-    ):
+    def delete_workload(self, token: str, workload_id: str, sleep: int = 10):
         url = f"{self.base_url}/workloads/workspaces/{workload_id}"
         headers = self._default_headers(token=token)
 
@@ -160,28 +155,33 @@ class DGXCloudExecutor(Executor):
             response.text.strip(),
         )
         return response
-    
-    def move_data(
-            self, token: str, project_id: str, cluster_id: str, sleep: float = 10
-    ) -> None:
+
+    def move_data(self, token: str, project_id: str, cluster_id: str, sleep: float = 10) -> None:
         """
-            Moves job directory into PVC and deletes the workload after completion
+        Moves job directory into PVC and deletes the workload after completion
         """
 
         resp = self.create_data_mover_workload(token, project_id, cluster_id)
         if resp.status_code not in [200, 202]:
-            raise RuntimeError(f"Failed to create data mover workload, status_code={resp.status_code}")
+            raise RuntimeError(
+                f"Failed to create data mover workload, status_code={resp.status_code}"
+            )
 
         resp_json = resp.json()
         workload_id = resp_json["workloadId"]
         status = DGXCloudState(resp_json["actualPhase"])
 
-        while status is DGXCloudState.PENDING or status is DGXCloudState.CREATING or status is DGXCloudState.INITIALIZING or status is DGXCloudState.RUNNING:
+        while (
+            status is DGXCloudState.PENDING
+            or status is DGXCloudState.CREATING
+            or status is DGXCloudState.INITIALIZING
+            or status is DGXCloudState.RUNNING
+        ):
             time.sleep(sleep)
-            status=self.status(workload_id)
+            status = self.status(workload_id)
 
         if status is not DGXCloudState.COMPLETED:
-            raise RuntimeError(f"Failed to move data to PVC")
+            raise RuntimeError("Failed to move data to PVC")
 
         resp = self.delete_workload(token, workload_id)
         if resp.status_code >= 200 and resp.status_code < 300:
@@ -198,9 +198,7 @@ class DGXCloudExecutor(Executor):
                 resp.text,
             )
 
-    def create_distributed_job(
-        self, token: str, project_id: str, cluster_id: str, name: str
-    ):
+    def create_distributed_job(self, token: str, project_id: str, cluster_id: str, name: str):
         """
         Creates a distributed PyTorch job using the provided project/cluster IDs.
         """
@@ -246,8 +244,8 @@ class DGXCloudExecutor(Executor):
         project_id, cluster_id = self.get_project_and_cluster_id(token)
         if not project_id or not cluster_id:
             raise RuntimeError("Unable to determine project/cluster IDs for job submission")
-        
-        #prepare launch script and move data to PVC 
+
+        # prepare launch script and move data to PVC
         launch_script = f"""
 ln -s {self.pvc_job_dir}/ /nemo_run
 cd /nemo_run/code
@@ -340,15 +338,28 @@ cd /nemo_run/code
         self.job_name = task_id
         self.experiment_dir = exp_dir
         self.job_dir = os.path.join(exp_dir, task_dir)
-        
+        assert any(
+            map(
+                lambda x: os.path.commonpath(
+                    [os.path.abspath(x["path"]), os.path.abspath(self.pvc_nemo_run_dir)]
+                )
+                == os.path.abspath(x["path"]),
+                self.pvcs,
+            )
+        ), (
+            f"Need to specify atleast one PVC containing {self.pvc_nemo_run_dir}. Update your PVC path or pvc_nemo_run_dir."
+        )
+
         # setting linked PVC job directory
-        job_subdir = self.job_dir[len(get_nemorun_home())+1:] # +1 to remove the initial backslash
+        job_subdir = self.job_dir[
+            len(get_nemorun_home()) + 1 :
+        ]  # +1 to remove the initial backslash
         self.pvc_job_dir = os.path.join(self.pvc_nemo_run_dir, job_subdir)
 
         logger.info(
-                "PVC job directory set as:  %s",
-                self.pvc_job_dir,
-            )
+            "PVC job directory set as:  %s",
+            self.pvc_job_dir,
+        )
         self.experiment_id = exp_id
 
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
