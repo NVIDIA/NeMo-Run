@@ -22,7 +22,7 @@ import pytest
 
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
 from nemo_run.core.packaging.git import GitArchivePackager
-
+from nemo_run.config import set_nemorun_home
 
 class TestDGXCloudExecutor:
     def test_init(self):
@@ -34,6 +34,7 @@ class TestDGXCloudExecutor:
             container_image="nvcr.io/nvidia/test:latest",
             nodes=2,
             gpus_per_node=8,
+            pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "/workspace", "claimName": "test-claim"}],
         )
 
@@ -46,6 +47,7 @@ class TestDGXCloudExecutor:
         assert executor.gpus_per_node == 8
         assert executor.pvcs == [{"path": "/workspace", "claimName": "test-claim"}]
         assert executor.distributed_framework == "PyTorch"
+        assert executor.pvc_nemo_run_dir == "/workspace/nemo_run"
 
     @patch("requests.post")
     def test_get_auth_token_success(self, mock_post):
@@ -59,6 +61,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         token = executor.get_auth_token()
@@ -86,6 +89,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         token = executor.get_auth_token()
@@ -104,6 +108,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         project_id, cluster_id = executor.get_project_and_cluster_id("test_token")
@@ -129,6 +134,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         project_id, cluster_id = executor.get_project_and_cluster_id("test_token")
@@ -143,50 +149,50 @@ class TestDGXCloudExecutor:
         mock_response.text = '{"status": "submitted"}'
         mock_post.return_value = mock_response
 
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            executor = DGXCloudExecutor(
-                base_url="https://dgxapi.example.com",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
-                project_name="test_project",
-                container_image="nvcr.io/nvidia/test:latest",
-                nodes=2,
-                gpus_per_node=8,
-                pvcs=[{"path": tmp_dir, "claimName": "test-claim"}],
-            )
-            executor.job_dir = tmp_dir
-            executor.env_vars = {"TEST_VAR": "test_value"}
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            nodes=2,
+            gpus_per_node=8,
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+        executor.pvc_job_dir= "/workspace/nemo_run/job_dir"
+        executor.env_vars = {"TEST_VAR": "test_value"}
 
-            response = executor.create_distributed_job(
-                token="test_token",
-                project_id="proj_id",
-                cluster_id="cluster_id",
-                name="test_job",
-                cmd=["python", "train.py"],
-            )
+        response = executor.create_distributed_job(
+            token="test_token",
+            project_id="proj_id",
+            cluster_id="cluster_id",
+            name="test_job",
+        )
 
-            assert response == mock_response
-            assert os.path.exists(os.path.join(tmp_dir, "launch_script.sh"))
+        assert response == mock_response
 
-            # Check if the API call is made correctly
-            mock_post.assert_called_once()
-            # The URL is the first argument to post
-            args, kwargs = mock_post.call_args
-            assert kwargs["json"]["name"] == "test_job"
-            assert kwargs["json"]["projectId"] == "proj_id"
-            assert kwargs["json"]["clusterId"] == "cluster_id"
-            assert kwargs["json"]["spec"]["image"] == "nvcr.io/nvidia/test:latest"
-            assert kwargs["json"]["spec"]["numWorkers"] == 2
-            assert kwargs["json"]["spec"]["compute"]["gpuDevicesRequest"] == 8
-            assert kwargs["json"]["spec"]["environmentVariables"] == [
-                {"name": "TEST_VAR", "value": "test_value"}
-            ]
-            assert kwargs["headers"] == executor._default_headers(token="test_token")
+        # Check if the API call is made correctly
+        mock_post.assert_called_once()
+        # The URL is the first argument to post
+        args, kwargs = mock_post.call_args
+        assert kwargs["json"]["name"] == "test_job"
+        assert kwargs["json"]["projectId"] == "proj_id"
+        assert kwargs["json"]["clusterId"] == "cluster_id"
+        assert kwargs["json"]["spec"]["image"] == "nvcr.io/nvidia/test:latest"
+        assert kwargs["json"]["spec"]["command"] == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
+        assert kwargs["json"]["spec"]["numWorkers"] == 2
+        assert kwargs["json"]["spec"]["compute"]["gpuDevicesRequest"] == 8
+        assert kwargs["json"]["spec"]["environmentVariables"] == [
+            {"name": "TEST_VAR", "value": "test_value"}
+        ]
+        assert kwargs["headers"] == executor._default_headers(token="test_token")
 
     @patch.object(DGXCloudExecutor, "get_auth_token")
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
+    @patch.object(DGXCloudExecutor, "move_data")
     @patch.object(DGXCloudExecutor, "create_distributed_job")
-    def test_launch_success(self, mock_create_job, mock_get_ids, mock_get_token):
+    def test_launch_success(self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token):
         mock_get_token.return_value = "test_token"
         mock_get_ids.return_value = ("proj_id", "cluster_id")
 
@@ -195,23 +201,28 @@ class TestDGXCloudExecutor:
         mock_response.json.return_value = {"workloadId": "job123", "actualPhase": "Pending"}
         mock_create_job.return_value = mock_response
 
-        executor = DGXCloudExecutor(
-            base_url="https://dgxapi.example.com",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
-            project_name="test_project",
-            container_image="nvcr.io/nvidia/test:latest",
-        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+            )
+            executor.job_dir = tmp_dir
 
-        job_id, status = executor.launch("test_job", ["python", "train.py"])
+            job_id, status = executor.launch("test_job", ["python", "train.py"])
 
-        assert job_id == "job123"
-        assert status == "Pending"
-        mock_get_token.assert_called_once()
-        mock_get_ids.assert_called_once_with("test_token")
-        mock_create_job.assert_called_once_with(
-            "test_token", "proj_id", "cluster_id", "test-job", ["python", "train.py"]
-        )
+            assert job_id == "job123"
+            assert status == "Pending"
+            assert os.path.exists(os.path.join(tmp_dir, "launch_script.sh"))
+            mock_get_token.assert_called_once()
+            mock_get_ids.assert_called_once_with("test_token")
+            mock_move_data.assert_called_once_with("test_token", "proj_id", "cluster_id")
+            mock_create_job.assert_called_once_with(
+                "test_token", "proj_id", "cluster_id", "test-job"
+            )
 
     @patch.object(DGXCloudExecutor, "get_auth_token")
     def test_launch_no_token(self, mock_get_token):
@@ -223,6 +234,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         with pytest.raises(RuntimeError, match="Failed to get auth token"):
@@ -240,6 +252,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         with pytest.raises(RuntimeError, match="Unable to determine project/cluster IDs"):
@@ -247,25 +260,29 @@ class TestDGXCloudExecutor:
 
     @patch.object(DGXCloudExecutor, "get_auth_token")
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
+    @patch.object(DGXCloudExecutor, "move_data")
     @patch.object(DGXCloudExecutor, "create_distributed_job")
-    def test_launch_job_creation_failed(self, mock_create_job, mock_get_ids, mock_get_token):
+    def test_launch_job_creation_failed(self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token):
         mock_get_token.return_value = "test_token"
         mock_get_ids.return_value = ("proj_id", "cluster_id")
 
         mock_response = MagicMock()
         mock_response.status_code = 400
         mock_create_job.return_value = mock_response
+        
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+            )
+            executor.job_dir = tmp_dir
 
-        executor = DGXCloudExecutor(
-            base_url="https://dgxapi.example.com",
-            app_id="test_app_id",
-            app_secret="test_app_secret",
-            project_name="test_project",
-            container_image="nvcr.io/nvidia/test:latest",
-        )
-
-        with pytest.raises(RuntimeError, match="Failed to create job"):
-            executor.launch("test_job", ["python", "train.py"])
+            with pytest.raises(RuntimeError, match="Failed to create job"):
+                executor.launch("test_job", ["python", "train.py"])
 
     def test_nnodes(self):
         executor = DGXCloudExecutor(
@@ -275,6 +292,7 @@ class TestDGXCloudExecutor:
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             nodes=3,
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         assert executor.nnodes() == 3
@@ -287,6 +305,7 @@ class TestDGXCloudExecutor:
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
             gpus_per_node=4,
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         assert executor.nproc_per_node() == 4
@@ -300,6 +319,7 @@ class TestDGXCloudExecutor:
             container_image="nvcr.io/nvidia/test:latest",
             gpus_per_node=0,
             nprocs_per_node=3,
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         assert executor.nproc_per_node() == 3
@@ -313,6 +333,7 @@ class TestDGXCloudExecutor:
             container_image="nvcr.io/nvidia/test:latest",
             gpus_per_node=0,
             nprocs_per_node=0,
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         assert executor.nproc_per_node() == 1
@@ -321,7 +342,7 @@ class TestDGXCloudExecutor:
     def test_status(self, mock_get):
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"actualPhase": "Running"}
+        mock_response.json.return_value = {"phase": "Running"}
         mock_get.return_value = mock_response
 
         with patch.object(DGXCloudExecutor, "get_auth_token", return_value="test_token"):
@@ -331,13 +352,14 @@ class TestDGXCloudExecutor:
                 app_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
             )
 
             status = executor.status("job123")
 
             assert status == DGXCloudState.RUNNING
             mock_get.assert_called_once_with(
-                "https://dgxapi.example.com/workloads/distributed/job123",
+                "https://dgxapi.example.com/workloads/job123",
                 headers=executor._default_headers(token="test_token"),
             )
 
@@ -350,6 +372,7 @@ class TestDGXCloudExecutor:
                 app_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
             )
 
             status = executor.status("job123")
@@ -370,6 +393,7 @@ class TestDGXCloudExecutor:
                 app_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
             )
 
             status = executor.status("job123")
@@ -389,6 +413,7 @@ class TestDGXCloudExecutor:
                 app_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
             )
 
             executor.cancel("job123")
@@ -407,6 +432,7 @@ class TestDGXCloudExecutor:
                 app_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
             )
 
             executor.cancel("job123")
@@ -420,28 +446,33 @@ class TestDGXCloudExecutor:
             assert "Logs not available" in mock_warning.call_args[0][0]
 
     def test_assign(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            executor = DGXCloudExecutor(
-                base_url="https://dgxapi.example.com",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
-                project_name="test_project",
-                container_image="nvcr.io/nvidia/test:latest",
-                pvcs=[{"path": tmp_dir, "claimName": "test-claim"}],
-            )
 
-            task_dir = "test_task"
-            executor.assign(
-                exp_id="test_exp",
-                exp_dir=tmp_dir,
-                task_id="test_task",
-                task_dir=task_dir,
-            )
+        set_nemorun_home("/nemo_home")
 
-            assert executor.job_name == "test_task"
-            assert executor.experiment_dir == tmp_dir
-            assert executor.job_dir == os.path.join(tmp_dir, task_dir)
-            assert executor.experiment_id == "test_exp"
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir=f"/workspace/nemo_run",
+            pvcs=[{"path": "/workspace", "claimName": "test-claim"}],
+        )
+
+        task_dir = "test_task"
+        exp_dir= f"/nemo_home/experiments/experiment"
+        executor.assign(
+            exp_id="test_exp",
+            exp_dir=exp_dir,
+            task_id="test_task",
+            task_dir=task_dir,
+        )
+
+        assert executor.job_name == "test_task"
+        assert executor.experiment_dir == exp_dir
+        assert executor.job_dir == os.path.join(exp_dir, task_dir)
+        assert executor.pvc_job_dir == os.path.join("/workspace/nemo_run/experiments/experiment", task_dir)
+        assert executor.experiment_id == "test_exp"
 
     def test_assign_no_pvc(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -451,10 +482,11 @@ class TestDGXCloudExecutor:
                 app_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
                 pvcs=[{"path": "/other/path", "claimName": "test-claim"}],
             )
 
-            with pytest.raises(AssertionError, match="Need to specify atleast one PVC"):
+            with pytest.raises(AssertionError, match="Need to specify at least one PVC"):
                 executor.assign(
                     exp_id="test_exp",
                     exp_dir=tmp_dir,
@@ -480,6 +512,7 @@ class TestDGXCloudExecutor:
                 app_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
                 pvcs=[{"path": tmp_dir, "claimName": "test-claim"}],
             )
             executor.experiment_id = "test_exp"
@@ -505,6 +538,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         result = executor.macro_values()
@@ -518,6 +552,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         headers = executor._default_headers()
@@ -533,6 +568,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         headers = executor._default_headers(token="test_token")

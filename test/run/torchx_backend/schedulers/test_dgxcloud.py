@@ -42,6 +42,7 @@ def dgx_cloud_executor():
         app_secret="test_secret",
         project_name="test_project",
         container_image="nvcr.io/nvidia/test:latest",
+        pvc_nemo_run_dir="/workspace/nemo_run",
         job_dir=tempfile.mkdtemp(),
     )
 
@@ -151,6 +152,7 @@ def test_save_and_get_job_dirs():
             project_name="test_project",
             container_image="test:latest",
             job_dir=temp_dir,
+            pvc_nemo_run_dir="/workspace/nemo_run",
         )
 
         _save_job_dir("test_app_id", "RUNNING", executor)
