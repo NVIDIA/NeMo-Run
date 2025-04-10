@@ -54,10 +54,10 @@ class DGXCloudExecutor(Executor):
     app_secret: str
     project_name: str
     container_image: str
+    pvc_nemo_run_dir: str
     nodes: int = 1
     gpus_per_node: int = 0
     nprocs_per_node: int = 1
-    pvc_nemo_run_dir: str
     pvc_job_dir: str = field(init=False, default="")
     pvcs: list[dict[str, Any]] = field(default_factory=list)
     distributed_framework: str = "PyTorch"
@@ -112,7 +112,7 @@ class DGXCloudExecutor(Executor):
 
     def create_data_mover_workload(self, token: str, project_id: str, cluster_id: str):
         """
-        Creates an cpu only workload to move job directory into PVC using the provided project/cluster IDs.
+        Creates a CPU only workload to move job directory into PVC using the provided project/cluster IDs.
         """
 
         cmd = self.copy_directory_data_command(self.job_dir, self.pvc_job_dir)
@@ -143,7 +143,7 @@ class DGXCloudExecutor(Executor):
 
         return response
 
-    def delete_workload(self, token: str, workload_id: str, sleep: int = 10):
+    def delete_workload(self, token: str, workload_id: str):
         url = f"{self.base_url}/workloads/workspaces/{workload_id}"
         headers = self._default_headers(token=token)
 
@@ -171,12 +171,7 @@ class DGXCloudExecutor(Executor):
         workload_id = resp_json["workloadId"]
         status = DGXCloudState(resp_json["actualPhase"])
 
-        while (
-            status is DGXCloudState.PENDING
-            or status is DGXCloudState.CREATING
-            or status is DGXCloudState.INITIALIZING
-            or status is DGXCloudState.RUNNING
-        ):
+        while status in [DGXCloudState.PENDING, DGXCloudState.CREATING, DGXCloudState.INITIALIZING, DGXCloudState.RUNNING]:
             time.sleep(sleep)
             status = self.status(workload_id)
 
@@ -347,12 +342,13 @@ cd /nemo_run/code
                 self.pvcs,
             )
         ), (
-            f"Need to specify atleast one PVC containing {self.pvc_nemo_run_dir}. Update your PVC path or pvc_nemo_run_dir."
+            f"Need to specify at least one PVC containing {self.pvc_nemo_run_dir}. Update your PVC path or pvc_nemo_run_dir."
         )
 
         # setting linked PVC job directory
+        nemo_run_home = get_nemorun_home()
         job_subdir = self.job_dir[
-            len(get_nemorun_home()) + 1 :
+            len(nemo_run_home) + 1 :
         ]  # +1 to remove the initial backslash
         self.pvc_job_dir = os.path.join(self.pvc_nemo_run_dir, job_subdir)
 
