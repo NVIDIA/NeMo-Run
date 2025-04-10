@@ -96,7 +96,7 @@ class DGXCloudExecutor(Executor):
                 break
         return project_id, cluster_id
 
-    def copy_directory_data_command(self, local_dir_path, dest_path) -> str:
+    def copy_directory_data_command(self, local_dir_path: str, dest_path: str) -> str:
         with tempfile.TemporaryDirectory() as temp_dir:
             tarball_path = os.path.join(temp_dir, "archive.tar.gz")
             subprocess.run(f"tar -czf {tarball_path} -C {local_dir_path} .", shell=True, check=True)
@@ -171,7 +171,12 @@ class DGXCloudExecutor(Executor):
         workload_id = resp_json["workloadId"]
         status = DGXCloudState(resp_json["actualPhase"])
 
-        while status in [DGXCloudState.PENDING, DGXCloudState.CREATING, DGXCloudState.INITIALIZING, DGXCloudState.RUNNING]:
+        while status in [
+            DGXCloudState.PENDING,
+            DGXCloudState.CREATING,
+            DGXCloudState.INITIALIZING,
+            DGXCloudState.RUNNING,
+        ]:
             time.sleep(sleep)
             status = self.status(workload_id)
 
@@ -347,9 +352,7 @@ cd /nemo_run/code
 
         # setting linked PVC job directory
         nemo_run_home = get_nemorun_home()
-        job_subdir = self.job_dir[
-            len(nemo_run_home) + 1 :
-        ]  # +1 to remove the initial backslash
+        job_subdir = self.job_dir[len(nemo_run_home) + 1 :]  # +1 to remove the initial backslash
         self.pvc_job_dir = os.path.join(self.pvc_nemo_run_dir, job_subdir)
 
         logger.info(

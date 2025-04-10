@@ -24,6 +24,7 @@ from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
 from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.config import set_nemorun_home
 
+
 class TestDGXCloudExecutor:
     def test_init(self):
         executor = DGXCloudExecutor(
@@ -142,6 +143,187 @@ class TestDGXCloudExecutor:
         assert project_id is None
         assert cluster_id is None
 
+    @patch("subprocess.run")
+    @patch("builtins.open", new_callable=mock_open, read_data=b"mock tarball")
+    def test_copy_directory_data_command_success(self, mock_file, mock_subprocess):
+        local_dir_path = "/mock/local/dir"
+        dest_path = "/mock/destination/path"
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+        response = executor.copy_directory_data_command(local_dir_path, dest_path)
+
+        mock_subprocess.assert_called_once()
+        mock_file.call_count == 1
+
+        assert (
+            "rm -rf /mock/destination/path && mkdir -p /mock/destination/path && echo" in response
+        )
+        assert (
+            "base64 -d > /mock/destination/path/archive.tar.gz && tar -xzf /mock/destination/path/archive.tar.gz -C /mock/destination/path && rm /mock/destination/path/archive.tar.gz"
+            in response
+        )
+
+    @patch("tempfile.TemporaryDirectory")
+    def test_copy_directory_data_command_fails(self, mock_tempdir):
+        local_dir_path = "/mock/local/dir"
+        dest_path = "/mock/destination/path"
+
+        mock_tempdir.side_effect = OSError("Temporary directory creation failed")
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+        with pytest.raises(OSError, match="Temporary directory creation failed"):
+            executor.copy_directory_data_command(local_dir_path, dest_path)
+
+    @patch("requests.post")
+    @patch.object(DGXCloudExecutor, "copy_directory_data_command")
+    def test_create_data_mover_workload_success(self, mock_command, mock_post):
+        mock_command.return_value = "sleep infinity"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '{"status": "submitted"}'
+        mock_post.return_value = mock_response
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+
+        response = executor.create_data_mover_workload(
+            token="test_token",
+            project_id="proj_id",
+            cluster_id="cluster_id",
+        )
+
+        assert response == mock_response
+
+        # Check if the API call is made correctly
+        mock_post.assert_called_once()
+        # The URL is the first argument to post
+        args, kwargs = mock_post.call_args
+        assert kwargs["json"]["projectId"] == "proj_id"
+        assert kwargs["json"]["clusterId"] == "cluster_id"
+        assert kwargs["json"]["spec"]["command"] == "sh -c"
+        assert kwargs["json"]["spec"]["args"] == "'sleep infinity'"
+        assert kwargs["headers"] == executor._default_headers(token="test_token")
+
+    @patch("requests.delete")
+    def test_delete_workload(self, mock_delete):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_delete.return_value = mock_response
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+
+        response = executor.delete_workload(token="test_token", workload_id="job123")
+
+        assert response == mock_response
+        mock_delete.assert_called_once_with(
+            "https://dgxapi.example.com/workloads/workspaces/job123",
+            headers=executor._default_headers(token="test_token"),
+        )
+
+    @patch.object(DGXCloudExecutor, "create_data_mover_workload")
+    @patch.object(DGXCloudExecutor, "status")
+    @patch.object(DGXCloudExecutor, "delete_workload")
+    def test_move_data_success(self, mock_delete, mock_status, mock_create):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"workloadId": "job123", "actualPhase": "Pending"}
+        mock_create.return_value = mock_response
+        mock_delete.return_value = mock_response
+
+        mock_status.return_value = DGXCloudState.COMPLETED
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+
+        executor.move_data(token="test_token", project_id="proj_id", cluster_id="cluster_id")
+
+        mock_create.assert_called_once_with("test_token", "proj_id", "cluster_id")
+        mock_status.assert_called()
+        mock_delete.assert_called_once_with("test_token", "job123")
+
+    @patch.object(DGXCloudExecutor, "create_data_mover_workload")
+    def test_move_data_data_mover_fail(self, mock_create):
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+
+        with pytest.raises(RuntimeError, match="Failed to create data mover workload"):
+            executor.move_data(token="test_token", project_id="proj_id", cluster_id="cluster_id")
+
+    @patch.object(DGXCloudExecutor, "create_data_mover_workload")
+    @patch.object(DGXCloudExecutor, "status")
+    def test_move_data_failed(self, mock_status, mock_create):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"workloadId": "job123", "actualPhase": "Pending"}
+        mock_create.return_value = mock_response
+
+        mock_status.return_value = DGXCloudState.FAILED
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+
+        with pytest.raises(RuntimeError, match="Failed to move data to PVC"):
+            executor.move_data(token="test_token", project_id="proj_id", cluster_id="cluster_id")
+
+        mock_create.assert_called_once_with("test_token", "proj_id", "cluster_id")
+        mock_status.assert_called()
+
     @patch("requests.post")
     def test_create_distributed_job(self, mock_post):
         mock_response = MagicMock()
@@ -160,7 +342,7 @@ class TestDGXCloudExecutor:
             pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "workspace", "claimName": "test-claim"}],
         )
-        executor.pvc_job_dir= "/workspace/nemo_run/job_dir"
+        executor.pvc_job_dir = "/workspace/nemo_run/job_dir"
         executor.env_vars = {"TEST_VAR": "test_value"}
 
         response = executor.create_distributed_job(
@@ -180,7 +362,10 @@ class TestDGXCloudExecutor:
         assert kwargs["json"]["projectId"] == "proj_id"
         assert kwargs["json"]["clusterId"] == "cluster_id"
         assert kwargs["json"]["spec"]["image"] == "nvcr.io/nvidia/test:latest"
-        assert kwargs["json"]["spec"]["command"] == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
+        assert (
+            kwargs["json"]["spec"]["command"]
+            == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
+        )
         assert kwargs["json"]["spec"]["numWorkers"] == 2
         assert kwargs["json"]["spec"]["compute"]["gpuDevicesRequest"] == 8
         assert kwargs["json"]["spec"]["environmentVariables"] == [
@@ -262,14 +447,16 @@ class TestDGXCloudExecutor:
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
     @patch.object(DGXCloudExecutor, "move_data")
     @patch.object(DGXCloudExecutor, "create_distributed_job")
-    def test_launch_job_creation_failed(self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token):
+    def test_launch_job_creation_failed(
+        self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token
+    ):
         mock_get_token.return_value = "test_token"
         mock_get_ids.return_value = ("proj_id", "cluster_id")
 
         mock_response = MagicMock()
         mock_response.status_code = 400
         mock_create_job.return_value = mock_response
-        
+
         with tempfile.TemporaryDirectory() as tmp_dir:
             executor = DGXCloudExecutor(
                 base_url="https://dgxapi.example.com",
@@ -446,7 +633,6 @@ class TestDGXCloudExecutor:
             assert "Logs not available" in mock_warning.call_args[0][0]
 
     def test_assign(self):
-
         set_nemorun_home("/nemo_home")
 
         executor = DGXCloudExecutor(
@@ -455,12 +641,12 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
-            pvc_nemo_run_dir=f"/workspace/nemo_run",
+            pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "/workspace", "claimName": "test-claim"}],
         )
 
         task_dir = "test_task"
-        exp_dir= f"/nemo_home/experiments/experiment"
+        exp_dir = "/nemo_home/experiments/experiment"
         executor.assign(
             exp_id="test_exp",
             exp_dir=exp_dir,
@@ -471,7 +657,9 @@ class TestDGXCloudExecutor:
         assert executor.job_name == "test_task"
         assert executor.experiment_dir == exp_dir
         assert executor.job_dir == os.path.join(exp_dir, task_dir)
-        assert executor.pvc_job_dir == os.path.join("/workspace/nemo_run/experiments/experiment", task_dir)
+        assert executor.pvc_job_dir == os.path.join(
+            "/workspace/nemo_run/experiments/experiment", task_dir
+        )
         assert executor.experiment_id == "test_exp"
 
     def test_assign_no_pvc(self):
@@ -497,26 +685,25 @@ class TestDGXCloudExecutor:
     @patch("os.makedirs")
     @patch("builtins.open", new_callable=mock_open)
     def test_package_configs(self, mock_file, mock_makedirs):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            executor = DGXCloudExecutor(
-                base_url="https://dgxapi.example.com",
-                app_id="test_app_id",
-                app_secret="test_app_secret",
-                project_name="test_project",
-                container_image="nvcr.io/nvidia/test:latest",
-                pvc_nemo_run_dir="/workspace/nemo_run",
-                pvcs=[{"path": "/other/path", "claimName": "test-claim"}],
-            )
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "/other/path", "claimName": "test-claim"}],
+        )
 
-            configs = [("config1.yaml", "key: value"), ("subdir/config2.yaml", "another: config")]
+        configs = [("config1.yaml", "key: value"), ("subdir/config2.yaml", "another: config")]
 
-            filenames = executor.package_configs(*configs)
+        filenames = executor.package_configs(*configs)
 
-            assert len(filenames) == 2
-            assert filenames[0] == "/nemo_run/configs/config1.yaml"
-            assert filenames[1] == "/nemo_run/configs/subdir/config2.yaml"
-            mock_makedirs.assert_called()
-            assert mock_file.call_count == 2
+        assert len(filenames) == 2
+        assert filenames[0] == "/nemo_run/configs/config1.yaml"
+        assert filenames[1] == "/nemo_run/configs/subdir/config2.yaml"
+        mock_makedirs.assert_called()
+        assert mock_file.call_count == 2
 
     @patch("invoke.context.Context.run")
     @patch("subprocess.run")
