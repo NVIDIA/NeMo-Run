@@ -108,8 +108,6 @@ class DGXCloudExecutor(Executor):
             cmd = f"rm -rf {dest_path} && mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
             return cmd
 
-        raise RuntimeError("Failed to generate data movement command")
-
     def create_data_mover_workload(self, token: str, project_id: str, cluster_id: str):
         """
         Creates a CPU only workload to move job directory into PVC using the provided project/cluster IDs.
