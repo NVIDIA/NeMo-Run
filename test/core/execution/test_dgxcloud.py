@@ -16,7 +16,7 @@
 import os
 import subprocess
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
@@ -493,6 +493,30 @@ class TestDGXCloudExecutor:
                     task_id="test_task",
                     task_dir="test_task",
                 )
+
+    @patch("os.makedirs")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_package_configs(self, mock_file, mock_makedirs):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+                pvcs=[{"path": "/other/path", "claimName": "test-claim"}],
+            )
+
+            configs = [("config1.yaml", "key: value"), ("subdir/config2.yaml", "another: config")]
+
+            filenames = executor.package_configs(*configs)
+
+            assert len(filenames) == 2
+            assert filenames[0] == "/nemo_run/configs/config1.yaml"
+            assert filenames[1] == "/nemo_run/configs/subdir/config2.yaml"
+            mock_makedirs.assert_called()
+            assert mock_file.call_count == 2
 
     @patch("invoke.context.Context.run")
     @patch("subprocess.run")
