@@ -145,6 +145,7 @@ def package(
                 transformed_script, serialize_configs=False
             )
 
+    use_env = isinstance(executor, LocalExecutor)
     if launcher and isinstance(launcher, Torchrun):
         app_def = torchrun.torchrun(
             *args,
@@ -160,11 +161,13 @@ def package(
             j=f"{executor.nnodes()}x{executor.nproc_per_node()}",
             rdzv_backend=launcher.rdzv_backend,
             rdzv_port=launcher.rdzv_port,
+            rdzv_id=launcher.rdzv_id,
             env=env,
             mounts=mounts,
             debug=executor.packager.debug,
             max_retries=executor.retries,
             dgxc=isinstance(executor, DGXCloudExecutor),
+            use_env=use_env,
         )
     elif launcher and isinstance(launcher, FaultTolerance):
         app_def = ft_launcher.ft_launcher(
@@ -181,6 +184,7 @@ def package(
             j=f"{executor.nnodes()}x{executor.nproc_per_node()}",
             rdzv_backend=launcher.rdzv_backend,
             rdzv_port=launcher.rdzv_port,
+            rdzv_id=launcher.rdzv_id,
             env=env,
             mounts=mounts,
             debug=executor.packager.debug,
@@ -191,6 +195,7 @@ def package(
             log_level=launcher.log_level,
             max_retries=executor.retries,
             max_restarts=launcher.max_restarts,
+            use_env=use_env,
         )
     else:
         app_def = specs.AppDef(

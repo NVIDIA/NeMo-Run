@@ -207,7 +207,7 @@ def test_package_torchrun(mock_executor):
         "--rdzv-id",
         "1",
         "--nnodes",
-        "$$${num_nodes_var}",
+        "2",
         "--nproc-per-node",
         "1",
         "--node-rank",

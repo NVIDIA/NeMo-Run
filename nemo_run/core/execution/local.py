@@ -37,6 +37,7 @@ class LocalExecutor(Executor):
 
     #: Used by components like torchrun to deduce the number of tasks to launch.
     ntasks_per_node: int = 1
+    nodes: int = 1
 
     def assign(
         self,
@@ -50,7 +51,7 @@ class LocalExecutor(Executor):
         self.job_dir = os.path.join(exp_dir, task_dir)
 
     def nnodes(self) -> int:
-        return 1
+        return self.nodes
 
     def nproc_per_node(self) -> int:
         return self.ntasks_per_node

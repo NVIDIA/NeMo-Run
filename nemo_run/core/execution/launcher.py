@@ -47,6 +47,7 @@ class Launcher(ConfigurableMixin):
 class Torchrun(Launcher):
     rdzv_backend: str = "c10d"
     rdzv_port: int = 29500
+    rdzv_id: Optional[int] = None
 
 
 @dataclass(kw_only=True)
@@ -56,6 +57,7 @@ class FaultTolerance(Launcher):
     job_results_file: str = ""
     rdzv_backend: str = "c10d"
     rdzv_port: int = 29500
+    rdzv_id: Optional[int] = None
     workload_check_interval: Optional[float] = None
     initial_rank_heartbeat_timeout: Optional[float] = None
     rank_heartbeat_timeout: Optional[float] = None
