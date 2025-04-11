@@ -119,7 +119,7 @@ def torchrun(
             master_addr = os.environ["MASTER_ADDR"]
             master_port = os.environ["MASTER_PORT"]
             rdzv_endpoint = torchx_dist._noquote(master_addr + ":" + master_port)
-            random.seed(rdzv_id)
+            random.seed(rdzv_endpoint)
         else:
             rdzv_endpoint = torchx_dist._noquote(f"$${ExecutorMacros.HEAD_NODE_IP_VAR}:{rdzv_port}")
 
