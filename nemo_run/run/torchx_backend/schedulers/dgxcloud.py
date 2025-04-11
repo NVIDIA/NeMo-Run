@@ -87,7 +87,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         cfg: Executor,
     ) -> AppDryRunInfo[DGXRequest]:
         assert isinstance(cfg, DGXCloudExecutor), (
-            f"{cfg.__class__} not supported for skypilot scheduler."
+            f"{cfg.__class__} not supported for DGXCloud scheduler."
         )
         executor = cfg
 
