@@ -145,6 +145,7 @@ def package(
                 transformed_script, serialize_configs=False
             )
 
+    use_env = isinstance(executor, LocalExecutor)
     if launcher and isinstance(launcher, Torchrun):
         app_def = torchrun.torchrun(
             *args,
@@ -160,6 +161,7 @@ def package(
             j=f"{executor.nnodes()}x{executor.nproc_per_node()}",
             rdzv_backend=launcher.rdzv_backend,
             rdzv_port=launcher.rdzv_port,
+            rdzv_id=launcher.rdzv_id,
             env=env,
             mounts=mounts,
             debug=executor.packager.debug,
@@ -182,6 +184,7 @@ def package(
             j=f"{executor.nnodes()}x{executor.nproc_per_node()}",
             rdzv_backend=launcher.rdzv_backend,
             rdzv_port=launcher.rdzv_port,
+            rdzv_id=launcher.rdzv_id,
             env=env,
             mounts=mounts,
             debug=executor.packager.debug,

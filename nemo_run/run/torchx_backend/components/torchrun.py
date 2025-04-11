@@ -39,6 +39,8 @@ These are commonly set environment variables to debug PyTorch execution.
 * ``TORCH_SHOW_CPP_STACKTRACES``: Read more `here <https://pytorch.org/docs/stable/distributed.html#torch-distributed-debug>`__.
 """
 
+DEFAULT_SEED = 11111
+
 
 # Adapted from https://github.com/pytorch/torchx/blob/main/torchx/components/dist.py
 def torchrun(
@@ -57,6 +59,7 @@ def torchrun(
     max_retries: int = 0,
     rdzv_port: int = 49450,
     rdzv_backend: str = "c10d",
+    rdzv_id: Optional[int] = None,
     mounts: Optional[list[str]] = None,
     debug: bool = False,
     dgxc: bool = False,
@@ -118,6 +121,7 @@ def torchrun(
             master_addr = os.environ["MASTER_ADDR"]
             master_port = os.environ["MASTER_PORT"]
             rdzv_endpoint = torchx_dist._noquote(master_addr + ":" + master_port)
+            random.seed(DEFAULT_SEED)
         else:
             rdzv_endpoint = torchx_dist._noquote(f"$${ExecutorMacros.HEAD_NODE_IP_VAR}:{rdzv_port}")
 
@@ -145,7 +149,7 @@ def torchrun(
             "--rdzv-endpoint",
             rdzv_endpoint,
             "--rdzv-id",
-            f"{random.randint(1, 10000)}",
+            f"{rdzv_id or random.randint(1, 10000)}",
             "--nnodes",
             num_nodes,
             "--nproc-per-node",
