@@ -73,7 +73,12 @@ lint = [
 ]
 
 docs = [
-    "sphinx"
+    "astroid==3.3.8",
+    "colorama>=0.4.6",
+    "myst-parser",
+    "sphinx>=7",
+    "sphinx-autoapi>=3.0.0",
+    "nvidia-sphinx-theme"
 ]
 
 [build-system]
@@ -83,6 +88,13 @@ build-backend = "hatchling.build"
 [tool.uv]
 managed = true
 prerelease = "allow"
+conflicts = [
+    [
+        { group = "docs", name = "colorama" },
+        { extra = "skypilot", name = "colorama" },
+        { extra = "skypilot-all", name = "colorama" }
+    ]
+]
 
 [tool.pytest.ini_options]
 markers = [
