@@ -277,7 +277,7 @@ class TestSlurmTunnelCallback:
         assert callback.srun == mock_srun
         assert callback.space == mock_space
         assert callback.editor_started is False
-        assert callback.tunnel_name == "test_space.test_space"
+        assert callback.tunnel_name == "test_space"
 
     def test_on_start_with_srun(self, mock_executor, mock_space, mock_srun):
         """Test on_start method with srun."""
