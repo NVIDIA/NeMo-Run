@@ -252,7 +252,7 @@ cd /nemo_run/code
 """
         with open(os.path.join(self.job_dir, "launch_script.sh"), "w+") as f:
             f.write(launch_script)
-        
+
         if not self.launched_from_cluster:
             logger.info("Creating data movement workload")
             self.move_data(token, project_id, cluster_id)
