@@ -1141,4 +1141,4 @@ class SlurmTunnelCallback(Callback):
     def tunnel_name(self) -> str:
         workspace_name = self.space.name
 
-        return ".".join([workspace_name, self.space.name])
+        return workspace_name
