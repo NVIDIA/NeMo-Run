@@ -55,6 +55,7 @@ class DGXCloudExecutor(Executor):
     project_name: str
     container_image: str
     pvc_nemo_run_dir: str
+    launched_from_cluster: bool = False
     nodes: int = 1
     gpus_per_node: int = 0
     nprocs_per_node: int = 1
@@ -251,9 +252,10 @@ cd /nemo_run/code
 """
         with open(os.path.join(self.job_dir, "launch_script.sh"), "w+") as f:
             f.write(launch_script)
-
-        logger.info("Creating data movement workload")
-        self.move_data(token, project_id, cluster_id)
+        
+        if not self.launched_from_cluster:
+            logger.info("Creating data movement workload")
+            self.move_data(token, project_id, cluster_id)
 
         logger.info("Creating distributed workload")
         resp = self.create_distributed_job(token, project_id, cluster_id, name)
