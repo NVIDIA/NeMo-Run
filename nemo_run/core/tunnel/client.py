@@ -311,7 +311,13 @@ class SSHConfigFile:
 
     def _get_default_config_path(self) -> str:
         config_path = os.path.expanduser("~/.ssh/config")
+        return config_path
 
+    def _get_host_config_path(self) -> Optional[str]:
+        """
+        Get the path to the ssh config file for the host if we are running in WSL.
+        """
+        config_path = None
         # If running in WSL environment, update host's ssh config file instead
         if os.name == "posix" and "WSL" in os.uname().release:
             user_profile = subprocess.run(
@@ -325,14 +331,20 @@ class SSHConfigFile:
         return config_path
 
     def add_entry(self, user: str, hostname: str, port: int, name: str):
+        host_config_path = self._get_host_config_path()
+        if host_config_path:
+            self._add_entry(user, hostname, port, name, host_config_path)
+        self._add_entry(user, hostname, port, name, self.config_path)
+
+    def _add_entry(self, user: str, hostname: str, port: int, name: str, config_path: str):
         host = f"tunnel.{name}"
         new_config_entry = f"""Host {host}
     User {user}
     HostName {hostname}
     Port {port}"""
 
-        if os.path.exists(self.config_path):
-            with open(self.config_path, "r") as file:
+        if os.path.exists(config_path):
+            with open(config_path, "r") as file:
                 lines = file.readlines()
 
             # Check if the host is already defined in the config
@@ -351,16 +363,22 @@ class SSHConfigFile:
             else:  # Add new entry
                 lines.append(new_config_entry + "\n")
 
-            with open(self.config_path, "w") as file:
+            with open(config_path, "w") as file:
                 file.writelines(lines)
         else:
-            with open(self.config_path, "w") as file:
+            with open(config_path, "w") as file:
                 file.write(new_config_entry + "\n")
 
     def remove_entry(self, name: str):
+        host_config_path = self._get_host_config_path()
+        if host_config_path:
+            self._remove_entry(name, host_config_path)
+        self._remove_entry(name, self.config_path)
+
+    def _remove_entry(self, name: str, config_path: str):
         host = f"tunnel.{name}"
-        if os.path.exists(self.config_path):
-            with open(self.config_path, "r") as file:
+        if os.path.exists(config_path):
+            with open(config_path, "r") as file:
                 lines = file.readlines()
 
             start_index = None
@@ -376,7 +394,7 @@ class SSHConfigFile:
 
                 del lines[start_index:end_index]
 
-                with open(self.config_path, "w") as file:
+                with open(config_path, "w") as file:
                     file.writelines(lines)
 
             print(f"Removed SSH config entry for {host}.")
