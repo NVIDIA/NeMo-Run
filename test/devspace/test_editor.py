@@ -1,10 +1,9 @@
 import os
 import platform
-import subprocess
 import pytest
 from pathlib import Path
 import shutil
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 from nemo_run.devspace.editor import find_editor_executable
 
