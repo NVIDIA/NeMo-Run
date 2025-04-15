@@ -323,7 +323,8 @@ def test_package_with_multi_include_pattern_rel_path(packager, temp_repo, tmpdir
 @patch("nemo_run.core.packaging.git.Context", MockContext)
 def test_package_with_check_uncommitted_changes(packager, temp_repo):
     temp_repo = Path(temp_repo)
-    open(temp_repo / "file1.txt", "w").write("Hello World")
+    with open(temp_repo / "file1.txt", "w") as f:
+        f.write("Modified content")
 
     packager = GitArchivePackager(ref="HEAD", check_uncommitted_changes=True)
     with pytest.raises(RuntimeError, match="Your repo has uncommitted changes"):
@@ -423,8 +424,8 @@ def test_package_without_include_submodules(packager, temp_repo):
 @patch("nemo_run.core.packaging.git.Context", MockContext)
 def test_package_with_uncommitted_changes(packager, temp_repo):
     temp_repo = Path(temp_repo)
-    # Make a change to an existing file but don't commit it
-    open(temp_repo / "file1.txt", "w").write("Modified content")
+    with open(temp_repo / "file1.txt", "w") as f:
+        f.write("Modified content")
 
     packager = GitArchivePackager(ref="HEAD", include_uncommitted=True)
     with tempfile.TemporaryDirectory() as job_dir:
@@ -469,8 +470,8 @@ def test_package_with_untracked_files(packager, temp_repo):
 @patch("nemo_run.core.packaging.git.Context", MockContext)
 def test_package_with_uncommitted_and_untracked(packager, temp_repo):
     temp_repo = Path(temp_repo)
-    # Make a change to an existing file but don't commit it
-    open(temp_repo / "file1.txt", "w").write("Modified content")
+    with open(temp_repo / "file1.txt", "w") as f:
+        f.write("Modified content")
 
     # Add an untracked file
     with open(temp_repo / "untracked.txt", "w") as f:
