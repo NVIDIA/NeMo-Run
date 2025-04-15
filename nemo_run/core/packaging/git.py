@@ -157,7 +157,6 @@ class GitArchivePackager(Packager):
                 if changed_files and changed_files[0]:  # Check if non-empty
                     # Filter files in subpath if specified
                     if self.subpath:
-                        prefix_len = len(self.subpath.rstrip("/")) + 1  # +1 for the slash
                         filtered_files = []
                         for f in changed_files:
                             if f.startswith(self.subpath):
@@ -224,7 +223,6 @@ class GitArchivePackager(Packager):
                 if untracked_files and untracked_files[0]:  # Check if non-empty
                     # Filter files in subpath if specified
                     if self.subpath:
-                        prefix_len = len(self.subpath.rstrip("/")) + 1  # +1 for the slash
                         filtered_files = []
                         for f in untracked_files:
                             if f.startswith(self.subpath):
@@ -247,18 +245,10 @@ class GitArchivePackager(Packager):
                             # Create tar from the subpath directory
                             tar_path = os.path.join(git_base_path, untracked_tar_file)
                             with ctx.cd(subpath_dir):
-                                if relative_files:  # Only create tar if there are files
-                                    ctx.run(f"tar -cf {tar_path} {' '.join(relative_files)}")
-                                else:
-                                    # Create empty tar file to avoid errors
-                                    ctx.run(f"tar -cf {tar_path} --files-from /dev/null")
+                                ctx.run(f"tar -cf {tar_path} {' '.join(relative_files)}")
                         else:
                             # No subpath, create tar from the git base path
-                            if untracked_files:  # Only create tar if there are files
-                                ctx.run(f"tar -cf {untracked_tar_file} {' '.join(untracked_files)}")
-                            else:
-                                # Create empty tar file to avoid errors
-                                ctx.run(f"tar -cf {untracked_tar_file} --files-from /dev/null")
+                            ctx.run(f"tar -cf {untracked_tar_file} {' '.join(untracked_files)}")
 
                         # Add to the main archive - use a more compatible approach
                         # Instead of using 'tar Af', use the extract-and-create approach for all platforms
