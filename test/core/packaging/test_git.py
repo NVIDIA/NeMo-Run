@@ -418,3 +418,143 @@ def test_package_without_include_submodules(packager, temp_repo):
             ),
         )
         assert len(os.listdir(os.path.join(job_dir, "extracted_output", "submodule"))) == 0
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_with_uncommitted_changes(packager, temp_repo):
+    temp_repo = Path(temp_repo)
+    # Make a change to an existing file but don't commit it
+    open(temp_repo / "file1.txt", "w").write("Modified content")
+
+    packager = GitArchivePackager(ref="HEAD", include_uncommitted=True)
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(Path(temp_repo), job_dir, "test_package")
+        assert os.path.exists(output_file)
+        extract_dir = os.path.join(job_dir, "extracted_output")
+        subprocess.check_call(shlex.split(f"mkdir -p {extract_dir}"))
+        subprocess.check_call(
+            shlex.split(f"tar -xvzf {output_file} -C {extract_dir} --ignore-zeros"),
+        )
+
+        # Verify that the modified file was included with changes
+        with open(os.path.join(extract_dir, "file1.txt"), "r") as f:
+            content = f.read()
+        assert content == "Modified content"
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_with_untracked_files(packager, temp_repo):
+    temp_repo = Path(temp_repo)
+    # Add an untracked file
+    with open(temp_repo / "untracked.txt", "w") as f:
+        f.write("Untracked content")
+
+    packager = GitArchivePackager(ref="HEAD", include_untracked=True)
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(Path(temp_repo), job_dir, "test_package")
+        assert os.path.exists(output_file)
+        extract_dir = os.path.join(job_dir, "extracted_output")
+        subprocess.check_call(shlex.split(f"mkdir -p {extract_dir}"))
+        subprocess.check_call(
+            shlex.split(f"tar -xvzf {output_file} -C {extract_dir} --ignore-zeros"),
+        )
+
+        # Verify that the untracked file was included
+        assert os.path.exists(os.path.join(extract_dir, "untracked.txt"))
+        with open(os.path.join(extract_dir, "untracked.txt"), "r") as f:
+            content = f.read()
+        assert content == "Untracked content"
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_with_uncommitted_and_untracked(packager, temp_repo):
+    temp_repo = Path(temp_repo)
+    # Make a change to an existing file but don't commit it
+    open(temp_repo / "file1.txt", "w").write("Modified content")
+
+    # Add an untracked file
+    with open(temp_repo / "untracked.txt", "w") as f:
+        f.write("Untracked content")
+
+    packager = GitArchivePackager(ref="HEAD", include_uncommitted=True, include_untracked=True)
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(Path(temp_repo), job_dir, "test_package")
+        assert os.path.exists(output_file)
+        extract_dir = os.path.join(job_dir, "extracted_output")
+        subprocess.check_call(shlex.split(f"mkdir -p {extract_dir}"))
+        subprocess.check_call(
+            shlex.split(f"tar -xvzf {output_file} -C {extract_dir} --ignore-zeros"),
+        )
+
+        # Verify that the modified file was included with changes
+        with open(os.path.join(extract_dir, "file1.txt"), "r") as f:
+            content = f.read()
+        assert content == "Modified content"
+
+        # Verify that the untracked file was included
+        assert os.path.exists(os.path.join(extract_dir, "untracked.txt"))
+        with open(os.path.join(extract_dir, "untracked.txt"), "r") as f:
+            content = f.read()
+        assert content == "Untracked content"
+
+
+@patch("nemo_run.core.packaging.git.Context", MockContext)
+def test_package_subpath_with_uncommitted_and_untracked(packager, temp_repo):
+    temp_repo = Path(temp_repo)
+    # Create a subdir
+    (temp_repo / "subdir").mkdir()
+
+    # Add a file in subdir and commit
+    with open(temp_repo / "subdir" / "committed.txt", "w") as f:
+        f.write("Committed content")
+    subprocess.check_call(["git", "add", "."], cwd=str(temp_repo))
+    subprocess.check_call(["git", "commit", "-m", "Add subdir"], cwd=str(temp_repo))
+
+    # Make an uncommitted change to the file in subdir
+    with open(temp_repo / "subdir" / "committed.txt", "w") as f:
+        f.write("Modified committed content")
+
+    # Add an untracked file in the subdir
+    with open(temp_repo / "subdir" / "untracked.txt", "w") as f:
+        f.write("Untracked content in subdir")
+
+    # Add a file outside of subdir that should not be included
+    with open(temp_repo / "outside.txt", "w") as f:
+        f.write("Outside content")
+
+    # list all files in temp_repo recursively
+    print(f"Files in temp_repo recursively:")
+    for root, dirs, files in os.walk(temp_repo):
+        for file in files:
+            print(os.path.join(root, file))
+
+    packager = GitArchivePackager(
+        ref="HEAD",
+        subpath="subdir",
+        include_uncommitted=True,
+        include_untracked=True,
+    )
+
+    with tempfile.TemporaryDirectory() as job_dir:
+        output_file = packager.package(Path(temp_repo), job_dir, "test_package")
+        assert os.path.exists(output_file)
+        extract_dir = os.path.join(job_dir, "extracted_output")
+        subprocess.check_call(shlex.split(f"mkdir -p {extract_dir}"))
+
+        subprocess.check_call(
+            shlex.split(f"tar -xvzf {output_file} -C {extract_dir} --ignore-zeros"),
+        )
+
+        # Verify that the modified file in subdir was included with changes
+        with open(os.path.join(extract_dir, "committed.txt"), "r") as f:
+            content = f.read()
+        assert content == "Modified committed content"
+
+        # Verify that the untracked file in subdir was included
+        assert os.path.exists(os.path.join(extract_dir, "untracked.txt"))
+        with open(os.path.join(extract_dir, "untracked.txt"), "r") as f:
+            content = f.read()
+        assert content == "Untracked content in subdir"
+
+        # Verify that files outside the subpath are not included
+        assert not os.path.exists(os.path.join(extract_dir, "outside.txt"))
