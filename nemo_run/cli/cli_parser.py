@@ -48,10 +48,9 @@ logger = logging.getLogger(__name__)
 BUILTIN_TO_TYPING = {
     list: List,
     dict: Dict,
-    tuple: tuple,  # typing.Tuple in older Python
-    set: set,  # typing.Set in older Python
+    tuple: tuple,
+    set: set,
     type: Type,
-    # Add more as needed
 }
 
 # Add the reverse mapping for normalization

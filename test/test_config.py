@@ -23,7 +23,13 @@ import pytest
 from typing_extensions import Annotated
 
 import nemo_run as run
-from nemo_run.config import OptionalDefaultConfig, Script, from_dict, set_value
+from nemo_run.config import (
+    OptionalDefaultConfig,
+    Script,
+    from_dict,
+    set_value,
+    class_to_str,
+)
 from nemo_run.exceptions import SetValueError
 
 
