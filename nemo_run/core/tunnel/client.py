@@ -328,8 +328,6 @@ class SSHConfigFile:
 
         # If running in WSL environment, update host's ssh config file instead
         if os.name == "posix" and "WSL" in os.uname().release:
-            import shutil
-
             # Check if wslvar and wslpath are available
             wslvar_exists = shutil.which("wslvar") is not None
             wslpath_exists = shutil.which("wslpath") is not None
