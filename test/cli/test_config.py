@@ -4,11 +4,8 @@ import toml
 import yaml
 from typing import Any, Dict
 
-from nemo_run.cli.config import (
-    ConfigSerializer,
-    Config,
-    Partial,
-)
+from nemo_run.config import Config, Partial
+from nemo_run.cli.config import ConfigSerializer
 
 # --- Test Fixtures and Helper Data ---
 
