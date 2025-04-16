@@ -885,11 +885,3 @@ def load_config_from_path(path_with_syntax: str) -> Any:
 
     except Exception as e:
         raise ValueError(f"Error loading config file {config_path}: {str(e)}")
-
-
-if __name__ == "__main__":
-    task = LazyEntrypoint("nemo.collections.llm.pretrain", factory="llama3_8b")
-
-    task.model = "llama3_70b(input_1=5)"
-    task.trainer = "my_trainer"
-    task.data = "my_data"

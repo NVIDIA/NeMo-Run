@@ -35,11 +35,13 @@ from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.cli.api import (
     Entrypoint,
     RunContext,
+    EntrypointCommand,
     add_global_options,
     create_cli,
     _search_workspace_file,
     _load_workspace_file,
     _load_workspace,
+    main as cli_main,
 )
 from test.dummy_factory import DummyModel, dummy_entrypoint
 import nemo_run.cli.cli_parser  # Import the module to mock its function
@@ -963,6 +965,30 @@ class TestTorchrunAndConfirmation:
         assert ctx._should_continue(True) is True
         mock_torchrun.assert_called_once()
 
+    @patch("nemo_run.cli.api._is_torchrun", return_value=False)
+    @patch("nemo_run.cli.api.NEMORUN_SKIP_CONFIRMATION", None)
+    @patch("typer.confirm", return_value=True)
+    def test_should_continue_confirm_yes(self, mock_confirm, mock_torchrun):
+        """Test _should_continue when user confirms."""
+        ctx = run.cli.RunContext(name="test")
+        cli_api.NEMORUN_SKIP_CONFIRMATION = None  # Reset global state
+        assert ctx._should_continue(False) is True
+        mock_torchrun.assert_called_once()
+        mock_confirm.assert_called_once_with("Continue?")
+        assert cli_api.NEMORUN_SKIP_CONFIRMATION is True
+
+    @patch("nemo_run.cli.api._is_torchrun", return_value=False)
+    @patch("nemo_run.cli.api.NEMORUN_SKIP_CONFIRMATION", None)
+    @patch("typer.confirm", return_value=False)
+    def test_should_continue_confirm_no(self, mock_confirm, mock_torchrun):
+        """Test _should_continue when user denies."""
+        ctx = run.cli.RunContext(name="test")
+        cli_api.NEMORUN_SKIP_CONFIRMATION = None  # Reset global state
+        assert ctx._should_continue(False) is False
+        mock_torchrun.assert_called_once()
+        mock_confirm.assert_called_once_with("Continue?")
+        assert cli_api.NEMORUN_SKIP_CONFIRMATION is False
+
 
 class TestRunContextLaunch:
     """Test RunContext.launch method."""
@@ -1305,8 +1331,8 @@ class TestConfigExport:
             f"[bold green]Configuration exported to JSON:[/bold green] {json_path}"
         )
 
-    @patch("nemo_run.cli.lazy.LazyEntrypoint.resolve")
-    def test_export_section_lazy(self, mock_resolve, temp_dir):
+    @patch("nemo_run.cli.lazy.LazyEntrypoint._import")
+    def test_export_section_lazy(self, mock_import, temp_dir):
         # Define local classes for clarity in this test
         @dataclass
         class SectionExportModel:
@@ -1328,7 +1354,7 @@ class TestConfigExport:
 
         # Simpler mocking: Assume the relevant resolve call in this path
         # will be the one on the model section, and return the expected config.
-        mock_resolve.return_value = resolved_model_config
+        mock_import.return_value = resolved_model_config
 
         yaml_path = temp_dir / "lazy_section.yaml"
 
@@ -1340,7 +1366,7 @@ class TestConfigExport:
             )
 
         # Verify the mock was called (meaning the serializer tried to resolve the section)
-        mock_resolve.assert_called()
+        mock_import.assert_called()
 
         # Verify only the model section was exported based on the mock resolved config
         assert yaml_path.exists()
@@ -1478,3 +1504,370 @@ class TestWorkspaceLoading:
         _load_workspace()  # Call 2
         mock_search_file.assert_not_called()  # Should not call search
         mock_load_file.assert_not_called()  # Should not call load
+
+    @patch("importlib.util.spec_from_file_location")
+    @patch("importlib.util.module_from_spec")
+    @patch("nemo_run.cli.api._search_workspace_file")
+    def test_load_workspace_integration(
+        self, mock_search, mock_module_from_spec, mock_spec_from_file, _setup_teardown, monkeypatch
+    ):
+        """Test integration of search and load."""
+        tmp_path, _ = _setup_teardown
+        ws_path = tmp_path / "workspace.py"
+        ws_path.write_text("print('Workspace loaded!')")  # Create the file
+
+        mock_search.return_value = str(ws_path)  # Make search find it
+
+        mock_spec = Mock()
+        mock_spec.loader = Mock()
+        mock_spec_from_file.return_value = mock_spec
+        mock_module = Mock()
+        mock_module_from_spec.return_value = mock_module
+
+        _load_workspace()  # Call under test
+
+        mock_search.assert_called_once()
+        mock_spec_from_file.assert_called_once_with("workspace", str(ws_path))
+        mock_module_from_spec.assert_called_once_with(mock_spec)
+        mock_spec.loader.exec_module.assert_called_once_with(mock_module)
+
+
+class TestMainFunction:
+    """Tests for the main CLI function dispatcher."""
+
+    @pytest.fixture
+    def simple_func(self):
+        """A plain function without decorators."""
+
+        def _simple_func(arg: int):
+            print(f"Simple func called with {arg}")
+
+        return _simple_func
+
+    @pytest.fixture
+    def decorated_func(self):
+        """A function already decorated with @entrypoint."""
+
+        @cli.entrypoint(namespace="test_main", skip_confirmation=True)
+        def _decorated_func(arg: int):
+            print(f"Decorated func called with {arg}")
+
+        return _decorated_func
+
+    @pytest.fixture
+    def mock_entrypoint_main(self):
+        """Mocks the main method of the Entrypoint class."""
+        with patch("nemo_run.cli.api.Entrypoint.main") as mock_main:
+            yield mock_main
+
+    @pytest.fixture(autouse=True)
+    def reset_main_entrypoint(self):
+        """Ensure MAIN_ENTRYPOINT is reset before/after tests."""
+        original_main = cli_api.MAIN_ENTRYPOINT
+        cli_api.MAIN_ENTRYPOINT = None
+        yield
+        cli_api.MAIN_ENTRYPOINT = original_main
+
+    def test_main_basic_execution(self, decorated_func, mock_entrypoint_main):
+        """Test calling main with a decorated function."""
+        cmd_defaults = {"dryrun": True}
+        cli_main(decorated_func, cmd_defaults=cmd_defaults)
+        mock_entrypoint_main.assert_called_once_with(cmd_defaults)
+
+    def test_main_applies_decorator(self, simple_func, mock_entrypoint_main):
+        """Test that main applies @entrypoint if needed."""
+        cmd_defaults = {"verbose": True}
+        cli_main(simple_func, cmd_defaults=cmd_defaults)
+        # Check that the function now has the cli_entrypoint attribute
+        assert hasattr(simple_func, "cli_entrypoint")
+        assert isinstance(simple_func.cli_entrypoint, Entrypoint)
+        # Check that the entrypoint's main was called
+        mock_entrypoint_main.assert_called_once_with(cmd_defaults)
+
+    def test_main_applies_decorator_with_kwargs(self, simple_func, mock_entrypoint_main):
+        """Test that main passes kwargs to the entrypoint decorator."""
+        with patch("nemo_run.cli.api.entrypoint") as mock_entrypoint_decorator:
+            # Need to mock the decorator to check its call args,
+            # and also mock the returned object's main method.
+            mock_entrypoint_instance = Mock()
+            mock_entrypoint_decorator.return_value.return_value = mock_entrypoint_instance
+            mock_entrypoint_instance.cli_entrypoint.main = Mock()  # Mock the main method here
+
+            cli_main(simple_func, namespace="custom_ns", skip_confirmation=True)
+
+            # Check decorator call
+            mock_entrypoint_decorator.assert_called_once()
+            call_kwargs = mock_entrypoint_decorator.call_args.kwargs
+            assert call_kwargs.get("namespace") == "custom_ns"
+            assert call_kwargs.get("skip_confirmation") is True
+
+            # Check that the (mocked) entrypoint's main was called
+            mock_entrypoint_instance.cli_entrypoint.main.assert_called_once_with(None)
+
+    def test_main_default_overrides(self, decorated_func, mock_entrypoint_main):
+        """Test overriding default factory, executor, plugins."""
+        mock_factory = Mock()
+        mock_executor = Mock(spec=Config)
+        mock_plugins = [Mock(spec=Config)]
+
+        original_factory = decorated_func.cli_entrypoint.default_factory
+        original_executor = decorated_func.cli_entrypoint.default_executor
+        original_plugins = decorated_func.cli_entrypoint.default_plugins
+
+        # Mock the entrypoint's main to check attribute values *during* the call
+        def check_defaults_and_restore(*args, **kwargs):
+            assert decorated_func.cli_entrypoint.default_factory == mock_factory
+            assert decorated_func.cli_entrypoint.default_executor == mock_executor
+            assert decorated_func.cli_entrypoint.default_plugins == mock_plugins
+
+        mock_entrypoint_main.side_effect = check_defaults_and_restore
+
+        cli_main(
+            decorated_func,
+            default_factory=mock_factory,
+            default_executor=mock_executor,
+            default_plugins=mock_plugins,
+        )
+
+        # Check they were restored after the call
+        assert decorated_func.cli_entrypoint.default_factory == original_factory
+        assert decorated_func.cli_entrypoint.default_executor == original_executor
+        assert decorated_func.cli_entrypoint.default_plugins == original_plugins
+        mock_entrypoint_main.assert_called_once()  # Ensure it was called
+
+    def test_main_lazy_cli_enabled_normal_func(
+        self, decorated_func, mock_entrypoint_main, monkeypatch
+    ):
+        """Test lazy mode with a normal entrypoint."""
+        monkeypatch.setenv("LAZY_CLI", "true")
+        cli_main(decorated_func)
+        assert cli_api.MAIN_ENTRYPOINT == decorated_func.cli_entrypoint
+        mock_entrypoint_main.assert_not_called()  # main should not be called directly
+
+    @patch("typer.Typer")
+    @patch("nemo_run.cli.api.RunContext.cli_command")
+    @patch("sys.argv", ["script.py", "lazy_cmd", "arg1=val1"])
+    @patch(
+        "nemo_run.cli.lazy.LazyTarget.__post_init__", lambda self: None
+    )  # Prevent script path check
+    def test_main_lazy_cli_disabled_lazy_func(
+        self, mock_cli_command, mock_typer_cls, mock_entrypoint_main, monkeypatch
+    ):
+        """Test non-lazy mode with a LazyEntrypoint (should delegate to Typer)."""
+        monkeypatch.setenv("LAZY_CLI", "false")  # Ensure it's off
+        # Use a real path component even though __post_init__ is patched,
+        # as the constructor might still do basic parsing.
+        lazy_entry = LazyEntrypoint("some.module:func arg1=val1")  # This is the input fn to main
+        mock_app_instance = Mock()
+        mock_typer_cls.return_value = mock_app_instance
+
+        cli_main(lazy_entry, default_factory=Mock(), default_executor=Mock())
+
+        # Check that Typer app was created and cli_command was called to set it up
+        mock_typer_cls.assert_called_once()
+        mock_cli_command.assert_called_once()
+        # Check args passed to cli_command
+        call_args = mock_cli_command.call_args
+        created_lazy_entry = call_args.args[2]  # This is the one created inside main from sys.argv
+        assert call_args.args[0] == mock_app_instance  # parent app
+        assert call_args.args[1] == "lazy_cmd"  # command name from sys.argv[1]
+        # The LazyEntrypoint created *inside* main will be based on sys.argv
+        assert isinstance(created_lazy_entry, LazyEntrypoint)
+        # Adjust assertion to check the path within the internal _target_ object
+        assert hasattr(created_lazy_entry, "_target_")
+        assert hasattr(created_lazy_entry._target_, "import_path")
+        assert created_lazy_entry._target_.import_path == "script.py lazy_cmd"
+        # Check args are stored separately
+        assert created_lazy_entry._args_ == [("arg1", "=", "val1")]
+
+        assert call_args.kwargs.get("type") == "task"
+        assert call_args.kwargs.get("default_factory") is not None
+        assert call_args.kwargs.get("default_executor") is not None
+
+        # Check that the app was run
+        mock_app_instance.assert_called_once_with(standalone_mode=False)
+        # The entrypoint's main method should NOT be called when setting up the typer app for a lazy entrypoint
+        # We access the original mocked entrypoint's main via the fixture
+        mock_entrypoint_main.assert_not_called()
+
+    def test_main_invalid_plugins_type(self, decorated_func):
+        """Test that providing non-Config plugins raises ValueError."""
+        with pytest.raises(ValueError, match="must be a list of Config objects"):
+            cli_main(decorated_func, default_plugins=[Mock()])  # List of non-Configs
+        with pytest.raises(ValueError, match="must be a Config object"):
+            cli_main(decorated_func, default_plugins=Mock())  # Single non-Config
+
+
+class TestEntrypointCommandHelp:
+    """Tests for the help formatting of EntrypointCommand."""
+
+    @pytest.fixture
+    def dummy_entrypoint_func(self):
+        def _dummy_func(a: int):
+            """Dummy help string."""
+            pass
+
+        return _dummy_func
+
+    @pytest.fixture
+    def mock_context_formatter(self):
+        mock_ctx = Mock(spec=typer.Context)
+        mock_formatter = Mock()
+        return mock_ctx, mock_formatter
+
+    @patch("nemo_run.cli.api.rich_utils.rich_format_help", return_value="Base Help")
+    @patch("nemo_run.cli.api.rich_utils._get_rich_console")
+    @patch("nemo_run.help.class_to_str")
+    @patch("nemo_run.cli.api.Panel", autospec=True)
+    @patch("nemo_run.cli.api.Table", autospec=True)
+    def test_format_help_with_defaults(
+        self,
+        mock_table_cls,
+        mock_panel_cls,
+        mock_class_to_str,
+        mock_get_console,
+        mock_rich_format,
+        dummy_entrypoint_func,
+        mock_context_formatter,
+    ):
+        """Test help formatting when defaults are present."""
+        mock_console = Mock(spec=Console)
+        mock_get_console.return_value = mock_console
+        mock_ctx, mock_formatter = mock_context_formatter
+        mock_table_instance = mock_table_cls.return_value
+        mock_table_instance.row_count = 3
+
+        mock_factory = Mock()
+        mock_executor = run.Config(run.LocalExecutor)
+        # Replace WandbPlugin with a generic Mock
+        mock_plugin_cls = Mock()
+        mock_plugins = [run.Config(mock_plugin_cls)]
+        mock_class_to_str.side_effect = ["FactoryStr", "ExecutorStr", "PluginsStr"]
+
+        entrypoint = Entrypoint(
+            dummy_entrypoint_func,
+            namespace="test",
+            default_factory=mock_factory,
+            default_executor=mock_executor,
+            default_plugins=mock_plugins,
+        )
+        entrypoint.help = Mock()
+
+        cmd = EntrypointCommand(name="test_cmd", callback=dummy_entrypoint_func)
+        cmd._entrypoint = entrypoint
+
+        with patch("sys.argv", ["script.py", "test_cmd", "--help"]):
+            result = cmd.format_help(mock_ctx, mock_formatter)
+
+        assert result == "Base Help"
+        mock_rich_format.assert_called_once()
+        mock_get_console.assert_called_once()
+        mock_table_cls.assert_called_once()
+        mock_panel_cls.assert_called_once()
+
+        assert mock_class_to_str.call_count == 3
+        mock_class_to_str.assert_any_call(mock_factory)
+        mock_class_to_str.assert_any_call(mock_executor)
+        mock_class_to_str.assert_any_call(mock_plugins)
+
+        assert mock_table_instance.add_row.call_count == 3
+        mock_table_instance.add_row.assert_any_call("factory", "FactoryStr")
+        mock_table_instance.add_row.assert_any_call("executor", "ExecutorStr")
+        mock_table_instance.add_row.assert_any_call("plugins", "PluginsStr")
+
+        mock_console.print.assert_called_once()
+        mock_panel_cls.assert_called_once_with(
+            mock_table_instance,
+            title="Defaults",
+            border_style=cli_api.rich_utils.STYLE_OPTIONS_PANEL_BORDER,
+            title_align=cli_api.rich_utils.ALIGN_OPTIONS_PANEL,
+        )
+        mock_console.print.assert_called_once_with(mock_panel_cls.return_value)
+
+        entrypoint.help.assert_called_once_with(mock_console, with_docs=False)
+
+    @patch("nemo_run.cli.api.rich_utils.rich_format_help", return_value="Base Help")
+    @patch("nemo_run.cli.api.rich_utils._get_rich_console")
+    @patch("nemo_run.help.class_to_str")
+    @patch("nemo_run.cli.api.Panel", autospec=True)
+    @patch("nemo_run.cli.api.Table", autospec=True)
+    def test_format_help_without_defaults(
+        self,
+        mock_table_cls,
+        mock_panel_cls,
+        mock_class_to_str,
+        mock_get_console,
+        mock_rich_format,
+        dummy_entrypoint_func,
+        mock_context_formatter,
+    ):
+        """Test help formatting when no defaults are present."""
+        mock_console = Mock(spec=Console)
+        mock_get_console.return_value = mock_console
+        mock_ctx, mock_formatter = mock_context_formatter
+        mock_table_instance = mock_table_cls.return_value
+        # Configure row_count for the mock table instance
+        mock_table_instance.row_count = 0
+
+        entrypoint = Entrypoint(
+            dummy_entrypoint_func,
+            namespace="test",
+        )
+        entrypoint.help = Mock()
+
+        cmd = EntrypointCommand(name="test_cmd", callback=dummy_entrypoint_func)
+        cmd._entrypoint = entrypoint
+
+        with patch("sys.argv", ["script.py", "test_cmd", "--help"]):
+            result = cmd.format_help(mock_ctx, mock_formatter)
+
+        assert result == "Base Help"
+        mock_rich_format.assert_called_once()
+        mock_get_console.assert_called_once()
+        mock_table_cls.assert_called_once()
+        mock_table_instance.add_row.assert_not_called()
+        mock_panel_cls.assert_not_called()
+        mock_class_to_str.assert_not_called()
+        mock_console.print.assert_not_called()
+        entrypoint.help.assert_called_once_with(mock_console, with_docs=False)
+
+    @patch("nemo_run.cli.api.rich_utils.rich_format_help", return_value="Base Help")
+    @patch("nemo_run.cli.api.rich_utils._get_rich_console")
+    @patch("nemo_run.help.class_to_str")
+    @patch("nemo_run.cli.api.Panel", autospec=True)
+    @patch("nemo_run.cli.api.Table", autospec=True)
+    def test_format_help_with_docs_flag(
+        self,
+        mock_table_cls,
+        mock_panel_cls,
+        mock_class_to_str,
+        mock_get_console,
+        mock_rich_format,
+        dummy_entrypoint_func,
+        mock_context_formatter,
+    ):
+        """Test help formatting checks sys.argv for --docs flag."""
+        mock_console = Mock(spec=Console)
+        mock_get_console.return_value = mock_console
+        mock_ctx, mock_formatter = mock_context_formatter
+        mock_table_instance = mock_table_cls.return_value
+        # Configure row_count for the mock table instance
+        mock_table_instance.row_count = 0
+
+        entrypoint = Entrypoint(dummy_entrypoint_func, namespace="test")
+        entrypoint.help = Mock()
+
+        cmd = EntrypointCommand(name="test_cmd", callback=dummy_entrypoint_func)
+        cmd._entrypoint = entrypoint
+
+        # Mock sys.argv to include --docs
+        with patch("sys.argv", ["script.py", "test_cmd", "--help", "--docs"]):
+            cmd.format_help(mock_ctx, mock_formatter)
+
+        entrypoint.help.assert_called_once_with(mock_console, with_docs=True)
+
+        # Reset mock and test with -d flag
+        entrypoint.help.reset_mock()
+        with patch("sys.argv", ["script.py", "test_cmd", "--help", "-d"]):
+            cmd.format_help(mock_ctx, mock_formatter)
+        entrypoint.help.assert_called_once_with(mock_console, with_docs=True)
