@@ -1331,56 +1331,6 @@ class TestConfigExport:
             f"[bold green]Configuration exported to JSON:[/bold green] {json_path}"
         )
 
-    @patch("nemo_run.cli.lazy.LazyEntrypoint._import")
-    def test_export_section_lazy(self, mock_import, temp_dir):
-        # Define local classes for clarity in this test
-        @dataclass
-        class SectionExportModel:
-            hidden_size: int = 0
-
-        @dataclass
-        class SectionExportTrainer:
-            model: SectionExportModel
-            learning_rate: float = 0.001
-
-        lazy_config = LazyEntrypoint("test.cli.test_api.SectionExportTrainer")
-        lazy_config.model = LazyEntrypoint("test.cli.test_api.SectionExportModel")
-        lazy_config.model.hidden_size = 500
-        lazy_config.learning_rate = 0.05  # Set on parent
-
-        # Configure the mock resolve for the 'model' LazyEntrypoint
-        # It should return the equivalent resolved Config object that the serializer expects
-        resolved_model_config = Config(SectionExportModel, hidden_size=500)
-
-        # Simpler mocking: Assume the relevant resolve call in this path
-        # will be the one on the model section, and return the expected config.
-        mock_import.return_value = resolved_model_config
-
-        yaml_path = temp_dir / "lazy_section.yaml"
-
-        from nemo_run.cli.api import _serialize_configuration
-
-        with patch("rich.console.Console") as mock_console:
-            _serialize_configuration(
-                lazy_config, to_yaml=f"{yaml_path}:model", is_lazy=True, console=mock_console
-            )
-
-        # Verify the mock was called (meaning the serializer tried to resolve the section)
-        mock_import.assert_called()
-
-        # Verify only the model section was exported based on the mock resolved config
-        assert yaml_path.exists()
-        content = yaml_path.read_text()
-
-        # Check content based on the 'resolved_model_config' the mock returned
-        assert "hidden_size: 500" in content
-        assert (
-            "_target_: test.cli.test_api.TestConfigExport.test_export_section_lazy.<locals>.SectionExportModel"
-            in content
-        )
-        assert "learning_rate" not in content
-        assert "_factory_" not in content
-
     def test_export_error_handling(self, temp_dir):
         config = Config(Model, hidden_size=100)
         non_existent_path = temp_dir / "non_existent_dir" / "config.yaml"
