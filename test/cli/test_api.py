@@ -14,6 +14,7 @@
 # limitations under the License.
 
 import os
+import sys
 from configparser import ConfigParser
 from dataclasses import dataclass, field
 from typing import Annotated, List, Optional, Union
@@ -24,12 +25,26 @@ import pytest
 import typer
 from importlib_metadata import EntryPoint, EntryPoints
 from typer.testing import CliRunner
+from rich.console import Console
 
 import nemo_run as run
 from nemo_run import cli, config
 from nemo_run.cli import api as cli_api
-from nemo_run.cli.api import Entrypoint, RunContext, add_global_options, create_cli
+from nemo_run.config import Config, Partial, get_nemorun_home
+from nemo_run.cli.lazy import LazyEntrypoint
+from nemo_run.cli.api import (
+    Entrypoint,
+    RunContext,
+    add_global_options,
+    create_cli,
+    _search_workspace_file,
+    _load_workspace_file,
+    _load_workspace,
+    RunContextError,
+    _get_return_type,
+)
 from test.dummy_factory import DummyModel, dummy_entrypoint
+import nemo_run.cli.cli_parser # Import the module to mock its function
 
 _RUN_FACTORIES_ENTRYPOINT: str = """
 [nemo_run.cli]
@@ -238,6 +253,120 @@ class TestRunContext:
 
         ctx.cli_execute(sample_function, ["a=10", "b=hello", "run.detach=False"])
         assert not ctx.detach
+
+    def test_run_context_cli_execute_load_not_implemented(self, sample_function):
+        ctx = RunContext(name="test_run", load="some_dir")
+        with pytest.raises(NotImplementedError, match="Load is not implemented yet"):
+            ctx.cli_execute(sample_function, [])
+
+    @patch("nemo_run.cli.api._serialize_configuration")
+    def test_run_context_execute_task_export(self, mock_serialize, sample_function):
+        ctx = RunContext(name="test_run", to_yaml="config.yaml", skip_confirmation=True)
+        with patch("nemo_run.dryrun_fn"): # Mock dryrun as it's called before export check
+            ctx.cli_execute(sample_function, ["a=10"])
+        mock_serialize.assert_called_once()
+        assert mock_serialize.call_args[0][1] == "config.yaml" # Check to_yaml path
+
+    @patch("nemo_run.run")
+    @patch("nemo_run.cli.api._serialize_configuration")
+    def test_execute_lazy_export(self, mock_serialize, mock_run):
+        # Mock sys.argv for lazy execution context
+        original_argv = sys.argv
+        sys.argv = ["nemo_run", "--lazy", "lazy_test", "arg1=1", "--to-yaml", "output.yaml"]
+        os.environ["LAZY_CLI"] = "true" # Ensure lazy mode is active
+
+        # Create a dummy entrypoint for LazyEntrypoint
+        @cli.entrypoint(namespace="test_lazy")
+        def lazy_test_fn(arg1: int):
+            pass
+
+        # Directly test the execute_lazy method's export behavior
+        ctx = RunContext(name="lazy_test", to_yaml="output.yaml", skip_confirmation=True)
+        # We need executor and plugins initialized even if None, as execute_lazy accesses them
+        ctx.executor = None
+        ctx.plugins = []
+        lazy_entry = LazyEntrypoint("test_lazy.lazy_test_fn arg1=1")
+
+        # Mock parse_args as it's called within execute_lazy
+        with patch("nemo_run.cli.api.RunContext.parse_args", return_value=["arg1=1"]) as mock_parse_args:
+             # Mock _should_continue to avoid interaction/torchrun checks
+             with patch("nemo_run.cli.api.RunContext._should_continue", return_value=True):
+                ctx.execute_lazy(lazy_entry, sys.argv, "lazy_test")
+
+        mock_serialize.assert_called_once()
+        # Check arguments passed to _serialize_configuration
+        assert isinstance(mock_serialize.call_args[0][0], LazyEntrypoint) # Check config object
+        assert mock_serialize.call_args[0][1] == "output.yaml" # Check to_yaml path
+        assert mock_serialize.call_args[1].get("is_lazy") is True # Check is_lazy kwarg
+        mock_run.assert_not_called() # Should not run if exporting
+
+        del os.environ["LAZY_CLI"]
+        sys.argv = original_argv # Restore original argv
+
+    def test_execute_lazy_error_cases(self):
+        lazy_entry = LazyEntrypoint("dummy")
+        # Dry run
+        ctx_dry = RunContext(name="lazy_test", dryrun=True)
+        with pytest.raises(ValueError, match="Dry run is not supported for lazy execution"):
+            ctx_dry.execute_lazy(lazy_entry, [], "lazy_test")
+        # REPL
+        ctx_repl = RunContext(name="lazy_test", repl=True)
+        with pytest.raises(ValueError, match="Interactive mode is not supported for lazy execution"):
+            ctx_repl.execute_lazy(lazy_entry, [], "lazy_test")
+        # Direct
+        ctx_direct = RunContext(name="lazy_test", direct=True)
+        with pytest.raises(ValueError, match="Direct execution is not supported for lazy execution"):
+            ctx_direct.execute_lazy(lazy_entry, [], "lazy_test")
+
+    @patch("nemo_run.cli.api._serialize_configuration")
+    @patch("fiddle.build")
+    def test_execute_experiment_export(self, mock_build, mock_serialize, sample_experiment):
+        ctx = RunContext(name="test_exp", to_json="exp_config.json", skip_confirmation=True)
+        with patch("nemo_run.dryrun_fn"): # Mock dryrun
+             ctx.cli_execute(sample_experiment, ["a=5"], entrypoint_type="experiment")
+        mock_serialize.assert_called_once()
+        assert mock_serialize.call_args[0][3] == "exp_config.json" # Check to_json path
+        assert "is_lazy" in mock_serialize.call_args[1]
+        assert mock_serialize.call_args[1]["is_lazy"] is False
+        mock_build.assert_not_called() # Should not build if exporting
+
+    @patch("fiddle.build")
+    def test_execute_experiment_normal(self, mock_build, sample_experiment):
+        ctx = RunContext(name="test_exp", skip_confirmation=True)
+        # Mock the build process to avoid actual execution
+        mock_partial = Mock()
+        mock_build.return_value = mock_partial
+        with patch("nemo_run.dryrun_fn"), \
+             patch("typer.confirm", return_value=True): # Mock dryrun and confirmation
+            ctx.cli_execute(sample_experiment, ["a=5", "b='exp'"], entrypoint_type="experiment")
+        mock_build.assert_called_once()
+        mock_partial.assert_called_once_with() # Check that the built object is called
+
+    def test_run_context_get_help(self):
+        help_text = RunContext.get_help()
+        assert "Represents the context for executing a run" in help_text
+
+    def test_run_context_cli_command_defaults(self):
+        app = typer.Typer()
+        defaults = {"dryrun": True, "verbose": True}
+
+        # Mock the actual execution logic inside the command
+        with patch.object(RunContext, "cli_execute") as mock_cli_execute:
+            # Create the command with defaults
+            RunContext.cli_command(app, "testcmd", lambda: None, cmd_defaults=defaults)
+
+            # Simulate calling the command with no overrides
+            runner = CliRunner()
+            runner.invoke(app, ["testcmd"])
+
+            # Check that cli_execute was called with the context reflecting defaults
+            mock_cli_execute.assert_called_once()
+            ctx_instance = mock_cli_execute.call_args[0][0] # First arg is self (RunContext instance)
+            # Can't directly check ctx_instance attributes as it's created inside the closure,
+            # but we can check if the options passed to _configure_global_options reflect defaults
+            with patch("nemo_run.cli.api._configure_global_options") as mock_configure:
+                 runner.invoke(app, ["testcmd"])
+                 mock_configure.assert_called_with(app, False, True, True, None, True) # verbose=True expected
 
 
 @dataclass
@@ -1139,3 +1268,197 @@ class TestConfigExport:
                 config,
                 to_yaml=f"{yaml_path}:invalid",
             )
+
+    def test_export_verbose(self, temp_dir):
+        @run.autoconvert
+        def my_model() -> Model:
+            return Model(hidden_size=10, num_layers=1, activation="test")
+
+        config = my_model()
+        yaml_path = temp_dir / "verbose.yaml"
+        json_path = temp_dir / "verbose.json"
+
+        from nemo_run.cli.api import _serialize_configuration
+        mock_console = Mock(spec=Console)
+
+        _serialize_configuration(
+            config,
+            to_yaml=str(yaml_path),
+            to_json=str(json_path),
+            console=mock_console,
+            verbose=True
+        )
+
+        # Check that console print was called multiple times for verbose output
+        assert mock_console.print.call_count > 2
+        mock_console.print.assert_any_call(f"[bold green]Configuration exported to YAML:[/bold green] {yaml_path}")
+        mock_console.print.assert_any_call("[bold cyan]File contents:[/bold cyan]")
+        mock_console.print.assert_any_call(f"[bold green]Configuration exported to JSON:[/bold green] {json_path}")
+
+    @patch("nemo_run.cli.lazy.LazyEntrypoint.resolve")
+    def test_export_section_lazy(self, mock_resolve, temp_dir):
+        # Define local classes for clarity in this test
+        @dataclass
+        class SectionExportModel:
+            hidden_size: int = 0
+
+        @dataclass
+        class SectionExportTrainer:
+            model: SectionExportModel
+            learning_rate: float = 0.001
+
+        lazy_config = LazyEntrypoint("test.cli.test_api.SectionExportTrainer")
+        lazy_config.model = LazyEntrypoint("test.cli.test_api.SectionExportModel")
+        lazy_config.model.hidden_size = 500
+        lazy_config.learning_rate = 0.05 # Set on parent
+
+        # Configure the mock resolve for the 'model' LazyEntrypoint
+        # It should return the equivalent resolved Config object that the serializer expects
+        resolved_model_config = Config(SectionExportModel, hidden_size=500)
+
+        # Simpler mocking: Assume the relevant resolve call in this path
+        # will be the one on the model section, and return the expected config.
+        mock_resolve.return_value = resolved_model_config
+
+
+        yaml_path = temp_dir / "lazy_section.yaml"
+
+        from nemo_run.cli.api import _serialize_configuration
+
+        with patch("rich.console.Console") as mock_console:
+            _serialize_configuration(
+                lazy_config, to_yaml=f"{yaml_path}:model", is_lazy=True, console=mock_console
+            )
+
+        # Verify the mock was called (meaning the serializer tried to resolve the section)
+        mock_resolve.assert_called()
+
+        # Verify only the model section was exported based on the mock resolved config
+        assert yaml_path.exists()
+        content = yaml_path.read_text()
+
+        # Check content based on the 'resolved_model_config' the mock returned
+        assert "hidden_size: 500" in content
+        assert "_target_: test.cli.test_api.TestConfigExport.test_export_section_lazy.<locals>.SectionExportModel" in content
+        assert "learning_rate" not in content
+        assert "_factory_" not in content
+
+    def test_export_error_handling(self, temp_dir):
+        config = Config(Model, hidden_size=100)
+        non_existent_path = temp_dir / "non_existent_dir" / "config.yaml"
+
+        from nemo_run.cli.api import _serialize_configuration
+        mock_console = Mock(spec=Console)
+
+        with pytest.raises(Exception): # Expecting FileNotFoundError or similar
+            _serialize_configuration(
+                config,
+                to_yaml=str(non_existent_path),
+                console=mock_console,
+                verbose=True # Test error printing in verbose mode
+            )
+
+        # Check that error message was printed
+        expected_error_msg = str(FileNotFoundError(f"[Errno 2] No such file or directory: '{str(non_existent_path)}'"))
+        mock_console.print.assert_called_with(
+             f"[bold red]Failed to export configuration to YAML:[/bold red] {expected_error_msg}"
+        )
+
+    def test_export_no_format_error(self):
+         from nemo_run.cli.api import _serialize_configuration
+         with pytest.raises(ValueError, match="At least one output format must be provided"):
+             _serialize_configuration(Config(int)) # Dummy config
+
+
+class TestWorkspaceLoading:
+    @pytest.fixture(autouse=True)
+    def _setup_teardown(self, tmp_path, monkeypatch):
+        # Setup
+        original_cwd = os.getcwd()
+        nemorun_home_path = tmp_path / ".nemorun_home"
+        nemorun_home_path.mkdir()
+        nemorun_home_str = str(nemorun_home_path)
+
+        monkeypatch.setenv("INCLUDE_WORKSPACE_FILE", "true")
+        monkeypatch.setattr(cli_api, "get_nemorun_home", lambda: nemorun_home_str)
+
+        # Change directory for test file creation AND for the function under test
+        os.chdir(str(tmp_path))
+
+        # Clear cache *before* test runs
+        cli_api._load_workspace.cache_clear()
+
+        yield tmp_path, nemorun_home_path
+
+        # Teardown
+        os.chdir(original_cwd) # Restore original CWD
+        cli_api._load_workspace.cache_clear()
+
+    def test_search_workspace_file_not_found(self, _setup_teardown):
+        # Fixture ensures CWD is tmp_path, no files created here
+        assert _search_workspace_file() is None
+
+    def test_search_workspace_file_disabled(self, _setup_teardown, monkeypatch):
+        tmp_path, _ = _setup_teardown
+        monkeypatch.setenv("INCLUDE_WORKSPACE_FILE", "false")
+        ws_path = tmp_path / "workspace.py"
+        ws_path.touch() # Create a file that *would* be found otherwise
+        assert _search_workspace_file() is None # Should return None due to env var
+
+    @patch("importlib.util.spec_from_file_location")
+    @patch("importlib.util.module_from_spec")
+    def test_load_workspace_file(self, mock_module_from_spec, mock_spec_from_file, _setup_teardown):
+        tmp_path, _ = _setup_teardown
+        mock_spec = Mock()
+        mock_spec.loader = Mock()
+        mock_spec_from_file.return_value = mock_spec
+        mock_module = Mock()
+        mock_module_from_spec.return_value = mock_module
+        ws_path = tmp_path / "dummy_ws.py"
+        ws_path.touch()
+        _load_workspace_file(str(ws_path))
+        mock_spec_from_file.assert_called_once_with("workspace", str(ws_path))
+        mock_module_from_spec.assert_called_once_with(mock_spec)
+        mock_spec.loader.exec_module.assert_called_once_with(mock_module)
+
+    @patch("nemo_run.cli.api._search_workspace_file")
+    @patch("nemo_run.cli.api._load_workspace_file")
+    def test_load_workspace(self, mock_load_file, mock_search_file, _setup_teardown):
+        # Case 1: File found
+        ws_path = "/fake/path/workspace.py"
+        mock_search_file.return_value = ws_path
+        _load_workspace() # Call 1
+        mock_search_file.assert_called_once()
+        mock_load_file.assert_called_once_with(ws_path)
+
+        # Reset mocks and *explicitly clear cache* before second call
+        mock_search_file.reset_mock()
+        mock_load_file.reset_mock()
+        cli_api._load_workspace.cache_clear() # Reset cache
+
+        # Case 2: File not found
+        mock_search_file.return_value = None
+        _load_workspace() # Call 2
+        mock_search_file.assert_called_once() # Should call search again
+        mock_load_file.assert_not_called()
+
+    @patch("nemo_run.cli.api._search_workspace_file")
+    @patch("nemo_run.cli.api._load_workspace_file")
+    def test_load_workspace_cached(self, mock_load_file, mock_search_file, _setup_teardown):
+        # Test caching behavior
+        ws_path = "/fake/path/workspace.py"
+        mock_search_file.return_value = ws_path
+
+        # First call
+        _load_workspace() # Call 1
+        mock_search_file.assert_called_once()
+        mock_load_file.assert_called_once_with(ws_path)
+
+        # Reset counts but *not* the cache
+        mock_search_file.reset_mock()
+        mock_load_file.reset_mock()
+
+        # Second call - should use cache
+        _load_workspace() # Call 2
+        mock_search_file.assert_not_called() # Should not call search
+        mock_load_file.assert_not_called() # Should not call load
