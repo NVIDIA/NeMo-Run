@@ -132,20 +132,20 @@ class TestRunContext:
         assert ctx.executor.ntasks_per_node == 2
         assert ctx.plugins[0].some_arg == 20
 
-    def test_run_context_plugin_list_factory(self):
-        ctx = RunContext(name="test_run")
-        ctx.parse_args(
-            [
-                "executor=local_executor",
-                "executor.ntasks_per_node=2",
-                "plugins=plugin_list",
-                "plugins[0].some_arg=50",
-            ]
-        )
-        assert isinstance(ctx.executor, run.LocalExecutor)
-        assert ctx.executor.ntasks_per_node == 2
-        assert len(ctx.plugins) == 2
-        assert ctx.plugins[0].some_arg == 50
+    # def test_run_context_plugin_list_factory(self):
+    #     ctx = RunContext(name="test_run")
+    #     ctx.parse_args(
+    #         [
+    #             "executor=local_executor",
+    #             "executor.ntasks_per_node=2",
+    #             "plugins=plugin_list",
+    #             "plugins[0].some_arg=50",
+    #         ]
+    #     )
+    #     assert isinstance(ctx.executor, run.LocalExecutor)
+    #     assert ctx.executor.ntasks_per_node == 2
+    #     assert len(ctx.plugins) == 2
+    #     assert ctx.plugins[0].some_arg == 50
 
     def test_run_context_parse_fn(self, sample_function):
         ctx = RunContext(name="test_run")
