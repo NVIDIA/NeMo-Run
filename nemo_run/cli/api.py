@@ -1235,7 +1235,7 @@ class RunContext:
         output = LazyEntrypoint(fn, factory=self.factory, yaml=self.yaml, overwrites=args)
         out = output.resolve()
 
-        return out
+        return output.resolve(ctx=self)
 
     def _parse_partial(self, fn: Callable, args: List[str], **default_args) -> Partial[T]:
         """

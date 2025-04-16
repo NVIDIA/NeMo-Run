@@ -7,9 +7,10 @@ import re
 import shlex
 import sys
 from dataclasses import dataclass, field
+import inspect
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
 from fiddle import Buildable, daglish
 from fiddle._src import signatures
@@ -18,6 +19,9 @@ from fiddle.experimental import serialization
 from omegaconf import DictConfig, OmegaConf
 
 from nemo_run.config import Partial
+
+if TYPE_CHECKING:
+    from nemo_run.cli.cli_parser import RunContext
 
 
 @contextlib.contextmanager
@@ -142,7 +146,7 @@ class LazyEntrypoint(Buildable):
         if remaining_overwrites:
             self._add_overwrite(*remaining_overwrites)
 
-    def resolve(self) -> Partial:
+    def resolve(self, ctx: Optional["RunContext"] = None) -> Partial:
         from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
 
         fn = self._target_
@@ -160,12 +164,22 @@ class LazyEntrypoint(Buildable):
             if isinstance(fn, LazyTarget):
                 fn = fn.target
 
+        sig = inspect.signature(fn)
+        param_names = sig.parameters.keys()        
+
         dotlist = dictconfig_to_dot_list(
             _args_to_dictconfig(self._args_), has_factory=self._factory_ is not None
         )
         _args = [f"{name}{op}{value}" for name, op, value in dotlist]
 
-        return parse_cli_args(fn, _args)
+        out = parse_cli_args(fn, _args)
+
+        if "ctx" in param_names:
+            if not ctx:
+                raise ValueError("ctx is required for this function")
+            out.ctx = ctx
+
+        return out
 
     def __getattr__(self, item: str) -> "LazyEntrypoint":
         """
