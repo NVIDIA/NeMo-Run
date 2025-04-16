@@ -28,7 +28,6 @@ from nemo_run.config import (
     Script,
     from_dict,
     set_value,
-    class_to_str,
 )
 from nemo_run.exceptions import SetValueError
 
