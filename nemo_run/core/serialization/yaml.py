@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import inspect
-
+import importlib
 import yaml
 from fiddle._src import config as config_lib
 from fiddle._src import partial
@@ -79,9 +79,18 @@ except ModuleNotFoundError:
 
 
 class YamlSerializer:
-    """Serializer that uses JSON, zlib, and base64 encoding."""
+    """Serializer that handles YAML format for Config objects."""
 
     def serialize(self, cfg: config_lib.Buildable, stream=None) -> str:
+        """Serialize a Buildable to YAML format.
+
+        Args:
+            cfg: The Buildable object to serialize.
+            stream: Optional stream to write to.
+
+        Returns:
+            YAML string representation of the Buildable.
+        """
         if getattr(cfg, "is_lazy", False):
             cfg = cfg.resolve()
 
@@ -91,4 +100,40 @@ class YamlSerializer:
         self,
         serialized: str,
     ) -> config_lib.Buildable:
-        raise NotImplementedError
+        """Deserialize a YAML string into a Buildable object.
+
+        Args:
+            serialized: YAML string to deserialize.
+
+        Returns:
+            A Buildable object (Config or Partial).
+        """
+        from nemo_run.cli.cli_parser import parse_cli_args
+        from nemo_run.cli.lazy import dictconfig_to_dot_list
+        from omegaconf import OmegaConf
+
+        # Load the YAML into a DictConfig
+        config_dict = yaml.safe_load(serialized)
+
+        # Extract the target from _target_
+        if "_target_" not in config_dict:
+            raise ValueError("Missing '_target_' key in serialized YAML")
+
+        target_path = config_dict.pop("_target_")
+        is_partial = config_dict.pop("_partial_", False)
+
+        # Import the target function/class
+        module_name, func_name = target_path.rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        target = getattr(module, func_name)
+
+        # Convert the DictConfig to dot list arguments
+        dot_list = dictconfig_to_dot_list(OmegaConf.create(config_dict))
+        args = [f"{name}{op}{value}" for name, op, value in dot_list]
+
+        # Use parse_cli_args to build the Config/Partial
+        from nemo_run.config import Config, Partial
+
+        output_type = Partial if is_partial else Config
+
+        return parse_cli_args(target, args, output_type=output_type)

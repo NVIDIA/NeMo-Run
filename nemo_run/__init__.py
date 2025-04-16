@@ -26,7 +26,7 @@ from nemo_run.core.packaging import GitArchivePackager, HybridPackager, Packager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.devspace.base import DevSpace
 from nemo_run.help import help
-from nemo_run.lazy import LazyEntrypoint, lazy_imports
+from nemo_run.cli.lazy import LazyEntrypoint, lazy_imports
 from nemo_run.package_info import __package_name__, __version__
 from nemo_run.run.api import run
 from nemo_run.run.experiment import Experiment
