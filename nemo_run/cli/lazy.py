@@ -164,7 +164,11 @@ class LazyEntrypoint(Buildable):
             if isinstance(fn, LazyTarget):
                 fn = fn.target
 
-        sig = inspect.signature(fn)
+        _fn = fn
+        if hasattr(fn, "__fn_or_cls__"):
+            _fn = fn.__fn_or_cls__
+
+        sig = inspect.signature(_fn)
         param_names = sig.parameters.keys()
 
         dotlist = dictconfig_to_dot_list(
