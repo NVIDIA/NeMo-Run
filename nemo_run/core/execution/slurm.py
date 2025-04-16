@@ -1116,9 +1116,14 @@ class SlurmTunnelCallback(Callback):
             )
             self.forward_port_context.__enter__()
 
-            self.ssh_config.add_entry(
-                metadata.user, "localhost", int(metadata.port), self.tunnel_name
-            )
+            try:
+                self.ssh_config.add_entry(
+                    metadata.user, "localhost", int(metadata.port), self.tunnel_name
+                )
+            except Exception as e:
+                self.console.print(f"[bold red]Error adding SSH config entry: {e}")
+                raise e
+
             self.ssh_entry_added = True
 
             with self.console.status("Setting up port forwarding", spinner="dots"):
