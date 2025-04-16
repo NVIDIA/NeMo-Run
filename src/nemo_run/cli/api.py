@@ -1115,7 +1115,7 @@ class RunContext:
         """
         import nemo_run as run
 
-        partial = self.parse_fn(fn, experiment_args, ctx=self)
+        partial = self.parse_fn(fn, experiment_args)
 
         run.dryrun_fn(partial, executor=self.executor)
 
@@ -1165,9 +1165,11 @@ class RunContext:
         """
         output = LazyEntrypoint(fn, factory=self.factory, yaml=self.yaml)
         if args:
-            output._add_overwrite(*args)
+            output._add_overwrite(*args)        
+        for key, value in default_kwargs.items():
+            output._args_.append((key, "=", value))
 
-        return output.resolve()
+        return output.resolve(ctx=self)
 
     def _parse_partial(self, fn: Callable, args: List[str], **default_args) -> Partial[T]:
         """
