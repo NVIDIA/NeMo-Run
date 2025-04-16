@@ -165,7 +165,7 @@ class LazyEntrypoint(Buildable):
                 fn = fn.target
 
         sig = inspect.signature(fn)
-        param_names = sig.parameters.keys()        
+        param_names = sig.parameters.keys()
 
         dotlist = dictconfig_to_dot_list(
             _args_to_dictconfig(self._args_), has_factory=self._factory_ is not None
