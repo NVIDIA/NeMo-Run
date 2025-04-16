@@ -254,7 +254,7 @@ class LazyEntrypoint(Buildable):
         Returns:
             Remaining overwrites that don't use @ syntax
         """
-        from nemo_run.core.serialization.yaml import ConfigSerializer
+        from nemo_run.cli.config import ConfigSerializer
 
         # Start with empty config if none provided
         to_parse = OmegaConf.create({})
@@ -582,7 +582,10 @@ def dictconfig_to_dot_list(
             if "_target_" in value:
                 target = value["_target_"]
                 if not target.startswith(("Config", "Partial")):
-                    target = f"Config[{target}]"
+                    if value.pop("_partial_", False):
+                        target = f"Partial[{target}]"
+                    else:
+                        target = f"Config[{target}]"
                 result.append((full_key, "=", target))
                 remaining_config = OmegaConf.create(
                     {k: v for k, v in value.items() if k != "_target_"}
@@ -828,7 +831,7 @@ def load_config_from_path(path_with_syntax: str) -> Any:
     Raises:
         ValueError: If the file path is invalid or the file doesn't exist
     """
-    from nemo_run.core.serialization.yaml import ConfigSerializer
+    from nemo_run.cli.config import ConfigSerializer
     from omegaconf import OmegaConf
     import os
 

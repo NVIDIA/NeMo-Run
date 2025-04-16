@@ -1046,6 +1046,11 @@ def parse_cli_args(
         key, (op, value) = next(iter(parsed.items()))
         logger.debug(f"Parsed key: {key}, op: {op}, value: {value}")
 
+        # Skip the internal _target_ argument used for serialization
+        if key == "_target_":
+            logger.debug(f"Skipping internal '_target_' argument: {arg}")
+            continue
+
         if "." not in key:
             if isinstance(fn, (Config, Partial)):
                 signature = inspect.signature(fn.__fn_or_cls__)

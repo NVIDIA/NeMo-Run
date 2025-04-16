@@ -67,8 +67,8 @@ from nemo_run.config import (
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
-from nemo_run.core.serialization.yaml import ConfigSerializer
-from nemo_run.lazy import LazyEntrypoint
+from nemo_run.cli.config import ConfigSerializer
+from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 

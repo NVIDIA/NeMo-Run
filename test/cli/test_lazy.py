@@ -10,7 +10,7 @@ import nemo_run as run
 from nemo_run.cli.cli_parser import ParseError
 from nemo_run.config import Partial
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
-from nemo_run.lazy import LazyEntrypoint, dictconfig_to_dot_list
+from nemo_run.cli.lazy import LazyEntrypoint, dictconfig_to_dot_list
 from test.dummy_factory import DummyModel  # noqa: F401
 
 
@@ -245,7 +245,7 @@ class TestFiddleIntegration:
 
     def test_fiddle_path_elements(self):
         """Test that __path_elements__ returns the expected elements."""
-        from nemo_run.lazy import LazyEntrypoint
+        from nemo_run.cli.lazy import LazyEntrypoint
 
         task = LazyEntrypoint(f"{__name__}.some_function")
         path_elements = task.__path_elements__()
@@ -266,7 +266,7 @@ class TestFiddleIntegration:
     )
     def test_fiddle_required_properties(self, fn_name):
         """Test that all required Fiddle properties are implemented."""
-        from nemo_run.lazy import LazyEntrypoint
+        from nemo_run.cli.lazy import LazyEntrypoint
 
         task = LazyEntrypoint(f"{__name__}.some_function")
 
@@ -363,7 +363,7 @@ class TestOmegaConfIntegration:
 class TestLazyImports:
     def test_lazy_imports_context(self):
         """Test that the lazy_imports context manager works correctly."""
-        from nemo_run.lazy import LazyModule, lazy_imports
+        from nemo_run.cli.lazy import LazyModule, lazy_imports
 
         # Inside the context, imports should be lazy
         with lazy_imports():
@@ -389,7 +389,7 @@ class TestLazyImports:
 
     def test_lazy_imports_with_fallback(self):
         """Test that lazy_imports with fallback works correctly."""
-        from nemo_run.lazy import LazyModule, lazy_imports
+        from nemo_run.cli.lazy import LazyModule, lazy_imports
 
         # With fallback, existing modules should be imported normally
         with lazy_imports(fallback_to_lazy=True):
@@ -412,7 +412,7 @@ class TestLazyImports:
 class TestLazyModule:
     def test_lazy_module_creation(self):
         """Test that LazyModule can be created and has the correct attributes."""
-        from nemo_run.lazy import LazyModule
+        from nemo_run.cli.lazy import LazyModule
 
         # Create a LazyModule with a fake name
         lazy_mod = LazyModule("fake_module")
@@ -425,7 +425,7 @@ class TestLazyModule:
 
     def test_lazy_module_dir(self):
         """Test that LazyModule __dir__ returns attributes that have been accessed."""
-        from nemo_run.lazy import LazyModule
+        from nemo_run.cli.lazy import LazyModule
 
         # Create a LazyModule
         lazy_mod = LazyModule("fake_module")
@@ -447,7 +447,7 @@ class TestLazyModule:
 class TestLazyTarget:
     def test_lazy_target_initialization(self):
         """Test LazyTarget initialization."""
-        from nemo_run.lazy import LazyTarget
+        from nemo_run.cli.lazy import LazyTarget
 
         # Create a LazyTarget
         lazy_fn = LazyTarget("math.sin")
@@ -460,7 +460,7 @@ class TestLazyTarget:
         """Test that calling LazyTarget loads and calls the real function."""
         import math
 
-        from nemo_run.lazy import LazyTarget
+        from nemo_run.cli.lazy import LazyTarget
 
         # Create a LazyTarget
         lazy_sin = LazyTarget("math.sin")
@@ -475,7 +475,7 @@ class TestLazyTarget:
 class TestHelperFunctions:
     def test_args_to_dictconfig(self):
         """Test _args_to_dictconfig helper function."""
-        from nemo_run.lazy import _args_to_dictconfig
+        from nemo_run.cli.lazy import _args_to_dictconfig
 
         # Create a list of (path, op, value) tuples
         args = [
@@ -498,7 +498,7 @@ class TestHelperFunctions:
 
     def test_flatten_unflatten_lazy_entrypoint(self):
         """Test the _flatten_lazy_entrypoint and _unflatten_lazy_entrypoint functions."""
-        from nemo_run.lazy import (
+        from nemo_run.cli.lazy import (
             LazyEntrypoint,
             _flatten_lazy_entrypoint,
             _unflatten_lazy_entrypoint,
@@ -532,7 +532,7 @@ class TestHelperFunctions:
 
     def test_flatten_unflatten_lazy_target(self):
         """Test the _flatten_lazy_target and _unflatten_lazy_target functions."""
-        from nemo_run.lazy import LazyTarget, _flatten_lazy_target, _unflatten_lazy_target
+        from nemo_run.cli.lazy import LazyTarget, _flatten_lazy_target, _unflatten_lazy_target
 
         # Create a LazyTarget
         target = LazyTarget("math.sin", script="print('Hello')")
@@ -562,7 +562,7 @@ class TestEntrypointMocking:
         """Test that LazyEntrypoint handles exceptions gracefully."""
         import importlib
 
-        from nemo_run.lazy import LazyEntrypoint
+        from nemo_run.cli.lazy import LazyEntrypoint
 
         # Create a LazyEntrypoint with a non-existent target
         LazyEntrypoint("non_existent_module.function")

@@ -1005,7 +1005,7 @@ class TestConfigExport:
         assert data["_target_"] == "test.cli.test_api.Model"
 
     def test_lazy_config_export(self, temp_dir):
-        from nemo_run.lazy import LazyEntrypoint
+        from nemo_run.cli.lazy import LazyEntrypoint
 
         # Create a lazy configuration with nested structure
         lazy_config = LazyEntrypoint("test.cli.test_api.Model", factory="my_model_factory")
