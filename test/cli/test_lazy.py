@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 import math
-import os
 import pickle
 import sys
 
@@ -15,26 +14,21 @@ from nemo_run.cli.cli_parser import ParseError
 from nemo_run.config import Partial
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.cli.lazy import (
-    LazyEntrypoint, 
+    LazyEntrypoint,
     LazyTarget,
     LazyModule,
     DictConfig,
     dictconfig_to_dot_list,
     load_config_from_path,
     _args_to_dictconfig,
-    _flatten_lazy_entrypoint,
-    _unflatten_lazy_entrypoint,
     _flatten_lazy_target,
     _unflatten_lazy_target,
-    _load_entrypoint_from_script,
     _flatten_lazy_entrypoint,
     _unflatten_lazy_entrypoint,
     _is_config_file_path,
     import_module,
 )
 from test.dummy_factory import DummyModel  # noqa: F401
-
-
 
 
 @dataclass
@@ -426,9 +420,7 @@ class TestOmegaConfIntegration:
             LazyEntrypoint(f"{__name__}.some_function", yaml=123)
 
     def test_dictconfig_to_dot_list_partial(self):
-        config = OmegaConf.create(
-            {"model": {"_target_": "MyModel", "_partial_": True, "arg": 1}}
-        )
+        config = OmegaConf.create({"model": {"_target_": "MyModel", "_partial_": True, "arg": 1}})
         result = dictconfig_to_dot_list(config)
         expected = [("model", "=", "Partial[MyModel]"), ("model.arg", "=", 1)]
         assert result == expected
@@ -469,9 +461,7 @@ class TestOmegaConfIntegration:
             ("model.decoder.num_layers", "=", 6),
         ]
         # Filter out structure args for robust comparison
-        result_filtered = [
-            item for item in result if not item[2] == "Config[TransformerEncoder]"
-        ]
+        result_filtered = [item for item in result if not item[2] == "Config[TransformerEncoder]"]
         result_filtered = [
             item for item in result_filtered if not item[2] == "Config[TransformerDecoder]"
         ]
@@ -613,18 +603,20 @@ class TestLazyModule:
     def test_lazy_module_nested_getattr(self):
         """Test __getattr__ for nested lazy modules."""
         lazy_mod = LazyModule("nemo_run.cli")
-        lazy_lazy = lazy_mod.lazy # nemo_run.cli -> LazyModule("nemo_run.cli.lazy")
+        lazy_lazy = lazy_mod.lazy  # nemo_run.cli -> LazyModule("nemo_run.cli.lazy")
         assert isinstance(lazy_lazy, LazyModule)
         assert lazy_lazy.name == "nemo_run.cli.lazy"
 
         # Accessing attribute on a nested module currently returns LazyModule due to '.' in self.name
-        lazy_entrypoint_attr = lazy_lazy.LazyEntrypoint # nemo_run.cli.lazy -> LazyModule("nemo_run.cli.lazy.LazyEntrypoint")
-        assert isinstance(lazy_entrypoint_attr, LazyModule) # Adjusted assertion
+        lazy_entrypoint_attr = (
+            lazy_lazy.LazyEntrypoint
+        )  # nemo_run.cli.lazy -> LazyModule("nemo_run.cli.lazy.LazyEntrypoint")
+        assert isinstance(lazy_entrypoint_attr, LazyModule)  # Adjusted assertion
         assert lazy_entrypoint_attr.name == "nemo_run.cli.lazy.LazyEntrypoint"
 
         # Accessing attribute on a top-level module currently returns LazyTarget
         lazy_math = LazyModule("math")
-        lazy_sin_attr = lazy_math.sin # math -> LazyTarget("math.sin")
+        lazy_sin_attr = lazy_math.sin  # math -> LazyTarget("math.sin")
         assert isinstance(lazy_sin_attr, LazyTarget)
         assert lazy_sin_attr.import_path == "math.sin"
 
@@ -651,7 +643,7 @@ class TestLazyModule:
     def test_lazy_module_pickle(self):
         """Test that LazyModule can be pickled and unpickled."""
         lazy_mod = LazyModule("nemo_run.cli.lazy")
-        _ = lazy_mod.LazyEntrypoint # Access creates a LazyModule in _lazy_attrs
+        _ = lazy_mod.LazyEntrypoint  # Access creates a LazyModule in _lazy_attrs
 
         pickled = pickle.dumps(lazy_mod)
         unpickled = pickle.loads(pickled)
@@ -660,7 +652,7 @@ class TestLazyModule:
         assert unpickled.name == "nemo_run.cli.lazy"
         assert "LazyEntrypoint" in unpickled._lazy_attrs
         # Check that the stored attribute is a LazyModule, matching the current __getattr__ logic
-        assert isinstance(unpickled._lazy_attrs["LazyEntrypoint"], LazyModule) # Adjusted assertion
+        assert isinstance(unpickled._lazy_attrs["LazyEntrypoint"], LazyModule)  # Adjusted assertion
         assert unpickled._lazy_attrs["LazyEntrypoint"].name == "nemo_run.cli.lazy.LazyEntrypoint"
 
 
@@ -704,6 +696,7 @@ class TestHelperFunctions:
 
     def test_flatten_unflatten_lazy_entrypoint(self):
         """Test the _flatten_lazy_entrypoint and _unflatten_lazy_entrypoint functions."""
+
         def dummy_func(x: int):
             return x
 
@@ -763,7 +756,7 @@ class TestHelperFunctions:
             ("", False),
             ("config.yaml:section", True),
             ("@config.yaml", True),
-        ]
+        ],
     )
     def test_is_config_file_path(self, path_str, expected):
         """Test the _is_config_file_path helper function."""
@@ -772,6 +765,7 @@ class TestHelperFunctions:
     def test_dummy_fn(self):
         """Test that _dummy_fn raises NotImplementedError."""
         from nemo_run.cli.lazy import _dummy_fn
+
         with pytest.raises(NotImplementedError):
             _dummy_fn()
 
@@ -814,7 +808,6 @@ class TestHelperFunctions:
         nested_single_key_p = tmp_path / "nested_single_key.yaml"
         nested_single_key_p.write_text(nested_single_key_yaml)
 
-
         # Flat config
         flat_yaml = """
         _target_: Optimizer
@@ -854,10 +847,9 @@ class TestHelperFunctions:
         assert isinstance(loaded_nested_multi, DictConfig)
         assert "model" in loaded_nested_multi
         assert "optim" in loaded_nested_multi
-        assert loaded_nested_multi.model._target_ == "Model" # Check within model key
-        assert loaded_nested_multi.model.hidden == 1       # Check within model key
-        assert loaded_nested_multi.optim.lr == 0.1         # Check within optim key
-
+        assert loaded_nested_multi.model._target_ == "Model"  # Check within model key
+        assert loaded_nested_multi.model.hidden == 1  # Check within model key
+        assert loaded_nested_multi.optim.lr == 0.1  # Check within optim key
 
         # Test loading JSON (flat)
         loaded_json = load_config_from_path(f"@{json_p}")
