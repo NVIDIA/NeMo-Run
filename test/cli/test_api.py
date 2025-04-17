@@ -14,18 +14,10 @@
 # limitations under the License.
 
 import os
-<<<<<<< HEAD
 import sys
 from configparser import ConfigParser
 from dataclasses import dataclass, field
 from typing import Annotated, List, Optional, Union
-import subprocess
-import sys
-=======
->>>>>>> 158bffa (Run linting)
-from configparser import ConfigParser
-from dataclasses import dataclass
-from typing import Annotated, List, Optional, Tuple, Union
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -51,7 +43,6 @@ from nemo_run.cli.api import (
     _load_workspace,
     main as cli_main,
 )
-from nemo_run.cli.api import Entrypoint, RunContext, add_global_options, create_cli
 from test.dummy_factory import DummyModel, dummy_entrypoint
 import nemo_run.cli.cli_parser  # Import the module to mock its function
 
@@ -910,7 +901,7 @@ class TestGlobalOptions:
         """Test verbose logging functionality"""
         with patch("nemo_run.cli.api.configure_logging") as mock_configure:
             # Test enabled
-            result = runner.invoke(app, ["-v", "error-command"])
+            runner.invoke(app, ["-v", "error-command"])
             mock_configure.assert_called_once_with(True)
 
             # Test disabled
