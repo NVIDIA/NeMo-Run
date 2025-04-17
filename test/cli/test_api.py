@@ -18,6 +18,12 @@ import sys
 from configparser import ConfigParser
 from dataclasses import dataclass, field
 from typing import Annotated, List, Optional, Union
+import subprocess
+import sys
+from configparser import ConfigParser
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Annotated, List, Optional, Tuple, Union
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
@@ -43,6 +49,7 @@ from nemo_run.cli.api import (
     _load_workspace,
     main as cli_main,
 )
+from nemo_run.cli.api import Entrypoint, RunContext, add_global_options, create_cli
 from test.dummy_factory import DummyModel, dummy_entrypoint
 import nemo_run.cli.cli_parser  # Import the module to mock its function
 
@@ -902,6 +909,7 @@ class TestGlobalOptions:
         with patch("nemo_run.cli.api.configure_logging") as mock_configure:
             # Test enabled
             runner.invoke(app, ["-v", "error-command"])
+            result = runner.invoke(app, ["-v", "error-command"])
             mock_configure.assert_called_once_with(True)
 
             # Test disabled

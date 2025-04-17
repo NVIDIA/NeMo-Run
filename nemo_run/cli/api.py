@@ -533,7 +533,8 @@ def list_factories(type_or_namespace: Type | str) -> list[Callable]:
 
 
 def create_cli(
-    add_verbose_callback: bool = False, nested_entrypoints_creation: bool = True
+    add_verbose_callback: bool = False,
+    nested_entrypoints_creation: bool = True,
 ) -> Typer:
     app: Typer = Typer(pretty_exceptions_enable=False)
     entrypoints = metadata.entry_points().select(group="nemo_run.cli")
