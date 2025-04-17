@@ -300,14 +300,13 @@ def test_get_job_dirs():
     # Single test using direct file manipulation instead of complex mocks
     with tempfile.TemporaryDirectory() as temp_dir:
         job_dirs_file = os.path.join(temp_dir, "job_dirs")
+        slurm_module_path = "nemo_run.run.torchx_backend.schedulers.slurm"
 
         # Patch SLURM_JOB_DIRS to point to our temp file for the duration of this block
-        with mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.slurm.SLURM_JOB_DIRS", job_dirs_file
-        ):
+        with mock.patch(f"{slurm_module_path}.SLURM_JOB_DIRS", job_dirs_file):
             # Test with no file (or empty file)
             # Create the file first to avoid FileNotFoundError
-            open(job_dirs_file, 'a').close()
+            open(job_dirs_file, "a").close()
             assert _get_job_dirs() == {}, "Test Failed: Should return empty dict for empty file"
 
             # --- Test with valid content ---
@@ -315,11 +314,29 @@ def test_get_job_dirs():
             with open(job_dirs_file, "w") as f:
                 f.write(job_data_line)
 
-            # Mock json.loads specifically for the expected call
             expected_json_str = '{"job_dir": "/path/to/tunnel", "packaging_jobs": {}}'
             expected_json_obj = {"job_dir": "/path/to/tunnel", "packaging_jobs": {}}
-            with mock.patch("json.loads") as mock_json_loads:
+
+            # Create mocks for dependencies
+            mock_local_tunnel_instance = mock.MagicMock()
+            mock_local_tunnel_class = mock.MagicMock(return_value=mock_local_tunnel_instance)
+            mock_local_tunnel_class.__name__ = "MockedLocalTunnel"
+
+            # Mock globals() in the slurm module to return our mocked class
+            mock_globals_dict = {
+                "LocalTunnel": mock_local_tunnel_class,
+                "__builtins__": __builtins__,  # Include builtins
+                # Add other necessary globals from the slurm module if needed
+            }
+
+            with (
+                mock.patch("json.loads") as mock_json_loads,
+                mock.patch(f"{slurm_module_path}.globals") as mock_globals_func,
+            ):
                 mock_json_loads.return_value = expected_json_obj
+                mock_globals_func.return_value = (
+                    mock_globals_dict  # Make globals() return our mock dict
+                )
 
                 result = _get_job_dirs()
 
@@ -327,42 +344,77 @@ def test_get_job_dirs():
                 try:
                     mock_json_loads.assert_called_once_with(expected_json_str)
                 except AssertionError as e:
-                    raise AssertionError(f"json.loads not called as expected. _get_job_dirs result: {result}. Error: {e}")
+                    raise AssertionError(
+                        f"json.loads not called as expected. _get_job_dirs result: {result}. Error: {e}"
+                    )
+
+                # Assert LocalTunnel class was looked up and instantiated
+                try:
+                    mock_globals_func.assert_called()  # Check if globals() was accessed
+                    mock_local_tunnel_class.assert_called_once_with(**expected_json_obj)
+                except AssertionError as e:
+                    raise AssertionError(
+                        f"MockedLocalTunnel not called as expected. _get_job_dirs result: {result}. Error: {e}"
+                    )
 
                 # Assert the final result
-                assert "12345" in result, f"Test Failed: '12345' not in result keys: {result.keys()}"
-                assert result["12345"][0] == "/path/to/job", "Test Failed: Incorrect job path"
-                assert isinstance(result["12345"][1], LocalTunnel), "Test Failed: Tunnel is not LocalTunnel"
-                assert result["12345"][1].job_dir == "/path/to/tunnel", "Test Failed: Incorrect tunnel job_dir"
-                assert result["12345"][2] == "log*", "Test Failed: Incorrect log pattern"
+                assert "12345" in result, (
+                    f"Test Failed: '12345' not in result keys: {result.keys()}"
+                )
+                job_path, tunnel_instance, log_pattern = result["12345"]
+                assert job_path == "/path/to/job", f"Test Failed: Incorrect job path: {job_path}"
+                assert tunnel_instance is mock_local_tunnel_instance, (
+                    "Test Failed: Tunnel instance is not the mocked one"
+                )
+                assert log_pattern == "log*", f"Test Failed: Incorrect log pattern: {log_pattern}"
 
             # --- Test invalid line format ---
             with open(job_dirs_file, "w") as f:
-                f.write("invalid line format\n")
+                f.write("invalid line format\n")  # Does not contain '='
             result = _get_job_dirs()
             assert result == {}, "Test Failed: Should return empty dict for invalid line format"
 
             # --- Test exception handling during json parsing ---
             with open(job_dirs_file, "w") as f:
-                f.write(job_data_line) # Use the valid line again
+                # Use a line that is parseable up to the JSON part
+                f.write("54321 = log*,/path/to/job,LocalTunnel,INVALID_JSON\n")
 
-            # Mock json.loads to raise an error
-            with mock.patch("json.loads", side_effect=json.JSONDecodeError("Mock decode error", "", 0)):
+            # Mock globals to return the class, mock json.loads to fail
+            mock_local_tunnel_class_for_json_error = mock.MagicMock()
+            mock_globals_dict_for_json_error = {
+                "LocalTunnel": mock_local_tunnel_class_for_json_error,
+                "__builtins__": __builtins__,
+            }
+            with (
+                mock.patch(
+                    f"{slurm_module_path}.globals", return_value=mock_globals_dict_for_json_error
+                ),
+                mock.patch(
+                    "json.loads", side_effect=json.JSONDecodeError("Mock decode error", "", 0)
+                ) as mock_json_error,
+            ):
                 result = _get_job_dirs()
                 assert result == {}, "Test Failed: Should return empty dict if json parsing fails"
+                mock_json_error.assert_called_once_with("INVALID_JSON")
+                mock_local_tunnel_class_for_json_error.assert_not_called()  # Instantiation shouldn't happen
 
-            # --- Test exception during tunnel class lookup/instantiation (if handled) ---
-            # Assuming _get_job_dirs looks up the class by name and handles errors gracefully
-            invalid_tunnel_line = '67890 = log*,/path/to/job,NonExistentTunnel,{"job_dir": "/path/to/tunnel"}\n'
+            # --- Test exception during tunnel class lookup ---
+            invalid_tunnel_line = '67890 = log*,/path/to/job,NonExistentTunnel,{"a": 1}\n'
             with open(job_dirs_file, "w") as f:
                 f.write(invalid_tunnel_line)
 
-            # Mock json.loads to succeed for this line
-            with mock.patch("json.loads", return_value={"job_dir": "/path/to/tunnel"}):
-                # We expect _get_job_dirs to potentially fail finding 'NonExistentTunnel'
-                # Assuming it logs the error and skips the line, returning an empty dict
+            # Mock globals() to NOT contain NonExistentTunnel
+            mock_globals_dict_invalid = {"__builtins__": __builtins__}
+            with (
+                mock.patch("json.loads") as mock_json_lookup_fail,
+                mock.patch(f"{slurm_module_path}.globals", return_value=mock_globals_dict_invalid),
+            ):
                 result = _get_job_dirs()
-                assert result == {}, "Test Failed: Should return empty dict if tunnel class is invalid"
+                assert result == {}, (
+                    "Test Failed: Should return empty dict if tunnel class is invalid"
+                )
+                # Assert json.loads was NOT called, assuming class lookup happens first
+                mock_json_lookup_fail.assert_not_called()
 
 
 def test_schedule_with_dependencies(slurm_scheduler, slurm_executor):
