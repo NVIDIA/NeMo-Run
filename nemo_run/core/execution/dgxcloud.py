@@ -361,6 +361,11 @@ cd /nemo_run/code
         )
         self.experiment_id = exp_id
 
+    def get_launcher_prefix(self) -> Optional[list[str]]:
+        launcher = self.get_launcher()
+        if launcher.nsys_profile:
+            return launcher.get_nsys_prefix(profile_dir="/nemo_run")
+
     def package_configs(self, *cfgs: tuple[str, str]) -> list[str]:
         filenames = []
         basepath = os.path.join(self.job_dir, "configs")
