@@ -523,12 +523,6 @@ def test_package_subpath_with_uncommitted_and_untracked(packager, temp_repo):
     with open(temp_repo / "outside.txt", "w") as f:
         f.write("Outside content")
 
-    # list all files in temp_repo recursively
-    print(f"Files in temp_repo recursively:")
-    for root, dirs, files in os.walk(temp_repo):
-        for file in files:
-            print(os.path.join(root, file))
-
     packager = GitArchivePackager(
         ref="HEAD",
         subpath="subdir",
