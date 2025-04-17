@@ -1232,9 +1232,28 @@ class RunContext:
         Returns:
             Partial[T]: A Partial object representing the parsed function and arguments.
         """
-        output = LazyEntrypoint(fn, factory=self.factory, yaml=self.yaml, overwrites=args)
+        lazy = LazyEntrypoint(
+            fn,
+            factory=self.factory,
+            yaml=self.yaml,
+            overwrites=args,
+        )
 
-        return output.resolve(ctx=self)
+        # Resolve exactly once and always pass the current RunContext
+        # NOTE: `LazyEntrypoint.resolve` calls `parse_factory` if
+        # `lazy._factory_` is a string.  `parse_cli_args` that follows inside
+        # `resolve` used to see the **same** string and call `parse_factory`
+        # a second time.  We temporarily clear `_factory_` right after the
+        # first resolution so that it cannot be triggered again.
+
+        _orig_factory = lazy._factory_
+        try:
+            result = lazy.resolve(ctx=self)
+        finally:
+            # Restore for potential further use
+            lazy._factory_ = _orig_factory
+
+        return result
 
     def _parse_partial(self, fn: Callable, args: List[str], **default_args) -> Partial[T]:
         """
