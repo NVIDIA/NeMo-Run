@@ -1233,7 +1233,6 @@ class RunContext:
             Partial[T]: A Partial object representing the parsed function and arguments.
         """
         output = LazyEntrypoint(fn, factory=self.factory, yaml=self.yaml, overwrites=args)
-        out = output.resolve()
 
         return output.resolve(ctx=self)
 
