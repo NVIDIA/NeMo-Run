@@ -104,4 +104,4 @@ def train_models_experiment(
 
 
 if __name__ == "__main__":
-    run.cli.main(train_models_experiment)
+    run.cli.main(train_models_experiment, default_executor=local_executor())
