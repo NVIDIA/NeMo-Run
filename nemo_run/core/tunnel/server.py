@@ -106,7 +106,8 @@ class TunnelMetadata:
         tunnel_file = path / "metadata.json"
 
         if tunnel:
-            data = json.loads(tunnel.run(f"cat {tunnel_file}", hide="out").stdout.strip())
+            tunnel_path = tunnel_file.as_posix()
+            data = json.loads(tunnel.run(f"cat {tunnel_path}", hide="out").stdout.strip())
         else:
             with tunnel_file.open("r") as f:
                 data = json.load(f)
