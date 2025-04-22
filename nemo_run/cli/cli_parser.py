@@ -1116,7 +1116,7 @@ def parse_cli_args(
             annotation = param.annotation
         logger.debug(f"Parsing value {value} as {annotation}")
 
-        annotation = _maybe_resolve_annotation(fn, arg_name, annotation)
+        annotation = _maybe_resolve_annotation(nested.__fn_or_cls__, arg_name, annotation)
 
         if annotation:
             try:
@@ -1415,6 +1415,9 @@ def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> A
 
 def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
     """Helper function to resolve a string annotation to its actual type using TYPE_CHECKING imports."""
+    if hasattr(fn, "__fn_or_cls__"):
+        fn = fn.__fn_or_cls__
+
     try:
         source_file = inspect.getsourcefile(fn)
         if not source_file:
