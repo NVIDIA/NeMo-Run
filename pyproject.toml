@@ -30,7 +30,8 @@ dependencies = [
     "cryptography < 43.0.0",
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
-    "packaging"
+    "packaging",
+    "toml"
 ]
 readme = "README.md"
 requires-python = ">= 3.10"

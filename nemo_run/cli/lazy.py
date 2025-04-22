@@ -7,9 +7,10 @@ import re
 import shlex
 import sys
 from dataclasses import dataclass, field
+import inspect
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
 
 from fiddle import Buildable, daglish
 from fiddle._src import signatures
@@ -18,6 +19,9 @@ from fiddle.experimental import serialization
 from omegaconf import DictConfig, OmegaConf
 
 from nemo_run.config import Partial
+
+if TYPE_CHECKING:
+    from nemo_run.cli.cli_parser import RunContext
 
 
 @contextlib.contextmanager
@@ -78,11 +82,15 @@ class LazyEntrypoint(Buildable):
         target: Callable | str,
         factory: Callable | str | None = None,
         yaml: str | DictConfig | Path | None = None,
+        overwrites: list[str] | None = None,
     ):
         cmd_args = []
         if isinstance(target, str) and (" " in target or target.endswith(".py")):
             cmd = []
             for arg in shlex.split(target):
+                # Skip the --lazy flag and export flags
+                if arg == "--lazy" or arg.startswith("--to-"):
+                    continue
                 if "=" in arg:
                     cmd_args.append(arg)
                 else:
@@ -93,18 +101,52 @@ class LazyEntrypoint(Buildable):
 
         if isinstance(factory, LazyModule):
             factory = factory.name
+        # Handle @ syntax in factory parameter
+        elif (
+            isinstance(factory, str)
+            and factory.startswith("@")
+            and _is_config_file_path(factory[1:])
+        ):
+            try:
+                factory_config = load_config_from_path(factory)
+
+                # If the config has a _factory_ key, use that as the factory
+                if "_factory_" in factory_config:
+                    factory = factory_config["_factory_"]
+                    # Remove _factory_ from the config so it's not processed twice
+                    remaining_config = OmegaConf.create(
+                        {k: v for k, v in factory_config.items() if k != "_factory_"}
+                    )
+                    # Convert remaining config to arguments and add them
+                    factory_args = dictconfig_to_dot_list(remaining_config)
+                    cmd_args.extend([f"{name}{op}{value}" for name, op, value in factory_args])
+                else:
+                    # If no _factory_ key, just add the config to arguments and clear the factory
+                    factory_args = dictconfig_to_dot_list(factory_config)
+                    cmd_args.extend([f"{name}{op}{value}" for name, op, value in factory_args])
+                    factory = None
+
+            except ValueError as e:
+                print(f"Warning: Error loading factory from {factory}: {str(e)}")
+                # Keep the original string if loading fails
 
         self._target_: Callable = LazyTarget(target) if isinstance(target, str) else target
         self._factory_ = factory
         self._args_ = []
 
+        # Process command args first
         if cmd_args:
             self._add_overwrite(*cmd_args)
 
-        if yaml is not None:
-            self._parse_yaml(yaml)
+        # Process all configuration with the consolidated method
+        # This handles the main config file and any @ references in the overwrites
+        remaining_overwrites = self._parse_config(yaml, overwrites)
 
-    def resolve(self) -> Partial:
+        # Process any remaining overwrites normally
+        if remaining_overwrites:
+            self._add_overwrite(*remaining_overwrites)
+
+    def resolve(self, ctx: Optional["RunContext"] = None) -> Partial:
         from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
 
         fn = self._target_
@@ -122,12 +164,26 @@ class LazyEntrypoint(Buildable):
             if isinstance(fn, LazyTarget):
                 fn = fn.target
 
+        _fn = fn
+        if hasattr(fn, "__fn_or_cls__"):
+            _fn = fn.__fn_or_cls__
+
+        sig = inspect.signature(_fn)
+        param_names = sig.parameters.keys()
+
         dotlist = dictconfig_to_dot_list(
             _args_to_dictconfig(self._args_), has_factory=self._factory_ is not None
         )
-        args = [f"{name}{op}{value}" for name, op, value in dotlist]
+        _args = [f"{name}{op}{value}" for name, op, value in dotlist]
 
-        return parse_cli_args(fn, args)
+        out = parse_cli_args(fn, _args)
+
+        if "ctx" in param_names:
+            if not ctx:
+                raise ValueError("ctx is required for this function")
+            out.ctx = ctx
+
+        return out
 
     def __getattr__(self, item: str) -> "LazyEntrypoint":
         """
@@ -188,6 +244,10 @@ class LazyEntrypoint(Buildable):
 
     def _add_overwrite(self, *overwrites: str):
         for overwrite in overwrites:
+            # Skip CLI flags like --lazy, --to-yaml, etc.
+            if overwrite.startswith("--"):
+                continue
+
             # Split into key, op, value
             match = re.match(r"([^=]+)([*+-]?=)(.*)", overwrite)
             if not match:
@@ -195,27 +255,109 @@ class LazyEntrypoint(Buildable):
             key, op, value = match.groups()
             self._args_.append((key, op, value))
 
-    def _parse_yaml(self, yaml: str | DictConfig | Path):
-        if isinstance(yaml, DictConfig):
-            to_parse = yaml
-        elif isinstance(yaml, Path):
-            with open(yaml, "r") as f:
-                to_parse = OmegaConf.load(f)
-        elif isinstance(yaml, str):
-            if yaml.endswith(".yaml") or yaml.endswith(".yml"):
-                with open(yaml, "r") as f:
-                    to_parse = OmegaConf.load(f)
-            else:
-                to_parse = OmegaConf.create(yaml)
-        else:
-            raise ValueError(f"Invalid yaml type: {type(yaml)}")
+    def _parse_config(
+        self, config: str | DictConfig | Path | None = None, overwrites: list[str] | None = None
+    ):
+        """
+        Parse configuration files and CLI overwrites, handling @ syntax references.
 
+        This method handles loading and merging configurations from various sources:
+        1. Main config file (YAML, JSON, or TOML)
+        2. CLI overwrites that might contain @ syntax references to other config files
+
+        Args:
+            config: Path to config file or DictConfig object (optional)
+            overwrites: List of CLI overwrites that might contain @ syntax (optional)
+
+        Returns:
+            Remaining overwrites that don't use @ syntax
+        """
+        from nemo_run.cli.config import ConfigSerializer
+
+        # Start with empty config if none provided
+        to_parse = OmegaConf.create({})
+
+        # Load the main config file if provided
+        if config is not None:
+            if isinstance(config, DictConfig):
+                to_parse = config
+            elif isinstance(config, (str, Path)):
+                try:
+                    serializer = ConfigSerializer()
+                    # Convert to Path object for consistent handling
+                    path = Path(config) if isinstance(config, str) else config
+
+                    # Load based on file extension
+                    if path.suffix.lower() in (".yaml", ".yml", ".json", ".toml"):
+                        # Load as raw dict first to avoid resolving references
+                        config_data = serializer.load_dict(path)
+                        to_parse = OmegaConf.create(config_data)
+                    else:
+                        # Handle as raw string (YAML format)
+                        to_parse = OmegaConf.create(config)
+                except Exception as e:
+                    raise ValueError(f"Error loading config file {config}: {str(e)}")
+            else:
+                raise ValueError(f"Invalid config type: {type(config)}")
+
+        # Extract factory if present
         if "_factory_" in to_parse:
             self._factory_ = to_parse["_factory_"]
         if "run" in to_parse and "factory" in to_parse["run"]:
             self._factory_ = to_parse["run"]["factory"]
 
+        # Handle any @ syntax in the overwrites
+        remaining_overwrites = []
+        if overwrites:
+            for overwrite in overwrites:
+                # Skip CLI flags like --lazy, --to-yaml, etc.
+                if overwrite.startswith("--"):
+                    continue
+
+                # Parse the overwrite to get key, op, value
+                match = re.match(r"([^=]+)([*+-]?=)(.*)", overwrite)
+                if not match:
+                    raise ValueError(f"Invalid overwrite format: {overwrite}")
+
+                key, op, value = match.groups()
+
+                # If this is a @ syntax, load the config and merge it
+                if (
+                    isinstance(value, str)
+                    and value.startswith("@")
+                    and _is_config_file_path(value[1:])
+                ):
+                    try:
+                        # Load the referenced config file
+                        loaded_config = load_config_from_path(value)
+
+                        # Update the main config with this loaded config
+                        # If the key already exists in to_parse, we need special handling
+                        if key in to_parse:
+                            # If both are dictionaries, merge them
+                            if isinstance(to_parse[key], DictConfig) and isinstance(
+                                loaded_config, DictConfig
+                            ):
+                                to_parse[key] = OmegaConf.merge(to_parse[key], loaded_config)
+                            else:
+                                # Otherwise, the @ syntax takes precedence
+                                to_parse[key] = loaded_config
+                        else:
+                            # Simple case: just add it to the config
+                            to_parse[key] = loaded_config
+                    except ValueError as e:
+                        print(f"Warning: {str(e)}")
+                        # Add to remaining overwrites if loading fails
+                        remaining_overwrites.append(overwrite)
+                else:
+                    # This is not an @ syntax, keep it for normal processing
+                    remaining_overwrites.append(overwrite)
+
+        # Convert the merged config to args
         self._args_.extend(dictconfig_to_dot_list(to_parse, has_factory=self._factory_ is not None))
+
+        # Return the remaining overwrites to be processed normally
+        return remaining_overwrites
 
     @property
     def _target_path_(self) -> str:
@@ -458,7 +600,10 @@ def dictconfig_to_dot_list(
             if "_target_" in value:
                 target = value["_target_"]
                 if not target.startswith(("Config", "Partial")):
-                    target = f"Config[{target}]"
+                    if value.pop("_partial_", False):
+                        target = f"Partial[{target}]"
+                    else:
+                        target = f"Config[{target}]"
                 result.append((full_key, "=", target))
                 remaining_config = OmegaConf.create(
                     {k: v for k, v in value.items() if k != "_target_"}
@@ -499,12 +644,28 @@ def _args_to_dictconfig(args: list[tuple[str, str, Any]]) -> DictConfig:
 
     # Process top-level assignments first
     for path, op, value in structure_args:
+        # Handle @ syntax in values here
+        if isinstance(value, str) and value.startswith("@") and _is_config_file_path(value[1:]):
+            try:
+                value = load_config_from_path(value)
+            except ValueError as e:
+                print(f"Warning: {str(e)}")
+                # Keep the original string if loading fails
+
         if op != "=":
             path = f"{path}{op}"
         config[path] = value
 
     # Then process all value assignments
     for path, op, value in value_args:
+        # Handle @ syntax in values here
+        if isinstance(value, str) and value.startswith("@") and _is_config_file_path(value[1:]):
+            try:
+                value = load_config_from_path(value)
+            except ValueError as e:
+                print(f"Warning: {str(e)}")
+                # Keep the original string if loading fails
+
         current = config
         *parts, last = path.split(".")
 
@@ -523,6 +684,25 @@ def _args_to_dictconfig(args: list[tuple[str, str, Any]]) -> DictConfig:
         current[last] = value
 
     return OmegaConf.create(config)
+
+
+def _is_config_file_path(path_str: str) -> bool:
+    """
+    Check if a string appears to be a path to a supported config file.
+
+    Args:
+        path_str (str): The string to check
+
+    Returns:
+        bool: True if the string appears to be a config file path, False otherwise
+    """
+    # Check if there's a section specifier
+    if ":" in path_str:
+        path_str = path_str.split(":", 1)[0]
+
+    # Check for supported extensions
+    SUPPORTED_EXTENSIONS = (".yaml", ".yml", ".json", ".toml")
+    return any(path_str.lower().endswith(ext) for ext in SUPPORTED_EXTENSIONS)
 
 
 def _dummy_fn(*args, **kwargs):
@@ -639,9 +819,87 @@ def import_module(qualname_str: str) -> Any:
     return getattr(module, attr_name) if attr_name else module
 
 
-if __name__ == "__main__":
-    task = LazyEntrypoint("nemo.collections.llm.pretrain", factory="llama3_8b")
+def load_config_from_path(path_with_syntax: str) -> Any:
+    """
+    Load a configuration file using the @ syntax.
 
-    task.model = "llama3_70b(input_1=5)"
-    task.trainer = "my_trainer"
-    task.data = "my_data"
+    This function handles loading configuration files with the @ syntax, including:
+    - Basic file loading: @path/to/config.yaml
+    - Section extraction: @path/to/config.yaml:section
+    - Automatic structure detection: Will handle both nested and flat configurations
+
+    Examples:
+        # Nested config (model.yaml):
+        model:
+          _target_: Model
+          hidden_size: 256
+
+        # Flat config (model.yaml):
+        _target_: Model
+        hidden_size: 256
+
+        Both can be loaded with: model=@model.yaml
+
+    Args:
+        path_with_syntax (str): Path to the config file with @ syntax
+
+    Returns:
+        DictConfig: The loaded configuration as a DictConfig or specific section
+
+    Raises:
+        ValueError: If the file path is invalid or the file doesn't exist
+    """
+    from nemo_run.cli.config import ConfigSerializer
+    from omegaconf import OmegaConf
+    import os
+
+    # Extract file path and optional section
+    section_match = re.match(r"^@([\w\./\\-]+)(?::(\w+))?$", path_with_syntax)
+    if not section_match:
+        raise ValueError(f"Invalid config file format: {path_with_syntax}")
+
+    config_path, section = section_match.groups()
+
+    # Validate the path exists
+    if not os.path.exists(config_path):
+        raise ValueError(f"Config file not found: {config_path}")
+
+    # Use the ConfigSerializer to load the file as a dictionary
+    serializer = ConfigSerializer()
+    try:
+        config_data = serializer.load_dict(config_path)
+
+        # If a section is specified, extract just that section
+        if section:
+            if section not in config_data:
+                raise ValueError(f"Section '{section}' not found in config file {config_path}")
+            config_data = config_data[section]
+            return OmegaConf.create(config_data)
+
+        # Check if this is a flat configuration (no top-level component name)
+        # We consider it flat if it has any of these indicators:
+        # 1. Has _target_ at root level
+        # 2. Has _factory_ at root level
+        # 3. All top-level keys are typical config keys (not component names)
+        is_flat = (
+            "_target_" in config_data
+            or "_factory_" in config_data
+            or all(not isinstance(v, dict) for v in config_data.values())
+        )
+
+        if is_flat:
+            # For flat configs, we return as-is
+            return OmegaConf.create(config_data)
+        else:
+            # For nested configs, check if there's a single component that matches a known parameter
+            # If we have a file with structure like: model: {...}, we should extract just the model part
+            if len(config_data) == 1:
+                component_name = next(iter(config_data.keys()))
+                # Return just the component configuration, not the wrapper
+                return OmegaConf.create(config_data[component_name])
+            else:
+                # Return the entire config for multi-component nested configs
+                return OmegaConf.create(config_data)
+
+    except Exception as e:
+        raise ValueError(f"Error loading config file {config_path}: {str(e)}")

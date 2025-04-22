@@ -87,7 +87,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         cfg: Executor,
     ) -> AppDryRunInfo[DGXRequest]:
         assert isinstance(cfg, DGXCloudExecutor), (
-            f"{cfg.__class__} not supported for skypilot scheduler."
+            f"{cfg.__class__} not supported for DGXCloud scheduler."
         )
         executor = cfg
 
@@ -184,7 +184,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         executor: DGXCloudExecutor = job_info.get("executor", None)  # type: ignore
         if not executor:
             return None
-        executor.delete(job_id)
+        executor.cancel(job_id)
 
     def list(self) -> list[ListAppResponse]: ...
 

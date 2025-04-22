@@ -13,11 +13,11 @@
 # limitations under the License.
 from packaging.version import Version
 
-__version__ = "0.2.0rc0.dev0"
+__version__ = "0.5.0rc0.dev0"
 
 MAJOR = Version(__version__).major
 MINOR = Version(__version__).minor
-PATCH = 3082
+PATCH = Version(__version__).micro
 if pre := Version(__version__).pre:
     PRE_RELEASE = "".join(map(str, pre))
 else:

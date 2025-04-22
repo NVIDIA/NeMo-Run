@@ -193,7 +193,7 @@ def test_job_group_requires_name(temp_dir):
             exp.add(tasks)  # type: ignore
 
 
-class TestPlugin(ExperimentPlugin):
+class DummyPlugin(ExperimentPlugin):
     """A simple test plugin to verify plugin functionality."""
 
     def __init__(self):
@@ -211,7 +211,7 @@ def test_add_job_with_plugin(temp_dir):
     """Test adding a job with a plugin."""
     with Experiment("test-exp") as exp:
         task = run.Partial(dummy_function, x=1, y=2)
-        plugin = TestPlugin()
+        plugin = DummyPlugin()
 
         exp.add(task, name="test-job", plugins=[plugin])
 

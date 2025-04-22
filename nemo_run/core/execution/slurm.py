@@ -241,6 +241,7 @@ class SlurmExecutor(Executor):
         "wait_all_nodes",
         "wckey",
         "wrap",
+        "segment",
     ]
 
     SRUN_ARGS = [
@@ -338,6 +339,7 @@ class SlurmExecutor(Executor):
     monitor_group_job_wait_time: int = 60
     setup_lines: Optional[str] = None
     het_group_indices: Optional[list[int]] = None
+    segment: Optional[int] = None
 
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")

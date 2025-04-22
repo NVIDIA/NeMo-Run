@@ -40,6 +40,7 @@ def ft_launcher(
     max_retries: int = 0,
     rdzv_port: int = 49450,
     rdzv_backend: str = "c10d",
+    rdzv_id: Optional[int] = None,
     mounts: Optional[list[str]] = None,
     debug: bool = False,
     workload_check_interval: Optional[float] = None,
@@ -48,6 +49,8 @@ def ft_launcher(
     rank_termination_signal: Optional[str] = None,
     log_level: Optional[str] = None,
     max_restarts: Optional[int] = None,
+    dgxc: bool = False,
+    use_env: bool = False,
 ) -> specs.AppDef:
     torchrun_component = torchrun.torchrun(
         *script_args,
@@ -63,10 +66,13 @@ def ft_launcher(
         j=j,
         rdzv_backend=rdzv_backend,
         rdzv_port=rdzv_port,
+        rdzv_id=rdzv_id,
         env=env,
         mounts=mounts,
         debug=debug,
         max_retries=max_retries,
+        dgxc=dgxc,
+        use_env=use_env,
     )
 
     ft_args = []

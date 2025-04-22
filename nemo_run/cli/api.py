@@ -48,6 +48,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
 from rich.table import Table
+from rich.syntax import Syntax
 from typer import Option, Typer, rich_utils
 from typer.core import TyperCommand, TyperGroup
 from typer.models import OptionInfo
@@ -66,7 +67,8 @@ from nemo_run.config import (
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
-from nemo_run.lazy import LazyEntrypoint
+from nemo_run.cli.config import ConfigSerializer
+from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
 
@@ -531,14 +533,15 @@ def list_factories(type_or_namespace: Type | str) -> list[Callable]:
 
 
 def create_cli(
-    add_verbose_callback: bool = False,
-    nested_entrypoints_creation: bool = True,
+    add_verbose_callback: bool = False, nested_entrypoints_creation: bool = True
 ) -> Typer:
     app: Typer = Typer(pretty_exceptions_enable=False)
     entrypoints = metadata.entry_points().select(group="nemo_run.cli")
     metadata.entry_points().select(group="nemo_run.cli")
     for ep in entrypoints:
         _get_or_add_typer(app, name=ep.name)
+
+    # Check for --lazy flag
     is_lazy = "--lazy" in sys.argv
 
     app: Typer = Typer(add_completion=not is_lazy)
@@ -546,9 +549,22 @@ def create_cli(
         if len(sys.argv) > 1 and sys.argv[1] in ["devspace", "experiment"]:
             raise ValueError("Lazy CLI does not support devspace and experiment commands.")
 
-        # remove --lazy from sys.argv
-        sys.argv = [arg for arg in sys.argv if arg != "--lazy"]
+        # Set LAZY_CLI environment variable
+        os.environ["LAZY_CLI"] = "true"
 
+        # remove --lazy from sys.argv but keep export flags
+        export_flags = {}
+        i = 0
+        while i < len(sys.argv):
+            if sys.argv[i] == "--lazy":
+                sys.argv.pop(i)
+            elif sys.argv[i] in ["--to-yaml", "--to-toml", "--to-json"] and i + 1 < len(sys.argv):
+                export_flags[sys.argv[i]] = sys.argv[i + 1]
+                i += 2
+            else:
+                i += 1
+
+        # Add command with the LazyEntrypoint
         RunContext.cli_command(
             app,
             sys.argv[1],
@@ -802,22 +818,6 @@ def _load_workspace():
 class RunContext:
     """
     Represents the context for executing a run in the NeMo Run framework.
-
-    This class encapsulates various options and settings that control how a run
-    is executed, including execution mode, logging, and plugin configuration.
-
-    Attributes:
-        name (str): Name of the run.
-        direct (bool): If True, execute the run directly without using a scheduler.
-        dryrun (bool): If True, print the scheduler request without submitting.
-        factory (Optional[str]): Name of a predefined factory to use.
-        load (Optional[str]): Path to load a factory from a directory.
-        repl (bool): If True, enter interactive mode.
-        detach (bool): If True, detach from the run after submission.
-        skip_confirmation (bool): If True, skip user confirmation before execution.
-        tail_logs (bool): If True, tail logs after execution.
-        executor (Optional[Executor]): The executor to use for the run.
-        plugins (List[Plugin]): List of plugins to use for the run.
     """
 
     name: str
@@ -830,6 +830,10 @@ class RunContext:
     skip_confirmation: bool = False
     tail_logs: bool = False
     yaml: Optional[str] = None
+
+    to_yaml: Optional[str] = None
+    to_toml: Optional[str] = None
+    to_json: Optional[str] = None
 
     executor: Optional[Executor] = field(init=False)
     plugins: List[Plugin] = field(init=False)
@@ -911,6 +915,15 @@ class RunContext:
             rich_theme: Optional[str] = typer.Option(
                 None, "--rich-theme", help="Color theme (dark/light/monochrome)"
             ),
+            to_yaml: Optional[str] = typer.Option(
+                None, "--to-yaml", help="Export config to YAML file"
+            ),
+            to_toml: Optional[str] = typer.Option(
+                None, "--to-toml", help="Export config to TOML file"
+            ),
+            to_json: Optional[str] = typer.Option(
+                None, "--to-json", help="Export config to JSON file"
+            ),
             ctx: typer.Context = typer.Context,
         ):
             _cmd_defaults = cmd_defaults or {}
@@ -926,6 +939,9 @@ class RunContext:
                 skip_confirmation=skip_confirmation
                 or _cmd_defaults.get("skip_confirmation", False),
                 tail_logs=tail_logs or _cmd_defaults.get("tail_logs", False),
+                to_yaml=to_yaml or _cmd_defaults.get("to_yaml", None),
+                to_toml=to_toml or _cmd_defaults.get("to_toml", None),
+                to_json=to_json or _cmd_defaults.get("to_json", None),
             )
 
             print("Configuring global options")
@@ -1033,6 +1049,20 @@ class RunContext:
         console = Console()
         task = self.parse_fn(fn, task_args)
 
+        # If any export flag is used, export the configuration and exit
+        if any([self.to_yaml, self.to_toml, self.to_json]):
+            _serialize_configuration(
+                task,
+                self.to_yaml,
+                self.to_toml,
+                self.to_json,
+                console=console,
+                verbose=True,
+            )
+            console.print("[bold cyan]Export complete. Skipping execution.[/bold cyan]")
+            return
+
+        # Continue with normal execution flow
         def run_task():
             nonlocal task
             run.dryrun_fn(task, executor=self.executor)
@@ -1080,24 +1110,42 @@ class RunContext:
         if self.direct:
             raise ValueError("Direct execution is not supported for lazy execution")
 
+        # Parse run args, filtering out CLI flags
         _, run_args, args = _parse_prefixed_args(args, "run")
-        self.parse_args(run_args, lazy=True)
+        filtered_run_args = [arg for arg in run_args if not arg.startswith("--")]
+        self.parse_args(filtered_run_args, lazy=True)
 
+        # Filter out --lazy and export flags from args
         cmd, cmd_args, i_self = "", [], 0
         for i, arg in enumerate(sys.argv):
+            if arg == "--lazy" or arg.startswith("--to-"):
+                continue
             if arg == name:
                 i_self = i
             if i_self == 0:
                 cmd += f" {arg}"
-
             elif "=" not in arg and not arg.startswith("--"):
                 cmd += f" {arg}"
             elif "=" in arg and not arg.startswith("--"):
                 cmd_args.append(arg)
 
-        to_run = LazyEntrypoint(cmd, factory=self.factory)
-        to_run._add_overwrite(*cmd_args)
+        # Use the yaml file if provided
+        yaml_file = self.yaml
+        to_run = LazyEntrypoint(cmd, factory=self.factory, yaml=yaml_file)
 
+        # Filter out CLI flags from cmd_args
+        filtered_cmd_args = [arg for arg in cmd_args if not arg.startswith("--")]
+        to_run._add_overwrite(*filtered_cmd_args)
+
+        # If any export flag is used, export the configuration and exit
+        if any([self.to_yaml, self.to_toml, self.to_json]):
+            _serialize_configuration(
+                to_run, self.to_yaml, self.to_toml, self.to_json, is_lazy=True, console=console
+            )
+            console.print("[bold cyan]Export complete. Skipping execution.[/bold cyan]")
+            return
+
+        # Continue with normal execution flow
         if self._should_continue(self.skip_confirmation):
             console.print(f"[bold cyan]Launching {self.name}...[/bold cyan]")
             run.run(
@@ -1121,8 +1169,23 @@ class RunContext:
         """
         import nemo_run as run
 
+        console = Console()
         partial = self.parse_fn(fn, experiment_args, ctx=self)
 
+        # If any export flag is used, export the configuration and exit
+        if any([self.to_yaml, self.to_toml, self.to_json]):
+            _serialize_configuration(
+                partial,
+                self.to_yaml,
+                self.to_toml,
+                self.to_json,
+                is_lazy=False,  # The helper function will check LAZY_CLI env var
+                console=console,
+            )
+            console.print("[bold cyan]Export complete. Skipping execution.[/bold cyan]")
+            return
+
+        # Continue with normal execution flow
         run.dryrun_fn(partial, executor=self.executor)
 
         if self._should_continue(self.skip_confirmation):
@@ -1169,11 +1232,28 @@ class RunContext:
         Returns:
             Partial[T]: A Partial object representing the parsed function and arguments.
         """
-        output = LazyEntrypoint(fn, factory=self.factory, yaml=self.yaml)
-        if args:
-            output._add_overwrite(*args)
+        lazy = LazyEntrypoint(
+            fn,
+            factory=self.factory,
+            yaml=self.yaml,
+            overwrites=args,
+        )
 
-        return output.resolve()
+        # Resolve exactly once and always pass the current RunContext
+        # NOTE: `LazyEntrypoint.resolve` calls `parse_factory` if
+        # `lazy._factory_` is a string.  `parse_cli_args` that follows inside
+        # `resolve` used to see the **same** string and call `parse_factory`
+        # a second time.  We temporarily clear `_factory_` right after the
+        # first resolution so that it cannot be triggered again.
+
+        _orig_factory = lazy._factory_
+        try:
+            result = lazy.resolve(ctx=self)
+        finally:
+            # Restore for potential further use
+            lazy._factory_ = _orig_factory
+
+        return result
 
     def _parse_partial(self, fn: Callable, args: List[str], **default_args) -> Partial[T]:
         """
@@ -1606,6 +1686,144 @@ class MissingRequiredOptionError(RunContextError):
 def _is_torchrun() -> bool:
     """Check if running under torchrun."""
     return "WORLD_SIZE" in os.environ and int(os.environ["WORLD_SIZE"]) > 1
+
+
+def _serialize_configuration(
+    config: Any,
+    to_yaml: Optional[str] = None,
+    to_toml: Optional[str] = None,
+    to_json: Optional[str] = None,
+    is_lazy: bool = False,
+    console: Optional[Console] = None,
+    verbose: bool = False,
+) -> None:
+    """
+    Serialize configuration to specified file formats.
+
+    Args:
+        config: The configuration object to serialize
+        to_yaml: Path to export YAML configuration
+        to_toml: Path to export TOML configuration
+        to_json: Path to export JSON configuration
+        is_lazy: Whether to use lazy serialization
+        console: Console instance for printing messages
+        verbose: Whether to show detailed output with syntax highlighting
+
+    Raises:
+        ValueError: If no output format is specified
+    """
+    if not any([to_yaml, to_toml, to_json]):
+        raise ValueError("At least one output format must be provided")
+
+    console = console or Console() if verbose else None
+    serializer = ConfigSerializer()
+
+    def _export_config(output_path: str, format: Optional[str] = None) -> None:
+        """Export configuration to specified format and path."""
+        if not output_path:
+            return
+
+        format_name = format.upper() if format else "YAML"
+
+        try:
+            # Handle section extraction from path
+            section = None
+            file_path = output_path
+            if ":" in output_path:
+                file_path, section = output_path.split(":", 1)
+
+            # Create appropriate section message for display
+            section_msg = f" (section: {section})" if section else ""
+
+            # Handle section extraction for Config objects
+            section_config = config
+            if section:
+                # For Config objects, use getattr to access the section
+                if hasattr(config, section):
+                    section_config = getattr(config, section)
+                else:
+                    raise ValueError(f"Section '{section}' not found in configuration")
+
+            # Now serialize the extracted section
+            if is_lazy:
+                # For lazy configs, create a nested structure
+                if section:
+                    # Section already extracted, just serialize it
+                    serializer.dump(section_config, file_path)
+                else:
+                    # Standard lazy config handling
+                    config_dict = {
+                        "_target_": config._target_path_
+                        if hasattr(config, "_target_path_")
+                        else str(config._target_),
+                    }
+                    if config._factory_:
+                        config_dict["_factory_"] = str(config._factory_)
+
+                    # Convert _args_ to nested structure
+                    for path_arg, op, value in config._args_:
+                        current = config_dict
+                        parts = path_arg.split(".")
+
+                        # Handle nested paths
+                        for part in parts[:-1]:
+                            if part not in current:
+                                current[part] = {}
+                            current = current[part]
+
+                        # Handle the final value
+                        current[parts[-1]] = value
+
+                    serializer.dump_dict(config_dict, file_path, format=format)
+            else:
+                # For regular configs, we've already extracted the section if needed
+                serializer.dump(section_config, file_path)
+
+            if verbose and console:
+                format_ext = format.lower() if format else "yaml"
+                # Read the file to display its contents
+                with open(file_path, "r") as f:
+                    file_content = f.read()
+
+                # Display the content with syntax highlighting
+                console.print(
+                    f"[bold green]Configuration exported to {format_name}{section_msg}:[/bold green] {file_path}"
+                )
+                console.print("[bold cyan]File contents:[/bold cyan]")
+                console.print(
+                    Panel(
+                        Syntax(
+                            code=file_content,
+                            lexer=format_ext,
+                            theme="default",
+                            line_numbers=True,
+                            word_wrap=True,
+                            background_color="default",
+                        ),
+                        title=f"[bold]{file_path}[/bold]",
+                        border_style="cyan",
+                        padding=(1, 2),
+                    )
+                )
+            elif verbose:
+                print(f"Configuration exported to {format_name}{section_msg}: {file_path}")
+
+        except Exception as e:
+            if verbose and console:
+                console.print(
+                    f"[bold red]Failed to export configuration to {format_name}{section_msg}:[/bold red] {str(e)}"
+                )
+            else:
+                print(f"Failed to export configuration to {format_name}{section_msg}: {str(e)}")
+            raise  # Re-raise the exception so test cases can catch it
+
+    # Export to each requested format
+    if to_yaml:
+        _export_config(to_yaml, format="yaml")
+    if to_toml:
+        _export_config(to_toml, format="toml")
+    if to_json:
+        _export_config(to_json, format="json")
 
 
 if __name__ == "__main__":

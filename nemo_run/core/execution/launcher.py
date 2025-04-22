@@ -13,7 +13,17 @@ from nemo_run.core.execution.utils import fill_template
 class Launcher(ConfigurableMixin):
     nsys_profile: bool = False
     nsys_folder: str = "nsys_profile"
+    nsys_filename: str = "profile_%p"
     nsys_trace: list[str] = field(default_factory=lambda: ["nvtx", "cuda"])
+    nsys_extra_args: list[str] = field(
+        default_factory=lambda: [
+            "--force-overwrite=true",
+            "--capture-range=cudaProfilerApi",
+            "--capture-range-end=stop",
+            "--cuda-graph-trace=node",
+            "--cuda-event-trace=false",
+        ]
+    )
 
     def get_nsys_prefix(self, profile_dir: str) -> Optional[list[str]]:
         """Make a command prefix for nsys profiling"""
@@ -26,13 +36,8 @@ class Launcher(ConfigurableMixin):
                 "-t",
                 ",".join(self.nsys_trace),
                 "-o",
-                f"{profile_out_path}/profile_%p",
-                "--force-overwrite",
-                "true",
-                "--capture-range=cudaProfilerApi",
-                "--capture-range-end=stop",
-                "--cuda-graph-trace=node",
-            ]
+                f"{profile_out_path}/{self.nsys_filename}",
+            ] + self.nsys_extra_args
             return args
 
     def transform(self, cmd: list[str]) -> Optional[Script]: ...
@@ -42,6 +47,7 @@ class Launcher(ConfigurableMixin):
 class Torchrun(Launcher):
     rdzv_backend: str = "c10d"
     rdzv_port: int = 29500
+    rdzv_id: Optional[int] = None
 
 
 @dataclass(kw_only=True)
@@ -51,6 +57,7 @@ class FaultTolerance(Launcher):
     job_results_file: str = ""
     rdzv_backend: str = "c10d"
     rdzv_port: int = 29500
+    rdzv_id: Optional[int] = None
     workload_check_interval: Optional[float] = None
     initial_rank_heartbeat_timeout: Optional[float] = None
     rank_heartbeat_timeout: Optional[float] = None
