@@ -1163,10 +1163,6 @@ def parse_cli_args(
                     raise UndefinedVariableError(
                         f"Cannot use '{op.value}' on undefined variable", arg, {"key": key}
                     )
-                # a = parser.apply_operation(op, getattr(nested, arg_name), parsed_value)
-                import pdb
-
-                pdb.set_trace()
                 setattr(
                     nested,
                     arg_name,
