@@ -420,7 +420,11 @@ class LazyTarget:
                 self.script = script_path.read_text()
                 if len(cmd) > 1:
                     self.import_path = " ".join(cmd[1:])
-            if cmd[0] in ("nemo", "nemo_run") or cmd[0].endswith("/nemo") or cmd[0].endswith("/nemo_run"):
+            if (
+                cmd[0] in ("nemo", "nemo_run")
+                or cmd[0].endswith("/nemo")
+                or cmd[0].endswith("/nemo_run")
+            ):
                 self.import_path = " ".join(cmd[1:])
 
     def __call__(self, *args, **kwargs):
@@ -447,31 +451,31 @@ class LazyTarget:
                     f"Entrypoint '{parts[0]}' not found. Available top-level entrypoints: {available_cmds}"
                 )
             output = entrypoints[parts[0]]
-            
+
             # Re-key the nested entrypoint dict to include 'name' attribute as keys
             def rekey_entrypoints(entries):
                 if not isinstance(entries, dict):
                     return entries
-                
+
                 result = {}
                 for key, value in entries.items():
                     result[key] = value
-                    if hasattr(value, 'name') and value.name != key:
+                    if hasattr(value, "name") and value.name != key:
                         result[value.name] = value
                     elif isinstance(value, dict):
                         result[key] = rekey_entrypoints(value)
                 return result
-            
+
             # Only rekey if we're dealing with a dictionary
             if isinstance(output, dict):
                 output = rekey_entrypoints(output)
-            
+
             if len(parts) > 1:
                 for part in parts[1:]:
                     # Skip args with - or -- prefix or containing = as they're parameters, not subcommands
                     if part.startswith("-") or "=" in part:
                         continue
-                        
+
                     if isinstance(output, dict):
                         if part in output:
                             output = output[part]
@@ -484,12 +488,12 @@ class LazyTarget:
                             )
                     else:
                         # We've reached an entrypoint object but tried to access a subcommand
-                        entrypoint_name = getattr(output, 'name', parts[0])
+                        entrypoint_name = getattr(output, "name", parts[0])
                         raise ValueError(
                             f"'{entrypoint_name}' is a terminal entrypoint and does not have subcommand '{part}'. "
                             f"You may have provided an incorrect command structure."
                         )
-            
+
             # If output is a dict, we need to get the default entrypoint
             if isinstance(output, dict):
                 raise ValueError(

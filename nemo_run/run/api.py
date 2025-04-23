@@ -72,7 +72,7 @@ def run(
 
     if getattr(fn_or_script, "is_lazy", False):
         fn_or_script = fn_or_script.resolve()
-    
+
     default_name = (
         fn_or_script.get_name()
         if isinstance(fn_or_script, Script)
