@@ -961,6 +961,7 @@ class RunContext:
             if default_plugins:
                 self.plugins = default_plugins
 
+            _load_workspace()
             if isinstance(fn, LazyEntrypoint):
                 self.execute_lazy(fn, sys.argv, name)
                 return
@@ -968,7 +969,6 @@ class RunContext:
             try:
                 if not is_main:
                     _load_entrypoints()
-                _load_workspace()
                 self.cli_execute(fn, ctx.args, type)
             except RunContextError as e:
                 if not verbose:
