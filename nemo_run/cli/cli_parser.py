@@ -796,14 +796,48 @@ class TypeParser:
         Raises:
             ListParseError: If the value cannot be parsed as a list.
         """
-        try:
-            parsed = ast.literal_eval(value)
-            if not isinstance(parsed, list):
-                raise ValueError("Not a list")
-            elem_type = get_args(annotation)[0]
-            return [self.parse(str(item), elem_type) for item in parsed]
-        except Exception as e:
-            raise ListParseError(value, List, f"Invalid list: {str(e)}")
+        # Remove outer brackets and whitespace
+        if not (value.startswith("[") and value.endswith("]")):
+            raise ListParseError(value, List, "List must be enclosed in square brackets")
+
+        inner = value.strip("[] ")
+        elements = []
+        current = ""
+        nesting = 0
+
+        # Parse character by character to handle nested structures
+        for char in inner:
+            if char == "," and nesting == 0:
+                if current.strip():
+                    elements.append(current.strip())
+                current = ""
+            else:
+                if char in "([{":
+                    nesting += 1
+                elif char in ")]}":
+                    nesting -= 1
+                current += char
+
+        # Add the last element if it exists
+        if current.strip():
+            elements.append(current.strip())
+
+        # Process each element - try literal_eval first, fallback to string
+        parsed_elements = []
+        for element in elements:
+            try:
+                parsed_element = ast.literal_eval(element)
+            except Exception:
+                parsed_element = element
+            parsed_elements.append(parsed_element)
+
+        print(parsed_elements)
+        import pdb
+
+        pdb.set_trace()
+
+        elem_type = get_args(annotation)[0]
+        return [self.parse(str(item), elem_type) for item in parsed_elements]
 
     def parse_dict(self, value: str, annotation: Type[Dict]) -> Dict:
         """Parse a string value into a dictionary of the specified key-value types.
@@ -1129,6 +1163,10 @@ def parse_cli_args(
                     raise UndefinedVariableError(
                         f"Cannot use '{op.value}' on undefined variable", arg, {"key": key}
                     )
+                # a = parser.apply_operation(op, getattr(nested, arg_name), parsed_value)
+                import pdb
+
+                pdb.set_trace()
                 setattr(
                     nested,
                     arg_name,
@@ -1253,13 +1291,35 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
         return factory_fn()
 
     # Check if the value is a list
-    list_match = re.match(r"^\s*\[(.*)\]\s*$", value)
-    if list_match:
+    if value.startswith("[") and value.endswith("]"):
         # Check if arg_type is List[T], if so get T
         if get_origin(arg_type) is list:
             arg_type = get_args(arg_type)[0]
-        items = re.findall(r"([^,]+(?:\([^)]*\))?)", list_match.group(1))
-        return [parse_single_factory(item.strip()) for item in items]
+
+        # Parse list with nested structure handling
+        inner = value.strip("[] ")
+        elements = []
+        current = ""
+        nesting = 0
+
+        # Parse character by character to handle nested structures
+        for char in inner:
+            if char == "," and nesting == 0:
+                if current.strip():
+                    elements.append(current.strip())
+                current = ""
+            else:
+                if char in "([{":
+                    nesting += 1
+                elif char in ")]}":
+                    nesting -= 1
+                current += char
+
+        # Add the last element if it exists
+        if current.strip():
+            elements.append(current.strip())
+
+        return [parse_single_factory(item.strip()) for item in elements]
 
     return parse_single_factory(value)
 
