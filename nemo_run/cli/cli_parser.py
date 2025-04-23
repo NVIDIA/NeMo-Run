@@ -1121,7 +1121,9 @@ def parse_cli_args(
             annotation = param.annotation
         logger.debug(f"Parsing value {value} as {annotation}")
 
-        annotation = _maybe_resolve_annotation(nested.__fn_or_cls__, arg_name, annotation)
+        annotation = _maybe_resolve_annotation(
+            getattr(nested, "__fn_or_cls__", nested), arg_name, annotation
+        )
 
         if annotation:
             try:
