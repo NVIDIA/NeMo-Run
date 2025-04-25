@@ -38,6 +38,12 @@ will install Skypilot w all clouds
 
 You can also manually install Skypilot from https://skypilot.readthedocs.io/en/latest/getting-started/installation.html
 
+If using DGX Cloud Lepton, use the following command to install the Lepton CLI:
+
+``pip install leptonai``
+
+To authenticate with the DGX Cloud Lepton cluster, navigate to the **Settings > Tokens** page in the DGX Cloud Lepton UI and copy the ``lep login`` command shown on the page and run it in the terminal.
+
 Make sure you have `pip` installed and configured properly.
 
 
