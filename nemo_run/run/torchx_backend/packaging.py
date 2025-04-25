@@ -25,6 +25,7 @@ from nemo_run.config import SCRIPTS_DIR, Partial, Script
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
+from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
@@ -167,6 +168,7 @@ def package(
             debug=executor.packager.debug,
             max_retries=executor.retries,
             dgxc=isinstance(executor, DGXCloudExecutor),
+            lepton=isinstance(executor, LeptonExecutor),
             use_env=use_env,
         )
     elif launcher and isinstance(launcher, FaultTolerance):

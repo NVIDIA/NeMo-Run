@@ -7,6 +7,7 @@ Each execution of a single configured task requires an executor. Nemo-Run provid
 - `run.DockerExecutor`
 - `run.SlurmExecutor` with an optional `SSHTunnel` for executing on Slurm clusters from your local machine
 - `run.SkypilotExecutor` (available under the optional feature `skypilot` in the python package).
+- `run.LeptonExecutor`
 
 A tuple of task and executor form an execution unit. A key goal of NeMo-Run is to allow you to mix and match tasks and executors to arbitrarily define execution units.
 
@@ -41,6 +42,7 @@ The packager support matrix is described below:
 | SlurmExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | DGXCloudExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| LeptonExecutor   | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 
 `run.Packager` is a passthrough base packager.
 
@@ -264,3 +266,35 @@ def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
 ```
 
 For a complete end-to-end example using DGX Cloud with NeMo, refer to the [NVIDIA DGX Cloud NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
+
+#### LeptonExecutor
+
+The `LeptonExecutor` integrates with an NVIDIA DGX Cloud Lepton cluster's Python SDK to launch distributed jobs. It uses API calls behind the Lepton SDK to authenticate, identify the target node group and resource shapes, and submit the job specification which will be launched as a batch job on the cluster.
+
+Here's an example configuration:
+
+```python
+def your_lepton_executor(nodes: int, gpus_per_node: int, container_image: str):
+    # Ensure these are set correctly for your DGX Cloud environment
+    # You might fetch these from environment variables or a config file
+    resource_shape = "gpu.8xh100-80gb" # Replace with your desired resource shape representing the number of GPUs in a pod
+    node_group = "my-node-group"  # The node group to run the job in
+    nemo_run_dir = "/nemo-workspace/nemo-run"  # The NeMo-Run directory where experiments are saved
+
+    executor = run.LeptonExecutor(
+        resource_shape=resource_shape,
+        node_group=node_group,
+        container_image=container_image,
+        nodes=nodes,
+        nemo_run_dir=nemo_run_dir,
+        gpus_per_node=gpus_per_node,
+        # Optional: Add custom environment variables or PyTorch specs if needed
+        env_vars=common_envs(),
+        # packager=run.GitArchivePackager() # Choose appropriate packager
+    )
+    return executor
+
+# Example usage:
+executor = your_lepton_executor(nodes=4, gpus_per_node=8, container_image="your-nemo-image")
+
+```

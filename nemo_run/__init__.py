@@ -19,11 +19,13 @@ packaging, and launching experiments across various execution environments."""
 
 from nemo_run import cli
 from nemo_run.api import autoconvert, dryrun_fn
+from nemo_run.cli.lazy import LazyEntrypoint, lazy_imports
 from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor, ExecutorMacros, import_executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.launcher import FaultTolerance, SlurmRay, SlurmTemplate, Torchrun
+from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
@@ -31,7 +33,6 @@ from nemo_run.core.packaging import GitArchivePackager, HybridPackager, Packager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.devspace.base import DevSpace
 from nemo_run.help import help
-from nemo_run.cli.lazy import LazyEntrypoint, lazy_imports
 from nemo_run.package_info import __package_name__, __version__
 from nemo_run.run.api import run
 from nemo_run.run.experiment import Experiment
@@ -58,6 +59,7 @@ __all__ = [
     "GitArchivePackager",
     "PatternPackager",
     "help",
+    "LeptonExecutor",
     "LocalExecutor",
     "LocalTunnel",
     "Packager",
