@@ -3,20 +3,20 @@ import json
 import logging
 import os
 import subprocess
+import tempfile
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-import time
-import tempfile
 from typing import Any, Optional, Type
 
 import requests
 from invoke.context import Context
 
+from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
-from nemo_run.config import get_nemorun_home
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +170,8 @@ class DGXCloudExecutor(Executor):
         workload_id = resp_json["workloadId"]
         status = DGXCloudState(resp_json["actualPhase"])
 
+        logger.info(f"Successfully created data movement workload {workload_id} on DGXCloud")
+
         while status in [
             DGXCloudState.PENDING,
             DGXCloudState.CREATING,
@@ -178,9 +180,12 @@ class DGXCloudExecutor(Executor):
         ]:
             time.sleep(sleep)
             status = self.status(workload_id)
+            logger.debug(
+                f"Polling data movement workload {workload_id}'s status. Current status is: {status}"
+            )
 
         if status is not DGXCloudState.COMPLETED:
-            raise RuntimeError("Failed to move data to PVC")
+            raise RuntimeError(f"Failed to move data to PVC. Workload status is {status}")
 
         resp = self.delete_workload(token, workload_id)
         if resp.status_code >= 200 and resp.status_code < 300:
