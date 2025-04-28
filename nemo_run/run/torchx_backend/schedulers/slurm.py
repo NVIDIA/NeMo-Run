@@ -374,6 +374,7 @@ def create_scheduler(session_name: str, **kwargs: Any) -> SlurmTunnelScheduler:
 def _save_job_dir(
     job_id: str, local_job_dir: str, tunnel: SSHTunnel | LocalTunnel, ls_term: str
 ) -> None:
+    os.makedirs(os.path.dirname(SLURM_JOB_DIRS), exist_ok=True)
     with open(SLURM_JOB_DIRS, "a+") as f:
         f.write(
             f"{job_id} = {ls_term},{local_job_dir},{tunnel.__class__.__name__},{json.dumps(asdict(tunnel))}\n"

@@ -184,6 +184,7 @@ def create_scheduler(
 def _save_job_dir(apps: dict[str, _LocalAppDef]) -> None:
     original_apps = {}
     if not os.path.isfile(LOCAL_JOB_DIRS):
+        os.makedirs(os.path.dirname(LOCAL_JOB_DIRS), exist_ok=True)
         Path(LOCAL_JOB_DIRS).touch()
 
     with open(LOCAL_JOB_DIRS, "r+") as f:

@@ -227,6 +227,7 @@ def create_scheduler(session_name: str, **kwargs: Any) -> SkypilotScheduler:
 def _save_job_dir(app_id: str, job_status: str, log_dir: str) -> None:
     original_apps = {}
     if not os.path.isfile(SKYPILOT_JOB_DIRS):
+        os.makedirs(os.path.dirname(SKYPILOT_JOB_DIRS), exist_ok=True)
         Path(SKYPILOT_JOB_DIRS).touch()
 
     with open(SKYPILOT_JOB_DIRS, "r+") as f:
