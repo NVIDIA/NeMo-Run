@@ -1,6 +1,6 @@
 # Why should I use NemoRun?
 
-As described in the [README](../README.md), NemoRun has three core responsibilities:
+NemoRun has three core responsibilities:
 
 1. Configuration
 2. Execution
@@ -9,6 +9,7 @@ As described in the [README](../README.md), NemoRun has three core responsibilit
 Let's dive into reasons for why to use NemoRun for each.
 
 ## Configuration
+
 Configuration for Machine Learning is a complex topic, and various different teams have used various different configuration systems to run their experiments. YAML has been pretty popular for configuration, but several different pythonic configuration systems are also on the rise.
 
 For now, NemoRun does configuration by supporting a pythonic configuration system (based on Fiddle), in addition to just running raw scripts directly.
@@ -18,6 +19,7 @@ Additionally, in the future, we also aim to provide interoperability between Pyt
 In summary, you should use NemoRun to configure your tasks because it provides **Flexibility** and **Modularity** when defining your config, and, once done, allows you to launch your configured tasks anywhere in a breeze.
 
 ## Execution
+
 One key philosophy that NemoRun uses is decoupling of configuration and execution. As a result, you can configure your task separately from defining your execution environment. This makes it trivial to switch from one execution environment to the other.
 
 There is a one-time cost of defining your executor, but this is amortized across your workspace or your team.
@@ -37,6 +39,7 @@ This naturally begs the question that having access to multiple clusters is some
 In summary, you should use NemoRun to execute your tasks and experiments because it decouples configuration of your task from your execution environment, and as a result provides **Flexibility** and **Modularity**.
 
 ## Management
+
 In the previous section, we asked the question that why should someone use NemoRun if they operate on a single cluster. We shall aim to answer this here.
 
 NemoRun comes with experiment management capabilities out of the box. This means that everytime you launch an experiment using NemoRun, your configuration is captured and saved automatically. Additionally, NemoRun also allows you to inspect an experiment while it's running or several months after it's been run. On top of it, it also allows you to cancel tasks in your experiment, retrieve logs (as long as they're available remotely), and it the very near future - sync artifacts. And, each run of the experiment is saved separately, mitigating the headache of overriding already existing stuff.
@@ -54,7 +57,9 @@ The persistence of experiment metadata, including configuration and logs, is bas
 In summary, you should use NemoRun to manage your experiments because provides **Reproducibility** and **Organization**.
 
 ## Conclusion
+
 All in all, you should use NemoRun because it provides
+
 - **Flexibility**
 - **Modularity**
 - **Reproducibility**

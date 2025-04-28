@@ -17,6 +17,7 @@ Not all steps are necessary for some contributions, so read the linked sections 
   - [Whom should you ask for review:](#whom-should-you-ask-for-review)
 
 ## General principles
+
 1. **User-oriented**: make it easy for end users, even at the cost of writing more code in the background
 1. **Robust**: make it hard for users to make mistakes.
 1. **Reusable**: for every piece of code, think about how it can be reused in the future and make it easy to be reused.
@@ -25,6 +26,7 @@ Not all steps are necessary for some contributions, so read the linked sections 
 1. **Sensible**: code should make sense. If you think a piece of code might be confusing, write comments.
 
 ## Environment Setup
+
 We use [uv](https://docs.astral.sh/uv/) to develop NeMo Run. The following steps should get you started with the dev environment:
 
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
@@ -34,16 +36,19 @@ We use [uv](https://docs.astral.sh/uv/) to develop NeMo Run. The following steps
 If all tests passed, then you should be good to get started with the development of NeMo-Run.
 
 ## Code Structure
+
 The repository is home to flexible Python modules, sample scripts, tests, and more.
 Here is a brief overview of where everything lives:
+
 - [docker](docker/) - Dockerfiles to build NeMo with NeMo Run.
 - [docs](docs/) - Walkthroughs and guides the library.
 - [examples](examples/) - Examples for how users may want to use NeMo Run.
 - [src](src/) -
-    - [nemo_run](src/nemo_run/) - The source code for NeMo Run.
+  - [nemo_run](src/nemo_run/) - The source code for NeMo Run.
 - [test](test/) - Unit tests.
 
 ## Examples and Documentation
+
 Examples provide an easy way for users to see how the NeMo Run works in action.
 They should be incredibly lightweight and rely mostly on `nemo_run` for their functionality
 Most should be designed for a user to get up and running on their local machines, but examples on remote clusters are welcomed if it makes sense.
@@ -54,10 +59,23 @@ It should include both an explanation of the API, and how it's used in its corre
 The documentation should also cover potential pitfalls and caveats.
 This existing examples and documentation should serve as a good reference to what is expected.
 
+### Building Documentation
+
+Run the following commands to switch to the project documentation folder and generate HTML output.
+
+```sh
+cd docs/
+uv run --group docs sphinx-build source/ _build/html
+```
+
+The resulting HTML files are generated in a `_build/html` folder created under the project `docs/` folder.
+
 ## Python style
-We use [``ruff``](https://docs.astral.sh/ruff/) for linting and formatting. To lint and format your code, you can run `uv run --group lint -- ruff check` and `uv run --group lint -- ruff format` respectively.
+
+We use [`ruff`](https://docs.astral.sh/ruff/) for linting and formatting. To lint and format your code, you can run `uv run --group lint -- ruff check` and `uv run --group lint -- ruff format` respectively.
 
 ## Unit tests
+
 Unit tests should be simple and fast.
 Developers should be able to run them frequently while developing without any slowdown.
 
@@ -65,24 +83,25 @@ Developers should be able to run them frequently while developing without any sl
 
 **Send your PRs to the `main` or `dev` branch**
 
-1) Make sure your PR does one thing. Have a clear answer to "What does this PR do?".
-2) Read General Principles and style guide above
-3) Make sure you sign off your commits. E.g. use ``git commit --signoff`` when committing.
-4) Make sure all unit tests finish successfully before sending PR
-5) Send your PR and request a review
+1. Make sure your PR does one thing. Have a clear answer to "What does this PR do?".
+2. Read General Principles and style guide above
+3. Make sure you sign off your commits. E.g. use `git commit --signoff` when committing.
+4. Make sure all unit tests finish successfully before sending PR
+5. Send your PR and request a review
 
 The `dev` branch is for active development and may be unstable. Unit tests are expected to pass before merging into `dev` or `main`.
 Every release `dev` and `main` will sync to be the same.
 
 ## Sign Your Work
 
-* We require that all contributors "sign-off" on their commits. This certifies that the contribution is your original work, or you have rights to submit it under the same license, or a compatible license.
+- We require that all contributors "sign-off" on their commits. This certifies that the contribution is your original work, or you have rights to submit it under the same license, or a compatible license.
 
-  * Any contribution which contains commits that are not Signed-Off will not be accepted.
+  - Any contribution which contains commits that are not Signed-Off will not be accepted.
 
-* To sign off on a commit you simply use the `--signoff` option when committing your changes:
+- To sign off on a commit you simply use the `--signoff` option when committing your changes:
+
   ```bash
-  $ git commit --signoff -m "Add cool feature."
+  git commit --signoff -m "Add cool feature."
   ```
 
 ## Full text of the DCO:

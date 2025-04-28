@@ -13,6 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""This module serves as the main entrypoint for the NeMo-Run Python library,
+providing programmatic access to its core functionalities for configuring,
+packaging, and launching experiments across various execution environments."""
+
+from nemo_run import cli
 from nemo_run.api import autoconvert, dryrun_fn
 from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor, ExecutorMacros, import_executor
@@ -31,8 +36,6 @@ from nemo_run.package_info import __package_name__, __version__
 from nemo_run.run.api import run
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
-
-from nemo_run import cli
 
 __all__ = [
     "autoconvert",
