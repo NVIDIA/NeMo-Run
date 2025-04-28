@@ -97,7 +97,10 @@ def get_type_namespace(typ: Type | Callable) -> str:
     if isinstance(typ, fdl.Buildable):
         typ = typ.__fn_or_cls__
 
-    return f"{module}.{typ.__qualname__}"
+    _name = getattr(typ, "__qualname__", str(typ))
+    if _name.startswith("ForwardRef"):
+        _name = _name.split(".")[-1]
+    return f"{module}.{_name}"
 
 
 def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:

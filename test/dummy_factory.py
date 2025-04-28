@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, ForwardRef
 
 import nemo_run as run
 
@@ -97,6 +97,12 @@ def plugin_list(arg: int = 20) -> List[run.Plugin]:
         dummy_plugin(arg),
         AnotherPlugin(another_arg=arg),
     ]
+
+
+@run.cli.factory
+@run.autoconvert
+def tokenizer_spec() -> ForwardRef("TokenizerSpec"):
+    return DummyModel(hidden=1000)
 
 
 def dummy_train(dummy_model: DummyModel, dummy_trainer: DummyTrainer): ...

@@ -36,6 +36,10 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    ForwardRef,
+    Set,
+    Tuple,
+    FrozenSet,
 )
 
 import fiddle as fdl
@@ -609,6 +613,7 @@ class TypeParser:
             Optional: self.parse_optional,
             Literal: self.parse_literal,
             Path: self.parse_path,
+            ForwardRef: self.parse_forward_ref,
         }
         self.custom_parsers = {}
         self.strict_mode = strict_mode
@@ -646,6 +651,8 @@ class TypeParser:
             Callable[[str, Type], Any]: The parser function for the given type.
         """
         origin = get_origin(annotation) or annotation
+        if str(origin).startswith("ForwardRef"):
+            return self.parse_forward_ref
         return self.custom_parsers.get(origin) or self.parsers.get(origin) or self.parse_unknown
 
     def parse(self, value: str, annotation: Type) -> Any:
@@ -950,6 +957,9 @@ class TypeParser:
             raise ParseError(value, Path, "Invalid path: contains null character")
         return Path(value.strip("'\" "))
 
+    def parse_forward_ref(self, value: str, annotation) -> Any:
+        return value
+
     def infer_type(self, value: str) -> Type:
         """Infer the type of a string value.
 
@@ -980,7 +990,9 @@ def parse_value(value: str, annotation: Type = None) -> Any:
 
 @cli_exception_handler
 def parse_cli_args(
-    fn: Callable, args: List[str], output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial
+    fn: Callable,
+    args: List[str],
+    output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial,
 ) -> TypeVar("OutputT", Partial, Config):
     """Parse command-line arguments and apply them to a function or class.
 
@@ -1109,6 +1121,10 @@ def parse_cli_args(
             annotation = param.annotation
         logger.debug(f"Parsing value {value} as {annotation}")
 
+        annotation = _maybe_resolve_annotation(
+            getattr(nested, "__fn_or_cls__", nested), arg_name, annotation
+        )
+
         if annotation:
             try:
                 parsed_value = parse_factory(fn, arg_name, annotation, value)
@@ -1132,7 +1148,9 @@ def parse_cli_args(
             else:
                 if not hasattr(nested, arg_name):
                     raise UndefinedVariableError(
-                        f"Cannot use '{op.value}' on undefined variable", arg, {"key": key}
+                        f"Cannot use '{op.value}' on undefined variable",
+                        arg,
+                        {"key": key},
                     )
                 setattr(
                     nested,
@@ -1277,7 +1295,9 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
         for arg in args:
             if "=" not in arg:
                 raise ArgumentParsingError(
-                    "Positional argument found after keyword argument", arg, {"position": len(args)}
+                    "Positional argument found after keyword argument",
+                    arg,
+                    {"position": len(args)},
                 )
 
         return args
@@ -1304,7 +1324,9 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
                 positional_count += 1
             else:
                 raise ArgumentParsingError(
-                    "Too many positional arguments", arg, {"max_positional": len(params)}
+                    "Too many positional arguments",
+                    arg,
+                    {"max_positional": len(params)},
                 )
 
     return updated_args
@@ -1334,3 +1356,92 @@ def parse_attribute(attr, nested):
                 ) from e
 
     return result
+
+
+def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> Any:
+    """Internal function to resolve an annotation to its actual type.
+
+    This function handles string annotations, ForwardRef, and generic types (e.g., Optional, List)
+    by resolving string annotations within them, using TYPE_CHECKING blocks and their imports.
+
+    Args:
+        fn (Callable): The function containing the annotation
+        arg_name (str): The name of the parameter with the annotation
+        annotation (Any): The annotation to resolve (string, ForwardRef, or type)
+
+    Returns:
+        Any: The resolved type, or the original annotation if resolution fails
+    """
+    # Case 1: Annotation is a string
+    if isinstance(annotation, str):
+        resolved = _resolve_type_checking_annotation(fn, annotation)
+        return resolved if resolved != annotation else annotation
+
+    # Case 2: Annotation is a ForwardRef
+    elif isinstance(annotation, ForwardRef):
+        return _resolve_type_checking_annotation(fn, annotation.__forward_arg__)
+
+    # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
+    elif (origin := get_origin(annotation)) is not None:
+        args = get_args(annotation)
+        resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
+        if origin is list:
+            return List[resolved_args[0]]
+        elif origin is dict:
+            return Dict[resolved_args[0], resolved_args[1]]
+        elif origin is tuple:
+            return Tuple[resolved_args]
+        elif origin is set:
+            return Set[resolved_args[0]]
+        elif origin is frozenset:
+            return FrozenSet[resolved_args[0]]
+        elif origin is Union:
+            return Union[resolved_args]
+        else:
+            return annotation  # Unhandled generic types return as-is
+
+    # Case 4: Annotation is a non-generic type (e.g., int, str)
+    else:
+        return annotation
+
+
+def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
+    """Helper function to resolve a string annotation to its actual type using TYPE_CHECKING imports."""
+    if hasattr(fn, "__fn_or_cls__"):
+        fn = fn.__fn_or_cls__
+
+    try:
+        source_file = inspect.getsourcefile(fn)
+        if not source_file:
+            return annotation
+        with open(source_file, "r") as f:
+            source = f.read()
+        tree = ast.parse(source)
+        type_checking_imports = {}
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.If)
+                and isinstance(node.test, ast.Name)
+                and node.test.id == "TYPE_CHECKING"
+            ):
+                for stmt in node.body:
+                    if isinstance(stmt, (ast.Import, ast.ImportFrom)):
+                        if isinstance(stmt, ast.Import):
+                            for name in stmt.names:
+                                type_checking_imports[name.asname or name.name] = name.name
+                        else:  # ImportFrom
+                            module = stmt.module or ""
+                            for name in stmt.names:
+                                full_name = f"{module}.{name.name}" if module else name.name
+                                type_checking_imports[name.asname or name.name] = full_name
+        if annotation in type_checking_imports:
+            try:
+                full_path = type_checking_imports[annotation]
+                module_name, type_name = full_path.rsplit(".", 1)
+                module = importlib.import_module(module_name)
+                return getattr(module, type_name)
+            except (ImportError, AttributeError):
+                pass
+    except Exception:
+        pass
+    return annotation
