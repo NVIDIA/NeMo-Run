@@ -350,6 +350,7 @@ class DockerJobRequest:
     def save(self) -> None:
         apps = {}
         if not os.path.isfile(DOCKER_JOB_DIRS):
+            os.makedirs(os.path.dirname(DOCKER_JOB_DIRS), exist_ok=True)
             Path(DOCKER_JOB_DIRS).touch()
 
         with open(DOCKER_JOB_DIRS, "r+") as f:
