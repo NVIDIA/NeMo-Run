@@ -238,7 +238,7 @@ def class_to_str(class_obj):
             base = class_obj.__origin__.__name__
             # Get the arguments to the type if any
             args = typing.get_args(class_obj)
-            
+
             # Special handling for Callable types
             if base == "Callable":
                 if len(args) == 2:
