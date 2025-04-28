@@ -236,9 +236,34 @@ def class_to_str(class_obj):
         else:
             # Get the base type
             base = class_obj.__origin__.__name__
-            # Get the arguments to the type if any (e.g., the 'str' in Optional[str])
-            args = ", ".join(class_to_str(arg) for arg in typing.get_args(class_obj))
-            return f"{base}[{args}]"
+            # Get the arguments to the type if any
+            args = typing.get_args(class_obj)
+
+            # Special handling for Callable types
+            if base == "Callable":
+                if len(args) == 2:
+                    if args[0] is ...:
+                        # Handle Callable[..., return_type]
+                        return_type = class_to_str(args[1])
+                        return f"{base}[..., {return_type}]"
+                    elif isinstance(args[0], list):
+                        # Handle Callable[[arg1, arg2], return_type]
+                        arg_types = ", ".join(class_to_str(arg) for arg in args[0])
+                        return_type = class_to_str(args[1])
+                        return f"{base}[[{arg_types}], {return_type}]"
+                    else:
+                        # Handle Callable[Protocol, return_type]
+                        arg_type = class_to_str(args[0])
+                        return_type = class_to_str(args[1])
+                        return f"{base}[{arg_type}, {return_type}]"
+                elif len(args) == 1:
+                    # Handle Callable[[], return_type]
+                    return_type = class_to_str(args[0])
+                    return f"{base}[[], {return_type}]"
+            else:
+                # Handle other generic types
+                args_str = ", ".join(class_to_str(arg) for arg in args)
+                return f"{base}[{args_str}]"
     elif class_obj.__module__ == "builtins":
         return class_obj.__name__
     else:
