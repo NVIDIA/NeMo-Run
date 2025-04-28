@@ -13,7 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The NeMO-Run API."""
+"""This module serves as the main entrypoint for the NeMo-Run Python library,
+providing programmatic access to its core functionalities for configuring,
+packaging, and launching experiments across various execution environments."""
 
 from nemo_run import cli
 from nemo_run.api import autoconvert, dryrun_fn
