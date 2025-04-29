@@ -230,9 +230,18 @@ def help_for_type(
 def class_to_str(class_obj):
     if hasattr(class_obj, "__origin__"):
         # Special handling for Optional types which are represented as Union[X, NoneType]
-        if class_obj._name == "Optional":
+        if getattr(class_obj, "_name", None) == "Optional":
             args = class_to_str(typing.get_args(class_obj)[0])
             return f"Optional[{args}]"
+        # Special handling for Union types
+        elif getattr(class_obj, "_name", None) == "Union":
+            args = typing.get_args(class_obj)
+            # Filter out NoneType from Union types
+            args = [arg for arg in args if arg is not type(None)]
+            if len(args) == 1:
+                return class_to_str(args[0])
+            else:
+                return " | ".join(class_to_str(arg) for arg in args)
         else:
             # Get the base type
             base = class_obj.__origin__.__name__
@@ -260,13 +269,16 @@ def class_to_str(class_obj):
                     # Handle Callable[[], return_type]
                     return_type = class_to_str(args[0])
                     return f"{base}[[], {return_type}]"
+                else:
+                    # Handle bare Callable without type arguments
+                    return base
             else:
                 # Handle other generic types
                 args_str = ", ".join(class_to_str(arg) for arg in args)
                 return f"{base}[{args_str}]"
     elif class_obj.__module__ == "builtins":
         return class_obj.__name__
-    else:
+    elif isinstance(class_obj, type):
         module = _get_module(class_obj)
 
         full_class_name = f"{module}.{class_obj.__name__}"
@@ -288,6 +300,9 @@ def class_to_str(class_obj):
             return "nm.OptimizerModule"
 
         return full_class_name
+    else:
+        # Handle non-type objects (like UnionType)
+        return str(class_obj)
 
 
 def help(
