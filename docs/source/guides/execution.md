@@ -280,6 +280,10 @@ def your_lepton_executor(nodes: int, gpus_per_node: int, container_image: str):
     resource_shape = "gpu.8xh100-80gb" # Replace with your desired resource shape representing the number of GPUs in a pod
     node_group = "my-node-group"  # The node group to run the job in
     nemo_run_dir = "/nemo-workspace/nemo-run"  # The NeMo-Run directory where experiments are saved
+    # Define the remote storage directory that will be mounted in the job pods
+    # Ensure the path specified here contains your NEMORUN_HOME
+    storage_path = "/nemo-workspace" # The remote storage directory to mount in jobs
+    mount_path = "/nemo-workspace" # The path where the remote storage directory will be mounted inside the container
 
     executor = run.LeptonExecutor(
         resource_shape=resource_shape,
@@ -288,6 +292,7 @@ def your_lepton_executor(nodes: int, gpus_per_node: int, container_image: str):
         nodes=nodes,
         nemo_run_dir=nemo_run_dir,
         gpus_per_node=gpus_per_node,
+        mounts=[{"path": storage_path, "mount_path": mount_path}],
         # Optional: Add custom environment variables or PyTorch specs if needed
         env_vars=common_envs(),
         # packager=run.GitArchivePackager() # Choose appropriate packager
