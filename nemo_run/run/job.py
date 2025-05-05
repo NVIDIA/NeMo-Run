@@ -9,6 +9,7 @@ import nemo_run.exceptions
 from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.docker import DockerExecutor
+from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
@@ -211,7 +212,7 @@ class JobGroup(ConfigurableMixin):
     handle groups of related tasks.
     """
 
-    SUPPORTED_EXECUTORS = [SlurmExecutor, DockerExecutor]
+    SUPPORTED_EXECUTORS = [SlurmExecutor, DockerExecutor, LocalExecutor]
 
     id: str
     tasks: list[Union[Partial, Script]]
@@ -370,14 +371,14 @@ class JobGroup(ConfigurableMixin):
                 self.launched = True
 
     def wait(self, runner: Runner | None = None):
-        assert len(self.handles) == 1, "Only one handle is supported for task groups currently."
         try:
-            status = wait_and_exit(
-                app_handle=self.handles[0],
-                log=self.tail_logs,
-                runner=runner,
-            )
-            self.states = [status.state]
+            for handle in self.handles:
+                status = wait_and_exit(
+                    app_handle=handle,
+                    log=self.tail_logs,
+                    runner=runner,
+                )
+                self.states.append(status.state)
         except nemo_run.exceptions.UnknownStatusError:
             self.states = [AppState.UNKNOWN]
 
