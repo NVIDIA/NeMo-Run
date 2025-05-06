@@ -868,25 +868,7 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, list):
                 raise ValueError("Not a list")
-
-            # Get the element type - handle both old and new style type hints safely
-            elem_type = None
-
-            # Try to get args using get_args (works for Python 3.9+)
-            try:
-                type_args = get_args(annotation)
-                if type_args:
-                    elem_type = type_args[0]
-            except (TypeError, IndexError, AttributeError):
-                # If that fails, try older __args__ style (Python 3.8 and earlier)
-                if hasattr(annotation, "__args__") and annotation.__args__:
-                    elem_type = annotation.__args__[0]
-
-            # Default to Any if we can't determine the element type
-            if elem_type is None:
-                return parsed
-
-            # Parse each element with the determined type
+            elem_type = get_args(annotation)[0]
             return [self.parse(str(item), elem_type) for item in parsed]
         except Exception as e:
             raise ListParseError(value, List, f"Invalid list: {str(e)}")
@@ -908,26 +890,7 @@ class TypeParser:
             parsed = ast.literal_eval(value)
             if not isinstance(parsed, dict):
                 raise ValueError("Not a dict")
-
-            # Get the key and value types - handle both old and new style type hints
-            key_type = None
-            val_type = None
-
-            # Try to get args using get_args (works for Python 3.9+)
-            try:
-                type_args = get_args(annotation)
-                if len(type_args) >= 2:
-                    key_type, val_type = type_args[0], type_args[1]
-            except (TypeError, IndexError, AttributeError):
-                # If that fails, try older __args__ style (Python 3.8 and earlier)
-                if hasattr(annotation, "__args__") and len(annotation.__args__) >= 2:
-                    key_type, val_type = annotation.__args__[0], annotation.__args__[1]
-
-            # If we can't determine the types, return the parsed dict as is
-            if key_type is None or val_type is None:
-                return parsed
-
-            # Parse each key-value pair with the determined types
+            key_type, val_type = get_args(annotation)
             return {
                 self.parse(str(k), key_type): self.parse(str(v), val_type)
                 for k, v in parsed.items()
