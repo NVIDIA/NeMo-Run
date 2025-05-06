@@ -5,12 +5,13 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, Type
+from typing import Any, Optional, Set, Type
 
 from invoke.context import Context
 from leptonai.api.v1.client import APIClient
 from leptonai.api.v1.types.affinity import LeptonResourceAffinity
 from leptonai.api.v1.types.common import Metadata
+from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
 from leptonai.api.v1.types.deployment import EnvVar, LeptonContainer, Mount
 from leptonai.api.v1.types.job import LeptonJob, LeptonJobState, LeptonJobUserSpec
 from leptonai.api.v1.types.replica import Replica
@@ -85,17 +86,32 @@ class LeptonExecutor(Executor):
                     remote_path=relative_path
                 )
 
-    def setup_distributed_pytorch(self) -> str:
+    def _node_group_id(self, client: APIClient) -> DedicatedNodeGroup:
         """
-        Runs a custom script from Lepton to setup the distributed PyTorch
-        environment variables required for distributed PyTorch jobs.
+        Find the node group ID for the passed node group.
+
+        Lists all node groups available to the user and matches the node group requested
+        from the user with the list of node groups. Assumes there are no duplicate node groups.
         """
-        distributed_command = (
-            "wget -O init.sh https://raw.githubusercontent.com/leptonai/scripts/main/lepton_env_to_pytorch.sh && "
-            "chmod +x init.sh && "
-            "source init.sh"
-        )
-        return distributed_command
+        node_groups = client.nodegroup.list_all()
+        node_group_map = {ng.metadata.name: ng for ng in node_groups}
+        node_group_id = node_group_map[self.node_group]
+        return node_group_id
+
+    def _valid_node_ids(self, node_group_id: DedicatedNodeGroup, client: APIClient) -> Set:
+        """
+        Find all of the node IDs that are available within the requested node group.
+
+        Lepton will only schedule jobs on nodes that are part of the requested node
+        group that match the user-specified resource shape. List all of the node IDs
+        within the node group and set them as available nodes.
+        """
+        valid_node_ids = set()
+        node_ids = client.nodegroup.list_nodes(node_group_id)
+        for node in node_ids:
+            valid_node_ids.add(node.metadata.id_)
+
+        return valid_node_ids
 
     def create_lepton_job(self, name: str):
         """
@@ -111,16 +127,13 @@ class LeptonExecutor(Executor):
             f"chmod +x {self.lepton_job_dir}/launch_script.sh && bash {self.lepton_job_dir}/launch_script.sh"
         ]
 
-        # Get node groups
-        node_groups = client.nodegroup.list_all()
-        node_group_map = {ng.metadata.name: ng for ng in node_groups}
-        node_group_id = node_group_map[self.node_group]
+        # Get ID of requested node group
+        node_group_id = self._node_group_id(client)
+        if not node_group_id.metadata.id_:
+            raise RuntimeError(f"Unable to find node group ID for node group {self.node_group}")
 
         # Get node IDs
-        valid_node_ids = set()
-        node_ids = client.nodegroup.list_nodes(node_group_id)
-        for node in node_ids:
-            valid_node_ids.add(node.metadata.id_)
+        valid_node_ids = self._valid_node_ids(node_group_id, client)
 
         job_spec = LeptonJobUserSpec(
             resource_shape=self.resource_shape,
@@ -173,10 +186,16 @@ cd /nemo_run/code
         logger.info("Creating distributed workload")
         job = self.create_lepton_job(name)
         if not job:
-            raise RuntimeError(f"Failed to create Lepton job")
+            raise RuntimeError("Failed to create Lepton job")
 
         job_id = job.metadata.id_
+
+        if not job_id:
+            raise RuntimeError("Failed to retrieve job information")
         status = self.status(job_id)
+
+        if not status:
+            raise RuntimeError("Failed to retrieve job status")
         return job_id, status
 
     def nnodes(self) -> int:
@@ -195,7 +214,7 @@ cd /nemo_run/code
         client = APIClient()
         job = client.job.get(job_id)
 
-        if not job:
+        if not job or not job.status:
             return LeptonJobState.Unknown
 
         # Lepton marks a job as Running when at least one pod is running
@@ -226,6 +245,8 @@ cd /nemo_run/code
 
             for replica in replicas:
                 replica_id = replica.metadata.id_
+                if not replica_id:
+                    continue
                 # The first replica has the pattern <job-id>-0-xxxxx
                 # where xxxxx is a unique ID for each worker. Subsequent
                 # workers increase the number between <job-id> and the
@@ -242,7 +263,7 @@ cd /nemo_run/code
             client = APIClient()
             job = client.job.get(job_id)
 
-            if not job:
+            if not job or not job.status:
                 return LeptonJobState.Unknown
 
             # Lepton marks a job as Running when at least one pod is running
