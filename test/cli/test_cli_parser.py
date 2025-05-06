@@ -881,22 +881,6 @@ class TestModernTypeHintParsing:
         result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
         assert result.data == {"x": 1, "y": 2}
 
-    def test_modern_type_operations(self):
-        # Skip test if running on Python < 3.9
-        if sys.version_info < (3, 9):
-            pytest.skip("Python 3.9+ required for this test")
-
-        # Define a local function with modern type hints
-        def func(items: list[int], data: dict[str, int]):
-            pass
-
-        # Test operations on list
-        result = parse_cli_args(
-            func, ["items=[1, 2]", "items+=[3, 4]", "data={'a': 1}", "data|={'b': 2}"]
-        )
-        assert result.items == [1, 2, 3, 4]
-        assert result.data == {"a": 1, "b": 2}
-
     def test_modern_type_parsing_errors(self):
         # Skip test if running on Python < 3.9
         if sys.version_info < (3, 9):

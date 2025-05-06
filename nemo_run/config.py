@@ -102,7 +102,22 @@ def get_type_namespace(typ: Type | Callable) -> str:
         _name = _name.split(".")[-1]
     return f"{module}.{_name}"
 
+# Works: 
+# def get_underlying_types(type_hint: Any) -> Set[Type]:
+#     if isinstance(type_hint, GenericAlias):  # type: ignore
+#         if str(type_hint).startswith("typing.Annotated"):
+#             origin = type_hint.__origin__.__origin__
+#         else:
+#             origin = type_hint.__origin__
+#         if origin in RECURSIVE_TYPES:
+#             types = set()
+#             for arg in type_hint.__args__:
+#                 types.update(get_underlying_types(arg))
+#             return types
+#     return {type_hint}
 
+
+# Fails
 def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
     """
     Retrieve the underlying types from a type hint, handling generic types.
@@ -146,6 +161,9 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
         # Add the origin itself (e.g., list, dict)
         if isinstance(origin, type):
             result.add(origin)
+        # Add the original type_hint if it's a specific generic instantiation (and not a Union/Optional)
+        if origin is not None and origin not in RECURSIVE_TYPES:
+            result.add(type_hint) # type_hint is the _GenericAlias itself
         return result  # Return collected types
 
     # Handle Python 3.9+ style type hints
@@ -183,8 +201,15 @@ def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
     if isinstance(origin, type):
         result.add(origin)
 
+    # Add the original type_hint if it's a specific generic instantiation (and not a Union/Annotated)
+    if origin is not None and origin is not typing.Union and origin is not Annotated:
+        # type_hint is the original parameterized generic, e.g., List[int]
+        # Add it only if it's indeed a generic (origin of type_hint itself is not None)
+        if typing.get_origin(type_hint) is not None:
+            result.add(type_hint)
+
     # If no types were added, return the original type hint to preserve behavior
-    if not result:
+    if not result: # This covers cases like type_hint being a TypeVar that resulted in an empty set initially
         return {type_hint}
 
     return result
