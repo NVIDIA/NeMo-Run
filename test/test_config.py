@@ -23,7 +23,7 @@ import pytest
 from typing_extensions import Annotated
 
 import nemo_run as run
-from nemo_run.config import OptionalDefaultConfig, Script, from_dict, set_value
+from nemo_run.config import OptionalDefaultConfig, Script, from_dict, set_value, get_underlying_types
 from nemo_run.exceptions import SetValueError
 
 
@@ -384,3 +384,31 @@ class TestScript:
             "-c",
             "\"echo 'test'\"",
         ]
+
+class TestGetUnderlyingTypes:
+    @pytest.mark.parametrize(
+        "type_hint, expected_types",
+        [
+            (int, {int}),
+            (str, {str}),
+            (bool, {bool}),
+            (float, {float}),
+            (list[int], {list, int}),
+            (dict[str, float], {dict, str, float}),
+            (Union[int, str], {int, str}),
+            (Optional[int], {int}),  # Optional[T] is Union[T, NoneType]
+            (list[Union[int, str]], {list, int, str}),
+            (dict[str, list[int]], {dict, str, list, int}),
+            (Optional[list[str]], {list, str}),
+            (Annotated[int, "meta"], {int}),
+            (Annotated[list[str], "meta"], {list, str}),
+            (Annotated[Optional[dict[str, bool]], "meta"], {dict, str, bool}),
+            (Union[Annotated[int, "int_meta"], Annotated[str, "str_meta"]], {int, str}),
+            (DummyModel, {DummyModel}),
+            (Optional[DummyModel], {DummyModel}),
+            (list[DummyModel], {list, DummyModel}),
+        ],
+    )
+    def test_various_type_hints(self, type_hint, expected_types):
+        """Test get_underlying_types with various type hints."""
+        assert get_underlying_types(type_hint) == expected_types

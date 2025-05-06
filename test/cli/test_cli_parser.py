@@ -791,3 +791,125 @@ class TestCLIException:
         ex = UnknownTypeError("value", str, "Unknown type")
         assert isinstance(ex, ParseError)
         assert "Failed to parse 'value'" in str(ex)
+
+
+class TestModernTypeHintParsing:
+    """Tests for parsing Python 3.9+ style type hints (list[str] instead of List[str])."""
+
+    def test_modern_list_parsing(self):
+        # Skip test if running on Python < 3.9
+        if sys.version_info < (3, 9):
+            pytest.skip("Python 3.9+ required for this test")
+
+        # Define a local function that uses modern type hints
+        def func(items: list[str]):
+            pass
+
+        # Test basic list parsing
+        result = parse_cli_args(func, ["items=['apple', 'banana', 'cherry']"])
+        assert result.items == ["apple", "banana", "cherry"]
+
+        # Test empty list
+        result = parse_cli_args(func, ["items=[]"])
+        assert result.items == []
+
+    def test_modern_dict_parsing(self):
+        # Skip test if running on Python < 3.9
+        if sys.version_info < (3, 9):
+            pytest.skip("Python 3.9+ required for this test")
+
+        # Define a local function that uses modern type hints
+        def func(data: dict[str, int]):
+            pass
+
+        # Test basic dict parsing
+        result = parse_cli_args(func, ["data={'a': 1, 'b': 2, 'c': 3}"])
+        assert result.data == {"a": 1, "b": 2, "c": 3}
+
+        # Test empty dict
+        result = parse_cli_args(func, ["data={}"])
+        assert result.data == {}
+
+    def test_nested_modern_type_hints(self):
+        # Skip test if running on Python < 3.9
+        if sys.version_info < (3, 9):
+            pytest.skip("Python 3.9+ required for this test")
+
+        # Define a local function with nested modern type hints
+        def func(data: dict[str, list[int]]):
+            pass
+
+        # Test nested type parsing
+        result = parse_cli_args(func, ["data={'a': [1, 2], 'b': [3, 4, 5]}"])
+        assert result.data == {"a": [1, 2], "b": [3, 4, 5]}
+
+    def test_modern_optional_type_hints(self):
+        # Skip test if running on Python < 3.9
+        if sys.version_info < (3, 9):
+            pytest.skip("Python 3.9+ required for this test")
+
+        # Define a local function with Optional and modern type hint
+        def func(items: Optional[list[int]]):
+            pass
+
+        # Test non-None value
+        result = parse_cli_args(func, ["items=[1, 2, 3]"])
+        assert result.items == [1, 2, 3]
+
+        # Test None value
+        result = parse_cli_args(func, ["items=None"])
+        assert result.items is None
+
+        # Test null value (alternative None syntax)
+        result = parse_cli_args(func, ["items=null"])
+        assert result.items is None
+
+    def test_modern_union_type_hints(self):
+        # Skip test if running on Python < 3.9
+        if sys.version_info < (3, 9):
+            pytest.skip("Python 3.9+ required for this test")
+
+        # Define a local function with Union and modern type hints
+        def func(data: Union[list[str], dict[str, int]]):
+            pass
+
+        # Test list case
+        result = parse_cli_args(func, ["data=['a', 'b', 'c']"])
+        assert result.data == ["a", "b", "c"]
+
+        # Test dict case
+        result = parse_cli_args(func, ["data={'x': 1, 'y': 2}"])
+        assert result.data == {"x": 1, "y": 2}
+
+    def test_modern_type_operations(self):
+        # Skip test if running on Python < 3.9
+        if sys.version_info < (3, 9):
+            pytest.skip("Python 3.9+ required for this test")
+
+        # Define a local function with modern type hints
+        def func(items: list[int], data: dict[str, int]):
+            pass
+
+        # Test operations on list
+        result = parse_cli_args(
+            func, ["items=[1, 2]", "items+=[3, 4]", "data={'a': 1}", "data|={'b': 2}"]
+        )
+        assert result.items == [1, 2, 3, 4]
+        assert result.data == {"a": 1, "b": 2}
+
+    def test_modern_type_parsing_errors(self):
+        # Skip test if running on Python < 3.9
+        if sys.version_info < (3, 9):
+            pytest.skip("Python 3.9+ required for this test")
+
+        # Define a local function with modern type hints
+        def func(items: list[int]):
+            pass
+
+        # Test type error (strings in an int list)
+        with pytest.raises(ParseError):
+            parse_cli_args(func, ["items=['a', 'b', 'c']"])
+
+        # Test invalid list format - use a truly invalid syntax that will fail parsing
+        with pytest.raises(ListParseError):
+            parse_cli_args(func, ["items=[1, 2, 3"])
