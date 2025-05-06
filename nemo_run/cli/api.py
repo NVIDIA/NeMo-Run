@@ -533,7 +533,8 @@ def list_factories(type_or_namespace: Type | str) -> list[Callable]:
 
 
 def create_cli(
-    add_verbose_callback: bool = False, nested_entrypoints_creation: bool = True
+    add_verbose_callback: bool = False,
+    nested_entrypoints_creation: bool = True,
 ) -> Typer:
     app: Typer = Typer(pretty_exceptions_enable=False)
     entrypoints = metadata.entry_points().select(group="nemo_run.cli")
@@ -960,6 +961,7 @@ class RunContext:
             if default_plugins:
                 self.plugins = default_plugins
 
+            _load_workspace()
             if isinstance(fn, LazyEntrypoint):
                 self.execute_lazy(fn, sys.argv, name)
                 return
@@ -967,7 +969,6 @@ class RunContext:
             try:
                 if not is_main:
                     _load_entrypoints()
-                _load_workspace()
                 self.cli_execute(fn, ctx.args, type)
             except RunContextError as e:
                 if not verbose:
