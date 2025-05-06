@@ -1297,7 +1297,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
             try:
                 factory_fn = _get_from_registry(factory_name, parent, name=arg_name)
             except catalogue.RegistryError:
-                types = get_underlying_types(arg_type)
+                types = get_underlying_types(arg_type, include_self=True)
                 for t in types:
                     try:
                         factory_fn = _get_from_registry(factory_name, t, name=factory_name)

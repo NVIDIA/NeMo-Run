@@ -419,3 +419,7 @@ class TestGetUnderlyingTypes:
     def test_various_type_hints(self, type_hint, expected_types):
         """Test get_underlying_types with various type hints."""
         assert get_underlying_types(type_hint) == expected_types
+
+    def test_include_self(self):
+        assert get_underlying_types(list[int], include_self=True) == {list, int, list[int]}
+        assert get_underlying_types(list[int], include_self=False) == {list, int}
