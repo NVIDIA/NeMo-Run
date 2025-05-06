@@ -23,7 +23,13 @@ import pytest
 from typing_extensions import Annotated
 
 import nemo_run as run
-from nemo_run.config import OptionalDefaultConfig, Script, from_dict, set_value, get_underlying_types
+from nemo_run.config import (
+    OptionalDefaultConfig,
+    Script,
+    from_dict,
+    set_value,
+    get_underlying_types,
+)
 from nemo_run.exceptions import SetValueError
 
 
@@ -384,6 +390,7 @@ class TestScript:
             "-c",
             "\"echo 'test'\"",
         ]
+
 
 class TestGetUnderlyingTypes:
     @pytest.mark.parametrize(
