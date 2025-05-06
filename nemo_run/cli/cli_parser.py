@@ -49,6 +49,18 @@ from nemo_run.config import Config, Partial
 logger = logging.getLogger(__name__)
 
 
+BUILTIN_TO_TYPING = {
+    list: List,
+    dict: Dict,
+    tuple: tuple,
+    set: set,
+    type: Type,
+}
+
+# Add the reverse mapping for normalization
+TYPING_TO_BUILTIN = {v: k for k, v in BUILTIN_TO_TYPING.items()}
+
+
 class Operation(Enum):
     ASSIGN = "="
     ADD = "+="
@@ -608,7 +620,9 @@ class TypeParser:
             str: self.parse_str,
             bool: self.parse_bool,
             list: self.parse_list,
+            # List: self.parse_list,
             dict: self.parse_dict,
+            # Dict: self.parse_dict,
             Union: self.parse_union,
             Optional: self.parse_optional,
             Literal: self.parse_literal,
@@ -650,10 +664,57 @@ class TypeParser:
         Returns:
             Callable[[str, Type], Any]: The parser function for the given type.
         """
-        origin = get_origin(annotation) or annotation
-        if str(origin).startswith("ForwardRef"):
-            return self.parse_forward_ref
-        return self.custom_parsers.get(origin) or self.parsers.get(origin) or self.parse_unknown
+        # Try to get the origin safely for both Python 3.8 and 3.9+
+        try:
+            origin = get_origin(annotation)
+        except (TypeError, AttributeError):
+            origin = None
+
+        # Handle direct type references (int, str, etc.)
+        if annotation in self.parsers:
+            return self.parsers[annotation]
+
+        # Handle custom parsers
+        if annotation in self.custom_parsers:
+            return self.custom_parsers[annotation]
+
+        # If we have an origin, map it to the correct parser
+        if origin is not None:
+            # Map built-in container origins to their corresponding parser
+            if origin in (list, List):
+                return self.parse_list
+            elif origin in (dict, Dict):
+                return self.parse_dict
+            elif origin is Union:
+                return self.parse_union
+            # Add other mappings as needed
+
+            # Check for custom parsers for the origin
+            if origin in self.custom_parsers:
+                return self.custom_parsers[origin]
+            if origin in self.parsers:
+                return self.parsers[origin]
+
+        # Handle older-style generic aliases
+        if hasattr(annotation, "__origin__"):
+            origin = annotation.__origin__
+
+            # Map older-style typing module generics
+            if origin is list or origin is List:
+                return self.parse_list
+            elif origin is dict or origin is Dict:
+                return self.parse_dict
+            elif origin is Union:
+                return self.parse_union
+
+            # Check for parsers registered for the origin
+            if origin in self.custom_parsers:
+                return self.custom_parsers[origin]
+            if origin in self.parsers:
+                return self.parsers[origin]
+
+        # Fall back to the unknown type parser
+        return self.parse_unknown
 
     def parse(self, value: str, annotation: Type) -> Any:
         """Parse a string value according to the given type annotation.
@@ -1236,7 +1297,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
             try:
                 factory_fn = _get_from_registry(factory_name, parent, name=arg_name)
             except catalogue.RegistryError:
-                types = get_underlying_types(arg_type)
+                types = get_underlying_types(arg_type, include_self=True)
                 for t in types:
                     try:
                         factory_fn = _get_from_registry(factory_name, t, name=factory_name)

@@ -24,7 +24,7 @@ import sys
 import typing
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Generic, Iterable, Optional, Type, TypeVar, Union, get_args
+from typing import Any, Callable, Generic, Iterable, Optional, Type, TypeVar, Union, Set, get_args
 
 import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
@@ -103,18 +103,109 @@ def get_type_namespace(typ: Type | Callable) -> str:
     return f"{module}.{_name}"
 
 
-def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
-    if isinstance(type_hint, typing._GenericAlias):  # type: ignore
-        if str(type_hint).startswith("typing.Annotated"):
-            origin = type_hint.__origin__.__origin__
+def get_underlying_types(type_hint: Any, include_self: bool = False) -> Set[Type]:
+    """
+    Retrieve the underlying types from a type hint, handling generic types.
+
+    Args:
+        type_hint: The type hint to analyze
+        include_self: If True, include the type_hint itself in the result if it's a specific generic.
+
+    Returns:
+        A set of all underlying types
+    """
+    # Special case for functions and classes - return the type itself
+    if inspect.isfunction(type_hint) or inspect.isclass(type_hint):
+        return {type_hint}
+
+    # Handle older style type hints (_GenericAlias)
+    if hasattr(typing, "_GenericAlias") and isinstance(type_hint, typing._GenericAlias):  # type: ignore
+        # Correctly handle Annotated by getting the first argument (the actual type)
+        if str(type_hint).startswith("typing.Annotated") or str(type_hint).startswith(
+            "typing_extensions.Annotated"
+        ):
+            # Recurse on the actual type, skipping metadata
+            return get_underlying_types(type_hint.__args__[0], include_self=include_self)
         else:
             origin = type_hint.__origin__
+
         if origin in RECURSIVE_TYPES:
             types = set()
             for arg in type_hint.__args__:
-                types.update(get_underlying_types(arg))
+                # Add check to skip NoneType here as well
+                if arg is not type(None):
+                    types.update(get_underlying_types(arg, include_self=include_self))
             return types
-    return {type_hint}
+        # If not a recursive type handled above, treat it like a concrete generic
+        # Collect types from arguments
+        result = set()
+        for arg in type_hint.__args__:
+            if arg is not type(
+                None
+            ):  # Also skip NoneType here for generics like list[Optional[int]]
+                result.update(get_underlying_types(arg, include_self=include_self))
+        # Add the origin itself (e.g., list, dict)
+        if isinstance(origin, type):
+            result.add(origin)
+        # Add the original type_hint if it's a specific generic instantiation (and not a Union/Optional)
+        if include_self and origin is not None and origin not in RECURSIVE_TYPES:
+            result.add(type_hint)  # type_hint is the _GenericAlias itself
+        return result  # Return collected types
+
+    # Handle Python 3.9+ style type hints
+    origin = typing.get_origin(type_hint)
+    args = typing.get_args(type_hint)
+
+    # Base case: no origin or args means it's a simple type
+    if origin is None:
+        if type_hint is type(None):
+            return set()
+        if isinstance(type_hint, type):
+            return {type_hint}
+        return {type_hint}  # Return the hint itself if not a type (e.g., TypeVar)
+
+    # Handle Annotated for Python 3.9+
+    if origin is Annotated:
+        # Recurse on the actual type argument, skipping metadata
+        return get_underlying_types(args[0], include_self=include_self)
+
+    # Union type (including Optional)
+    if origin is typing.Union:
+        result = set()
+        for arg in args:
+            if arg is not type(None):  # Skip NoneType in Unions
+                result.update(get_underlying_types(arg, include_self=include_self))
+        return result
+
+    # List, Dict, etc. - collect types from arguments
+    result = set()
+    for arg in args:
+        result.update(get_underlying_types(arg, include_self=include_self))
+
+    # Include the origin type itself if it's a class
+    # This handles both typing module types and Python 3.9+ built-in generic types
+    if isinstance(origin, type):
+        result.add(origin)
+
+    # Add the original type_hint if it's a specific generic instantiation (and not a Union/Annotated)
+    if (
+        include_self
+        and origin is not None
+        and origin is not typing.Union
+        and origin is not Annotated
+    ):
+        # type_hint is the original parameterized generic, e.g., List[int]
+        # Add it only if it's indeed a generic (origin of type_hint itself is not None)
+        if typing.get_origin(type_hint) is not None:
+            result.add(type_hint)
+
+    # If no types were added, return the original type hint to preserve behavior
+    if (
+        not result
+    ):  # This covers cases like type_hint being a TypeVar that resulted in an empty set initially
+        return {type_hint}
+
+    return result
 
 
 def from_dict(raw_data: dict | list | str | float | int | bool, cls: Type[_T]) -> _T:
