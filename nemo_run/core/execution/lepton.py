@@ -1,18 +1,28 @@
+import base64
 import logging
 import os
 import re
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional, Set, Type
+from typing import Any, List, Optional, Set, Type
 
 from invoke.context import Context
 from leptonai.api.v1.client import APIClient
 from leptonai.api.v1.types.affinity import LeptonResourceAffinity
-from leptonai.api.v1.types.common import Metadata
+from leptonai.api.v1.types.common import LeptonVisibility, Metadata
 from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
-from leptonai.api.v1.types.deployment import EnvVar, LeptonContainer, Mount
+from leptonai.api.v1.types.deployment import (
+    EnvVar,
+    LeptonContainer,
+    LeptonDeployment,
+    LeptonDeploymentUserSpec,
+    Mount,
+    ResourceRequirement,
+)
 from leptonai.api.v1.types.job import LeptonJob, LeptonJobState, LeptonJobUserSpec
 from leptonai.api.v1.types.replica import Replica
 
@@ -62,29 +72,58 @@ class LeptonExecutor(Executor):
         client.job.update(job_id, spec={"spec": {"stopped": True}})
         logger.info(f"Job {job_id} stopped successfully.")
 
+    def copy_directory_data_command(self, local_dir_path: str, dest_path: str) -> List:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tarball_path = os.path.join(temp_dir, "archive.tar.gz")
+            subprocess.run(f"tar -czf {tarball_path} -C {local_dir_path} .", shell=True, check=True)
+            with open(tarball_path, "rb") as file:
+                file_data = file.read()
+            encoded_data = base64.b64encode(file_data).decode("utf-8")
+
+            # Delete and recreate directory if it already exists, command to decode base64 data, save to a file, and extract inside the pod
+            cmd = f"rm -rf {dest_path} && mkdir -p {dest_path} && echo {encoded_data} | base64 -d > {dest_path}/archive.tar.gz && tar -xzf {dest_path}/archive.tar.gz -C {dest_path} && rm {dest_path}/archive.tar.gz"
+            full_command = ["sh", "-c", cmd]
+            return full_command
+
     def move_data(self, sleep: float = 10) -> None:
         """
-        Moves job directory into PVC and deletes the workload after completion
+        Moves job directory into remote storage and deletes the workload after completion.
         """
         client = APIClient()
-        client.storage.create_dir(additional_path=self.lepton_job_dir)
+        cmd = self.copy_directory_data_command(self.job_dir, self.lepton_job_dir)
+        node_group_id = self._node_group_id(client)
+        valid_node_ids = self._valid_node_ids(node_group_id, client)
 
-        # Create all sub-directories in the directory tree
-        # Then, copy all files to the storage
-        for root, dirs, files in os.walk(self.job_dir):
-            # Create the sub-directories
-            for dir in dirs:
-                abs_path = os.path.join(root, dir)
-                relative_path = os.path.join(self.lepton_job_dir, abs_path.replace(self.job_dir, "").lstrip("/"))
-                client.storage.create_dir(additional_path=relative_path)
-            # Copy the files in each sub-directory to the remote filesystem
-            for file in files:
-                abs_path = os.path.join(root, file)
-                relative_path = os.path.join(self.lepton_job_dir, abs_path.replace(self.job_dir, "").lstrip("/"))
-                client.storage.create_file(
-                    local_path=abs_path,
-                    remote_path=relative_path
-                )
+        spec = LeptonDeploymentUserSpec(
+            container=LeptonContainer(
+                image="busybox:1.37.0",  # Use a very low resource container
+                command=cmd,
+            ),
+            mounts=[
+                Mount(path=mount["path"], mount_path=mount["mount_path"]) for mount in self.mounts
+            ],
+        )
+        spec.resource_requirement = ResourceRequirement(
+            resource_shape="cpu.small",
+            affinity=LeptonResourceAffinity(
+                allowed_dedicated_node_groups=[node_group_id.metadata.id_],
+                allowed_nodes_in_node_group=valid_node_ids,
+            ),
+            min_replicas=1,
+            max_replicas=1,
+        )
+        custom_name = f"data-mover-{int(datetime.now().timestamp())}"
+
+        deployment = LeptonDeployment(
+            metadata=Metadata(
+                id=custom_name,
+                name=custom_name,
+                visibility=LeptonVisibility("private"),
+            ),
+            spec=spec,
+        )
+
+        client.deployment.create(deployment)
 
     def _node_group_id(self, client: APIClient) -> DedicatedNodeGroup:
         """
@@ -121,11 +160,7 @@ class LeptonExecutor(Executor):
 
         envs = [EnvVar(name=key, value=value) for key, value in self.env_vars.items()]
 
-        cmd = [
-            "/bin/bash",
-            "-c",
-            f"chmod +x {self.lepton_job_dir}/launch_script.sh && bash {self.lepton_job_dir}/launch_script.sh"
-        ]
+        cmd = ["/bin/bash", "-c", f"bash {self.lepton_job_dir}/launch_script.sh"]
 
         # Get ID of requested node group
         node_group_id = self._node_group_id(client)
