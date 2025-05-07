@@ -31,7 +31,8 @@ dependencies = [
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
     "packaging",
-    "toml"
+    "toml",
+    "kubernetes>=32.0.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
