@@ -44,11 +44,12 @@ from torchx.schedulers.local_scheduler import (
     PopenRequest,
     _LocalAppDef,
 )
-from torchx.specs.api import AppDef, AppState, Role
+from torchx.specs.api import AppDef, AppState, Role, is_terminal, parse_app_handle
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.local import LocalExecutor
+from nemo_run.run import experiment as run_experiment
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
 try:
@@ -69,6 +70,7 @@ class PersistentLocalScheduler(SchedulerMixin, LocalScheduler):  # type: ignore
         image_provider_class: Callable[[LocalOpts], ImageProvider],
         cache_size: int = 100,
         extra_paths: Optional[list[str]] = None,
+        experiment: Optional[run_experiment.Experiment] = None,
     ) -> None:
         # NOTE: make sure any new init options are supported in create_scheduler(...)
         self.backend = "local"
@@ -86,6 +88,7 @@ class PersistentLocalScheduler(SchedulerMixin, LocalScheduler):  # type: ignore
         # sets lazily on submit or dryrun based on log_dir cfg
         self._base_log_dir: Optional[str] = None
         self._created_tmp_log_dir: bool = False
+        self.experiment = experiment
 
     def _submit_dryrun(self, app: AppDef, cfg: Executor) -> AppDryRunInfo[PopenRequest]:  # type: ignore
         assert isinstance(cfg, LocalExecutor), f"{cfg.__class__} not supported for local scheduler."
@@ -106,9 +109,31 @@ class PersistentLocalScheduler(SchedulerMixin, LocalScheduler):  # type: ignore
 
     def describe(self, app_id: str) -> Optional[DescribeAppResponse]:
         resp = super().describe(app_id=app_id)
-
         if resp:
             _save_job_dir(self._apps)
+            if self.experiment:
+                maybe_job_to_kill = None
+                for job in self.experiment.jobs:
+                    if isinstance(job, run_experiment.JobGroup):
+                        for handle in job.handles:
+                            _, _, job_id = parse_app_handle(handle)
+                            if job_id == app_id:
+                                maybe_job_to_kill = job
+                                break
+
+                if maybe_job_to_kill:
+                    to_kill = False
+                    for handle in maybe_job_to_kill.handles:
+                        _, _, _id = parse_app_handle(handle)
+                        resp = super().describe(app_id=_id)
+                        if resp and is_terminal(resp.state):
+                            to_kill = True
+
+                    if to_kill:
+                        for handle in maybe_job_to_kill.handles:
+                            _, _, _id = parse_app_handle(handle)
+                            self._apps[_id].kill()
+
             return resp
 
         saved_apps = _get_job_dirs()
@@ -173,11 +198,14 @@ def create_scheduler(
     extra_paths: Optional[list[str]] = None,
     **kwargs: Any,
 ) -> PersistentLocalScheduler:
+    experiment = kwargs.pop("experiment", None)
+
     return PersistentLocalScheduler(
         session_name=session_name,
         image_provider_class=CWDImageProvider,
         cache_size=cache_size,
         extra_paths=extra_paths,
+        experiment=experiment,
     )
 
 
