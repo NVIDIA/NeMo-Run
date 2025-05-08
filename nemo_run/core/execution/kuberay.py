@@ -46,7 +46,6 @@ class KubeRayWorkerGroup:
     memory_requests: Optional[str] = None
     cpu_limits: Optional[str] = None
     memory_limits: Optional[str] = None
-    ray_command: Optional[Any] = None
     volume_mounts: list[dict[str, Any]] = field(default_factory=list)
     volumes: list[dict[str, Any]] = field(default_factory=list)
     labels: dict[str, Any] = field(default_factory=dict)
@@ -83,6 +82,7 @@ class KubeRayExecutor(Executor):
     volumes: list[dict[str, Any]] = field(default_factory=list)
     reuse_volumes_in_worker_groups: bool = False
     spec_kwargs: dict[str, Any] = field(default_factory=dict)
+    lifecycle_kwargs: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         # Set default image based on ray_version if not provided
@@ -119,13 +119,13 @@ class KubeRayExecutor(Executor):
             volumes=self.volumes,
             volume_mounts=self.volume_mounts,
             spec_kwargs=self.spec_kwargs,
+            lifecycle_kwargs=self.lifecycle_kwargs,
         )
         for worker_group in self.worker_groups:
             cluster = populate_worker_group(
                 cluster,
                 group_name=worker_group.group_name,
                 ray_image=self.image,
-                ray_command=worker_group.ray_command,
                 gpus_per_worker=worker_group.gpus_per_worker,
                 cpu_requests=worker_group.cpu_requests,
                 memory_requests=worker_group.memory_requests,
@@ -140,6 +140,7 @@ class KubeRayExecutor(Executor):
                 labels=worker_group.labels,
                 annotations=worker_group.annotations,
                 spec_kwargs=self.spec_kwargs,
+                lifecycle_kwargs=self.lifecycle_kwargs,
             )
         return cluster
 
@@ -197,6 +198,7 @@ def populate_ray_head(
     volume_mounts: list[dict[str, Any]],
     volumes: list[dict[str, Any]],
     spec_kwargs: dict[str, Any],
+    lifecycle_kwargs: dict[str, Any],
 ) -> dict[str, Any]:
     """Populate the ray head specs of the cluster
     Parameters:
@@ -236,7 +238,8 @@ def populate_ray_head(
                         "name": "ray-head",
                         "ports": head_ports,
                         "lifecycle": {
-                            "preStop": {"exec": {"command": ["/bin/sh", "-c", "ray stop"]}}
+                            "preStop": {"exec": {"command": ["/bin/sh", "-c", "ray stop"]}},
+                            **lifecycle_kwargs,
                         },
                         "resources": {
                             "requests": {
@@ -261,7 +264,6 @@ def populate_worker_group(
     cluster: dict,
     group_name: str,
     ray_image: str,
-    ray_command: Any,
     gpus_per_worker: Optional[int],
     cpu_requests: Optional[str],
     memory_requests: Optional[str],
@@ -276,13 +278,13 @@ def populate_worker_group(
     labels: dict[str, Any],
     annotations: dict[str, Any],
     spec_kwargs: dict[str, Any],
+    lifecycle_kwargs: dict[str, Any],
 ) -> dict[str, Any]:
     """Populate the worker group specification in the cluster dictionary.
 
     Parameters:
     - group_name (str): The name of the worker group.
     - ray_image (str): The image to use for the Ray worker containers.
-    - ray_command (Any): The command to run in the Ray worker containers.
     - cpu_requests (str): The requested CPU resources for the worker containers.
     - memory_requests (str): The requested memory resources for the worker containers.
     - cpu_limits (str): The limit on CPU resources for the worker containers.
@@ -328,9 +330,9 @@ def populate_worker_group(
                 "containers": [
                     {
                         "image": ray_image,
-                        "command": ray_command,
                         "lifecycle": {
-                            "preStop": {"exec": {"command": ["/bin/sh", "-c", "ray stop"]}}
+                            "preStop": {"exec": {"command": ["/bin/sh", "-c", "ray stop"]}},
+                            **lifecycle_kwargs,
                         },
                         "name": "ray-worker",
                         "resources": {
