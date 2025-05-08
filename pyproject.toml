@@ -32,7 +32,6 @@ dependencies = [
     "omegaconf>=2.3.0",
     "packaging",
     "toml",
-    "kubernetes>=32.0.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -55,6 +54,9 @@ skypilot = [
 skypilot-all = [
     "skypilot[all]>=0.8.0",
 ]
+ray = [
+    "kubernetes"
+]
 
 [dependency-groups]
 dev = [
@@ -72,15 +74,6 @@ dev = [
 
 lint = [
     "ruff>=0.4.4",
-]
-
-docs = [
-    "astroid==3.3.8",
-    "colorama>=0.4.6",
-    "myst-parser",
-    "sphinx>=7",
-    "sphinx-autoapi>=3.0.0",
-    "nvidia-sphinx-theme"
 ]
 
 [build-system]
