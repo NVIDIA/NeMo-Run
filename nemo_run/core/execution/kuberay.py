@@ -69,7 +69,7 @@ class KubeRayExecutor(Executor):
     """
 
     namespace: str = "default"
-    ray_version: str = "2.9.0"
+    ray_version: str = "2.43.0"
     image: str = ""  # Will be set in __post_init__ if empty
     head_cpu: str = "1"
     head_memory: str = "2Gi"
