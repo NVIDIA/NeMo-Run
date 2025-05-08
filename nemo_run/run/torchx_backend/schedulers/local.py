@@ -111,18 +111,26 @@ class PersistentLocalScheduler(SchedulerMixin, LocalScheduler):  # type: ignore
         resp = super().describe(app_id=app_id)
         if resp:
             _save_job_dir(self._apps)
-            if is_terminal(resp.state):
-                if self.experiment:
-                    job_to_kill = None
-                    for job in self.experiment.jobs:
-                        if isinstance(job, run_experiment.JobGroup):
-                            for handle in job.handles:
-                                _, _, job_id = parse_app_handle(handle)
-                                if job_id == app_id:
-                                    job_to_kill = job
-                                    break
-                    if job_to_kill:
-                        for handle in job_to_kill.handles:
+            if self.experiment:
+                maybe_job_to_kill = None
+                for job in self.experiment.jobs:
+                    if isinstance(job, run_experiment.JobGroup):
+                        for handle in job.handles:
+                            _, _, job_id = parse_app_handle(handle)
+                            if job_id == app_id:
+                                maybe_job_to_kill = job
+                                break
+
+                if maybe_job_to_kill:
+                    to_kill = False
+                    for handle in maybe_job_to_kill.handles:
+                        _, _, _id = parse_app_handle(handle)
+                        resp = super().describe(app_id=_id)
+                        if resp and is_terminal(resp.state):
+                            to_kill = True
+
+                    if to_kill:
+                        for handle in maybe_job_to_kill.handles:
                             _, _, _id = parse_app_handle(handle)
                             self._apps[_id].kill()
 
