@@ -42,6 +42,7 @@ from nemo_run.cli.api import (
     _load_workspace_file,
     _load_workspace,
     main as cli_main,
+    extract_constituent_types,
 )
 from test.dummy_factory import DummyModel, dummy_entrypoint
 import nemo_run.cli.cli_parser  # Import the module to mock its function
@@ -1861,3 +1862,32 @@ class TestEntrypointCommandHelp:
         with patch("sys.argv", ["script.py", "test_cmd", "--help", "-d"]):
             cmd.format_help(mock_ctx, mock_formatter)
         entrypoint.help.assert_called_once_with(mock_console, with_docs=True)
+
+
+class TestExtractConstituentTypes:
+    @pytest.mark.parametrize(
+        "type_hint, expected_types",
+        [
+            (int, {int}),
+            (str, {str}),
+            (bool, {bool}),
+            (float, {float}),
+            (list[int], {list, int, list[int]}),
+            (dict[str, float], {dict, str, float, dict[str, float]}),
+            (Union[int, str], {int, str}),
+            (Optional[int], {int}),  # Optional[T] is Union[T, NoneType]
+            (list[Union[int, str]], {list, int, str, list[Union[int, str]]}),
+            (dict[str, list[int]], {dict, str, list, int, dict[str, list[int]], list[int]}),
+            (Optional[list[str]], {list, str, list[str]}),
+            (Annotated[int, "meta"], {int}),
+            (Annotated[list[str], "meta"], {list, str, list[str]}),
+            (Annotated[Optional[dict[str, bool]], "meta"], {dict, str, bool, dict[str, bool]}),
+            (Union[Annotated[int, "int_meta"], Annotated[str, "str_meta"]], {int, str}),
+            (DummyModel, {DummyModel}),
+            (Optional[DummyModel], {DummyModel}),
+            (list[DummyModel], {list, DummyModel, list[DummyModel]}),
+        ],
+    )
+    def test_various_type_hints(self, type_hint, expected_types):
+        """Test get_underlying_types with various type hints."""
+        assert extract_constituent_types(type_hint) == expected_types

@@ -1255,7 +1255,8 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
     """
     import catalogue
 
-    from nemo_run.config import Partial, get_type_namespace, get_underlying_types
+    from nemo_run.config import Partial, get_type_namespace
+    from nemo_run.cli.api import extract_constituent_types
 
     def _get_from_registry(val, annotation, name):
         if catalogue.check_exists(get_type_namespace(annotation), val):
@@ -1297,7 +1298,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
             try:
                 factory_fn = _get_from_registry(factory_name, parent, name=arg_name)
             except catalogue.RegistryError:
-                types = get_underlying_types(arg_type, include_self=True)
+                types = extract_constituent_types(arg_type)
                 for t in types:
                     try:
                         factory_fn = _get_from_registry(factory_name, t, name=factory_name)
