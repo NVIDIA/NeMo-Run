@@ -262,18 +262,156 @@ class TestSSHConfigFile:
         config_file = SSHConfigFile(config_path="/custom/path")
         assert config_file.config_path == "/custom/path"
 
-    @patch("os.uname")
-    @patch("subprocess.run")
-    def test_init_wsl(self, mock_run, mock_uname):
-        # Simulate WSL environment
-        mock_uname.return_value.release = "WSL"
-        mock_run.side_effect = [
-            MagicMock(stdout="C:\\Users\\test\n"),
-            MagicMock(stdout="/mnt/c/Users/test\n"),
-        ]
+    def test_init_wsl(self, tmp_path, monkeypatch):
+        """Test that both WSL and Windows config files are modified in WSL environments."""
+        # Create temporary directories for both WSL and Windows configs
+        wsl_home = tmp_path / "wsl_home"
+        win_home = tmp_path / "win_home"
+        wsl_home.mkdir()
+        win_home.mkdir()
 
+        # Create .ssh dirs
+        wsl_ssh_dir = wsl_home / ".ssh"
+        win_ssh_dir = win_home / ".ssh"
+        wsl_ssh_dir.mkdir()
+        win_ssh_dir.mkdir()
+
+        # Set HOME environment variable to control expanduser
+        monkeypatch.setenv("HOME", str(wsl_home))
+
+        # Simulate WSL environment
+        monkeypatch.setattr("os.uname", lambda: MagicMock(release="Microsoft-WSL2"))
+
+        # Mock shutil.which to simulate the WSL utilities being available
+        def mock_which(cmd):
+            return "/usr/bin/" + cmd if cmd in ["wslvar", "wslpath"] else None
+
+        monkeypatch.setattr("shutil.which", mock_which)
+
+        # Mock subprocess calls to get Windows paths
+        def mock_subprocess_run(args, **kwargs):
+            if args[0] == "wslvar" and args[1] == "USERPROFILE":
+                return MagicMock(stdout="C:\\Users\\test\n")
+            elif args[0] == "wslpath":
+                return MagicMock(stdout=str(win_home) + "\n")
+            return MagicMock(stdout="", returncode=1)  # Default fail case
+
+        monkeypatch.setattr("subprocess.run", mock_subprocess_run)
+
+        # Create config file instance and modify files
         config_file = SSHConfigFile()
-        assert config_file.config_path == "/mnt/c/Users/test/.ssh/config"
+        config_file.add_entry("user", "host", 22, "test")
+
+        # Expected paths for configs
+        wsl_config_path = wsl_ssh_dir / "config"
+        win_config_path = win_ssh_dir / "config"
+
+        # Verify both files were created
+        assert wsl_config_path.exists()
+        assert win_config_path.exists()
+
+        # Check contents of both files
+        wsl_content = wsl_config_path.read_text()
+        win_content = win_config_path.read_text()
+
+        # Both files should have the same entry
+        expected_entry = """Host tunnel.test
+    User user
+    HostName host
+    Port 22
+"""
+        assert expected_entry in wsl_content
+        assert expected_entry in win_content
+
+        # Test removing entry from both files
+        config_file.remove_entry("test")
+
+        # Check contents after removal
+        wsl_content = wsl_config_path.read_text()
+        win_content = win_config_path.read_text()
+
+        assert "Host tunnel.test" not in wsl_content
+        assert "Host tunnel.test" not in win_content
+
+    def test_init_wsl_missing_utilities(self, tmp_path, monkeypatch):
+        """Test error handling when WSL utilities are missing."""
+        # Create temporary directory
+        wsl_home = tmp_path / "wsl_home"
+        wsl_home.mkdir()
+        ssh_dir = wsl_home / ".ssh"
+        ssh_dir.mkdir()
+
+        # Set HOME environment variable
+        monkeypatch.setenv("HOME", str(wsl_home))
+
+        # Simulate WSL environment
+        monkeypatch.setattr("os.uname", lambda: MagicMock(release="Microsoft-WSL2"))
+
+        # Mock shutil.which to simulate the WSL utilities being unavailable
+        def mock_which(cmd):
+            return None  # No commands available
+
+        monkeypatch.setattr("shutil.which", mock_which)
+
+        # Test that the appropriate error is raised
+        config_file = SSHConfigFile()
+        with pytest.raises(RuntimeError) as excinfo:
+            config_file.add_entry("user", "host", 22, "test")
+
+        # Verify error message contains helpful information
+        error_msg = str(excinfo.value)
+        assert "WSL detected" in error_msg
+        assert "required utilities" in error_msg
+        assert "wslvar" in error_msg
+        assert "wslpath" in error_msg
+        assert "apt install wslu" in error_msg
+
+    def test_init_non_wsl(self, tmp_path, monkeypatch):
+        """Test that only one config file is modified in non-WSL environments."""
+        # Create temporary directory structure
+        home_dir = tmp_path / "home"
+        home_dir.mkdir()
+        ssh_dir = home_dir / ".ssh"
+        ssh_dir.mkdir()
+
+        # Set HOME environment variable
+        monkeypatch.setenv("HOME", str(home_dir))
+
+        # Ensure we're not in WSL mode
+        monkeypatch.setattr("os.uname", lambda: MagicMock(release="Linux 5.15.0"))
+
+        # Create a spy for subprocess.run to verify it's not called
+        mock_run = MagicMock(side_effect=Exception("subprocess.run should not be called"))
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        # Create config instance and add entry
+        config_file = SSHConfigFile()
+        config_file.add_entry("user", "host", 22, "test")
+
+        # Verify local file was created
+        config_path = ssh_dir / "config"
+        assert config_path.exists()
+
+        # Check content of local file
+        content = config_path.read_text()
+
+        expected_entry = """Host tunnel.test
+    User user
+    HostName host
+    Port 22
+"""
+        assert expected_entry in content
+
+        # Test removing entry
+        config_file.remove_entry("test")
+
+        # Check content after removal
+        content = config_path.read_text()
+
+        assert "Host tunnel.test" not in content
+
+        # Verify subprocess.run was not called
+        assert not mock_run.called
 
     @patch("builtins.open", new_callable=mock_open)
     @patch("os.path.exists", return_value=False)
