@@ -371,6 +371,7 @@ class JobGroup(ConfigurableMixin):
                 self.launched = True
 
     def wait(self, runner: Runner | None = None):
+        new_states = []
         try:
             for handle in self.handles:
                 status = wait_and_exit(
@@ -378,9 +379,11 @@ class JobGroup(ConfigurableMixin):
                     log=self.tail_logs,
                     runner=runner,
                 )
-                self.states.append(status.state)
+                new_states.append(status.state)
         except nemo_run.exceptions.UnknownStatusError:
-            self.states = [AppState.UNKNOWN]
+            new_states = [AppState.UNKNOWN]
+
+        self.states = new_states
 
     def cancel(self, runner: Runner):
         if not self.handles:

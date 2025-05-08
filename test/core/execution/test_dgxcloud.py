@@ -20,9 +20,9 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
+from nemo_run.config import set_nemorun_home
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
 from nemo_run.core.packaging.git import GitArchivePackager
-from nemo_run.config import set_nemorun_home
 
 
 class TestDGXCloudExecutor:
@@ -252,17 +252,20 @@ class TestDGXCloudExecutor:
             headers=executor._default_headers(token="test_token"),
         )
 
+    @patch("time.sleep")
     @patch.object(DGXCloudExecutor, "create_data_mover_workload")
     @patch.object(DGXCloudExecutor, "status")
     @patch.object(DGXCloudExecutor, "delete_workload")
-    def test_move_data_success(self, mock_delete, mock_status, mock_create):
+    def test_move_data_success(self, mock_delete, mock_status, mock_create, mock_sleep):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"workloadId": "job123", "actualPhase": "Pending"}
         mock_create.return_value = mock_response
         mock_delete.return_value = mock_response
 
-        mock_status.return_value = DGXCloudState.COMPLETED
+        # Set up status to change after first check to avoid infinite loop
+        # First return PENDING, then return COMPLETED
+        mock_status.side_effect = [DGXCloudState.PENDING, DGXCloudState.COMPLETED]
 
         executor = DGXCloudExecutor(
             base_url="https://dgxapi.example.com",
@@ -276,12 +279,17 @@ class TestDGXCloudExecutor:
 
         executor.move_data(token="test_token", project_id="proj_id", cluster_id="cluster_id")
 
+        # Verify all expected calls were made
         mock_create.assert_called_once_with("test_token", "proj_id", "cluster_id")
         mock_status.assert_called()
         mock_delete.assert_called_once_with("test_token", "job123")
 
+        # Verify time.sleep was called
+        mock_sleep.assert_called()
+
+    @patch("time.sleep")
     @patch.object(DGXCloudExecutor, "create_data_mover_workload")
-    def test_move_data_data_mover_fail(self, mock_create):
+    def test_move_data_data_mover_fail(self, mock_create, mock_sleep):
         mock_response = MagicMock()
         mock_response.status_code = 400
 
@@ -298,9 +306,10 @@ class TestDGXCloudExecutor:
         with pytest.raises(RuntimeError, match="Failed to create data mover workload"):
             executor.move_data(token="test_token", project_id="proj_id", cluster_id="cluster_id")
 
+    @patch("time.sleep")
     @patch.object(DGXCloudExecutor, "create_data_mover_workload")
     @patch.object(DGXCloudExecutor, "status")
-    def test_move_data_failed(self, mock_status, mock_create):
+    def test_move_data_failed(self, mock_status, mock_create, mock_sleep):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"workloadId": "job123", "actualPhase": "Pending"}
