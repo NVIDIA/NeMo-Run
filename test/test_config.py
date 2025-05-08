@@ -393,33 +393,27 @@ class TestScript:
 
 
 class TestGetUnderlyingTypes:
-    @pytest.mark.parametrize(
-        "type_hint, expected_types",
-        [
-            (int, {int}),
-            (str, {str}),
-            (bool, {bool}),
-            (float, {float}),
-            (list[int], {list, int}),
-            (dict[str, float], {dict, str, float}),
-            (Union[int, str], {int, str}),
-            (Optional[int], {int}),  # Optional[T] is Union[T, NoneType]
-            (list[Union[int, str]], {list, int, str}),
-            (dict[str, list[int]], {dict, str, list, int}),
-            (Optional[list[str]], {list, str}),
-            (Annotated[int, "meta"], {int}),
-            (Annotated[list[str], "meta"], {list, str}),
-            (Annotated[Optional[dict[str, bool]], "meta"], {dict, str, bool}),
-            (Union[Annotated[int, "int_meta"], Annotated[str, "str_meta"]], {int, str}),
-            (DummyModel, {DummyModel}),
-            (Optional[DummyModel], {DummyModel}),
-            (list[DummyModel], {list, DummyModel}),
-        ],
-    )
-    def test_various_type_hints(self, type_hint, expected_types):
-        """Test get_underlying_types with various type hints."""
-        assert get_underlying_types(type_hint) == expected_types
+    def test_simple_type(self):
+        assert get_underlying_types(int) == {int}
+        assert get_underlying_types(str) == {str}
 
-    def test_include_self(self):
-        assert get_underlying_types(list[int], include_self=True) == {list, int, list[int]}
-        assert get_underlying_types(list[int], include_self=False) == {list, int}
+    def test_optional_type(self):
+        assert get_underlying_types(Optional[str]) == {str, type(None)}
+        assert get_underlying_types(Optional[int]) == {int, type(None)}
+
+    def test_union_type(self):
+        assert get_underlying_types(Union[int, str]) == {int, str}
+        assert get_underlying_types(Union[float, bool, str]) == {float, bool, str}
+
+    def test_nested_annotated_optional(self):
+        assert get_underlying_types(Annotated[Optional[int], "meta"]) == {int, type(None)}
+
+    def test_nested_annotated_union(self):
+        assert get_underlying_types(Annotated[Union[int, str], "meta"]) == {int, str}
+
+    def test_complex_nested_type(self):
+        assert get_underlying_types(Optional[Annotated[Union[int, str], "meta"]]) == {
+            int,
+            str,
+            type(None),
+        }

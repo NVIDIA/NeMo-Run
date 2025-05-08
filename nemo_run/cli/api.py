@@ -20,8 +20,10 @@ import os
 import sys
 from dataclasses import dataclass, field
 from functools import cache, wraps
+import typing
 from typing import (
     Any,
+    Annotated,
     Callable,
     Dict,
     Generic,
@@ -29,9 +31,11 @@ from typing import (
     Literal,
     Optional,
     Protocol,
+    Set,
     Tuple,
     Type,
     TypeVar,
+    Union,
     get_args,
     get_type_hints,
     overload,
@@ -62,7 +66,7 @@ from nemo_run.config import (
     Partial,
     get_nemorun_home,
     get_type_namespace,
-    get_underlying_types,
+    RECURSIVE_TYPES,
 )
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
@@ -475,7 +479,7 @@ def resolve_factory(
     if isinstance(target, str):
         fn = catalogue._get((target, name))
     else:
-        types = get_underlying_types(target)
+        types = extract_constituent_types(target)
         num_missing = 0
         for t in types:
             _namespace = get_type_namespace(t)
@@ -1825,6 +1829,132 @@ def _serialize_configuration(
         _export_config(to_toml, format="toml")
     if to_json:
         _export_config(to_json, format="json")
+
+
+def extract_constituent_types(type_hint: Any) -> Set[Type]:
+    """
+    Extract all constituent types from a type hint, including generics and their type arguments.
+    This function recursively traverses complex type hints to find all underlying types.
+
+    For example:
+    - For Union[int, str] -> {int, str}
+    - For List[int] -> {list, int}
+    - For Dict[str, Optional[int]] -> {dict, str, int}
+    - For Callable[..., int] -> {Callable}
+    - For TypeVar('T') -> {TypeVar}
+    - For Annotated[List[int], "metadata"] -> {list, int}
+    - For Optional[List[int]] -> {list, int}
+    - For a class MyClass -> {MyClass}
+
+    The function handles:
+    - Basic types (int, str, etc.)
+    - Generic types (List, Dict, etc.)
+    - Union and Optional types
+    - Annotated types (extracts the underlying type)
+    - TypeVars and ForwardRefs
+    - Callable types
+    - Custom classes
+
+    Args:
+        type_hint: A type hint to analyze. Can be any valid Python type annotation,
+            including complex nested types.
+
+    Returns:
+        A set of all constituent types found in the type hint. NoneType is excluded
+        from the results.
+
+    Note:
+        This function is particularly useful for type checking and reflection,
+        where you need to know all the possible types that could be involved
+        in a type annotation.
+    """
+    # Special case for functions and classes - return the type itself
+    if inspect.isfunction(type_hint) or inspect.isclass(type_hint):
+        return {type_hint}
+
+    # Handle older style type hints (_GenericAlias)
+    if hasattr(typing, "_GenericAlias") and isinstance(type_hint, typing._GenericAlias):  # type: ignore
+        # Correctly handle Annotated by getting the first argument (the actual type)
+        if str(type_hint).startswith("typing.Annotated") or str(type_hint).startswith(
+            "typing_extensions.Annotated"
+        ):
+            # Recurse on the actual type, skipping metadata
+            return extract_constituent_types(type_hint.__args__[0])
+        else:
+            origin = type_hint.__origin__
+
+        if origin in RECURSIVE_TYPES:
+            types = set()
+            for arg in type_hint.__args__:
+                # Add check to skip NoneType here as well
+                if arg is not type(None):
+                    types.update(extract_constituent_types(arg))
+            return types
+        # If not a recursive type handled above, treat it like a concrete generic
+        # Collect types from arguments
+        result = set()
+        for arg in type_hint.__args__:
+            if arg is not type(
+                None
+            ):  # Also skip NoneType here for generics like list[Optional[int]]
+                result.update(extract_constituent_types(arg))
+        # Add the origin itself (e.g., list, dict)
+        if isinstance(origin, type):
+            result.add(origin)
+        # Add the original type_hint if it's a specific generic instantiation (and not a Union/Optional)
+        if origin is not None and origin not in RECURSIVE_TYPES:
+            result.add(type_hint)  # type_hint is the _GenericAlias itself
+        return result  # Return collected types
+
+    # Handle Python 3.9+ style type hints
+    origin = typing.get_origin(type_hint)
+    args = typing.get_args(type_hint)
+
+    # Base case: no origin or args means it's a simple type
+    if origin is None:
+        if type_hint is type(None):
+            return set()
+        if isinstance(type_hint, type):
+            return {type_hint}
+        return {type_hint}  # Return the hint itself if not a type (e.g., TypeVar)
+
+    # Handle Annotated for Python 3.9+
+    if origin is Annotated:
+        # Recurse on the actual type argument, skipping metadata
+        return extract_constituent_types(args[0])
+
+    # Union type (including Optional)
+    if origin is Union:
+        result = set()
+        for arg in args:
+            if arg is not type(None):  # Skip NoneType in Unions
+                result.update(extract_constituent_types(arg))
+        return result
+
+    # List, Dict, etc. - collect types from arguments
+    result = set()
+    for arg in args:
+        result.update(extract_constituent_types(arg))
+
+    # Include the origin type itself if it's a class
+    # This handles both typing module types and Python 3.9+ built-in generic types
+    if isinstance(origin, type):
+        result.add(origin)
+
+    # Add the original type_hint if it's a specific generic instantiation (and not a Union/Annotated)
+    if origin not in (None, Union, Annotated):
+        # type_hint is the original parameterized generic, e.g., List[int]
+        # Add it only if it's indeed a generic (origin of type_hint itself is not None)
+        if typing.get_origin(type_hint) is not None:
+            result.add(type_hint)
+
+    # If no types were added, return the original type hint to preserve behavior
+    if (
+        not result
+    ):  # This covers cases like type_hint being a TypeVar that resulted in an empty set initially
+        return {type_hint}
+
+    return result
 
 
 if __name__ == "__main__":

@@ -297,7 +297,6 @@ def test_tunnel_log_iterator():
 
 
 @mock.patch("nemo_run.run.torchx_backend.schedulers.slurm.SLURM_JOB_DIRS", "mock_job_dirs_path")
-@pytest.mark.xfail
 def test_get_job_dirs():
     # Single test using direct file manipulation instead of complex mocks
     with tempfile.TemporaryDirectory() as temp_dir:
