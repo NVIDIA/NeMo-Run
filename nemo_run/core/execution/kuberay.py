@@ -160,18 +160,6 @@ def populate_meta(
     labels: dict,
     ray_version: str,
 ) -> dict[str, Any]:
-    """Populate the metadata and ray version of the cluster.
-
-    Parameters:
-    - cluster (dict): A dictionary representing a cluster.
-    - name (str): The name of the cluster.
-    - k8s_namespace (str): The namespace of the cluster.
-    - labels (dict): A dictionary of labels to be applied to the cluster.
-    - ray_version (str): The version of Ray to use in the cluster.
-
-    Returns:
-        dict: The updated cluster dictionary with metadata and ray version populated.
-    """
     assert is_valid_name(name), f"Invalid cluster name: {name}."
 
     cluster["apiVersion"] = "{group}/{version}".format(group=GROUP, version=VERSION)
@@ -200,20 +188,6 @@ def populate_ray_head(
     spec_kwargs: dict[str, Any],
     lifecycle_kwargs: dict[str, Any],
 ) -> dict[str, Any]:
-    """Populate the ray head specs of the cluster
-    Parameters:
-    - cluster (dict): The dictionary representation of the cluster.
-    - ray_image (str): The name of the ray image to use for the head node.
-    - service_type (str): The type of service to run for the head node.
-    - cpu_requests (str): The CPU resource requests for the head node.
-    - memory_requests (str): The memory resource requests for the head node.
-    - cpu_limits (str): The CPU resource limits for the head node.
-    - memory_limits (str): The memory resource limits for the head node.
-    - ray_start_params (dict): The parameters for starting the Ray cluster.
-
-    Returns:
-    - Tuple (dict, bool): The updated cluster, and a boolean indicating whether the update was successful.
-    """
     # make sure metadata exists
     if "spec" in cluster.keys():
         if "headGroupSpec" not in cluster.keys():
@@ -280,24 +254,6 @@ def populate_worker_group(
     spec_kwargs: dict[str, Any],
     lifecycle_kwargs: dict[str, Any],
 ) -> dict[str, Any]:
-    """Populate the worker group specification in the cluster dictionary.
-
-    Parameters:
-    - group_name (str): The name of the worker group.
-    - ray_image (str): The image to use for the Ray worker containers.
-    - cpu_requests (str): The requested CPU resources for the worker containers.
-    - memory_requests (str): The requested memory resources for the worker containers.
-    - cpu_limits (str): The limit on CPU resources for the worker containers.
-    - memory_limits (str): The limit on memory resources for the worker containers.
-    - replicas (int): The desired number of replicas for the worker group.
-    - min_replicas (int): The minimum number of replicas for the worker group.
-    - max_replicas (int): The maximum number of replicas for the worker group.
-    - ray_start_params (dict): The parameters to pass to the Ray worker start command.
-
-    Returns:
-    - Tuple[dict, bool]: A tuple of the worker group specification and a boolean indicating
-        whether the worker group was successfully populated.
-    """
     assert is_valid_name(group_name)
     assert max_replicas >= min_replicas
 
@@ -369,18 +325,6 @@ def update_worker_group_replicas(
     min_replicas: int,
     replicas: int,
 ) -> Tuple[dict, bool]:
-    """Update the number of replicas for a worker group in the cluster.
-
-    Parameters:
-    - cluster (dict): The cluster to update.
-    - group_name (str): The name of the worker group to update.
-    - max_replicas (int): The maximum number of replicas for the worker group.
-    - min_replicas (int): The minimum number of replicas for the worker group.
-    - replicas (int): The desired number of replicas for the worker group.
-
-    Returns:
-    Tuple[dict, bool]: A tuple containing the updated cluster and a flag indicating whether the update was successful.
-    """
     assert cluster["spec"]["workerGroupSpecs"]
     assert max_replicas >= min_replicas
 
@@ -403,19 +347,6 @@ def update_worker_group_resources(
     memory_limits: str,
     container_name="unspecified",
 ) -> Tuple[dict, bool]:
-    """Update the resources for a worker group pods in the cluster.
-
-    Parameters:
-    - cluster (dict): The cluster to update.
-    - group_name (str): The name of the worker group to update.
-    - cpu_requests (str): CPU requests for the worker pods.
-    - memory_requests (str): Memory requests for the worker pods.
-    - cpu_limits (str): CPU limits for the worker pods.
-    - memory_limits (str): Memory limits for the worker pods.
-
-    Returns:
-    Tuple[dict, bool]: A tuple containing the updated cluster and a flag indicating whether the update was successful.
-    """
     assert cluster["spec"]["workerGroupSpecs"]
 
     worker_groups = cluster["spec"]["workerGroupSpecs"]
@@ -467,16 +398,6 @@ def duplicate_worker_group(
     group_name: str,
     new_group_name: str,
 ) -> Tuple[dict, bool]:
-    """Duplicate a worker group in the cluster.
-
-    Parameters:
-    - cluster (dict): The cluster definition.
-    - group_name (str): The name of the worker group to be duplicated.
-    - new_group_name (str): The name for the duplicated worker group.
-
-    Returns:
-    Tuple[dict, bool]: A tuple containing the updated cluster definition and a boolean indicating the success of the operation.
-    """
     assert is_valid_name(new_group_name)
     assert cluster["spec"]["workerGroupSpecs"]
 
@@ -496,15 +417,6 @@ def delete_worker_group(
     cluster: dict,
     group_name: str,
 ) -> Tuple[dict, bool]:
-    """Deletes a worker group in the cluster.
-
-    Parameters:
-    - cluster (dict): The cluster definition.
-    - group_name (str): The name of the worker group to be duplicated.
-
-    Returns:
-    Tuple[dict, bool]: A tuple containing the updated cluster definition and a boolean indicating the success of the operation.
-    """
     assert cluster["spec"]["workerGroupSpecs"]
 
     worker_groups = cluster["spec"]["workerGroupSpecs"]
