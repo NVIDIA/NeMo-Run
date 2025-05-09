@@ -13,7 +13,7 @@
 # limitations under the License.
 from packaging.version import Version
 
-__version__ = "0.4.0rc3.dev0"
+__version__ = "0.4.0"
 
 MAJOR = Version(__version__).major
 MINOR = Version(__version__).minor
