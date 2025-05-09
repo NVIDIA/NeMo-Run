@@ -340,6 +340,7 @@ class SlurmExecutor(Executor):
     setup_lines: Optional[str] = None
     het_group_indices: Optional[list[int]] = None
     segment: Optional[int] = None
+    network: Optional[str] = None
 
     #: Set by the executor; cannot be initialized
     job_name: str = field(init=False, default="nemo-job")
