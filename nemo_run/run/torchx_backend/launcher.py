@@ -161,7 +161,9 @@ def wait_and_exit(
     logger.info(f"Job {app_id} finished: {status.state}")
 
     if log_thread and log_thread.is_alive():
-        logger.debug("Waiting for log thread to complete...")
+        logger.warning(
+            f"Waiting for {app_id}'s log thread to complete for {log_join_timeout} seconds..."
+        )
         log_thread.join(timeout=log_join_timeout)
         if log_thread.is_alive():
             logger.warning("Log thread did not complete within timeout, some logs may be missing")
