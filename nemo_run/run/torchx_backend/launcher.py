@@ -122,7 +122,7 @@ def wait_and_exit(
     log: bool,
     runner: Runner | None = None,
     timeout: int = 10,
-    log_join_timeout: int = 600,
+    log_join_timeout: int = 10,
 ) -> specs.AppStatus:
     if runner is None:
         runner = get_runner()
