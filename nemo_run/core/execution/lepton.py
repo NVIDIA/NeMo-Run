@@ -133,8 +133,17 @@ class LeptonExecutor(Executor):
         from the user with the list of node groups. Assumes there are no duplicate node groups.
         """
         node_groups = client.nodegroup.list_all()
+        if len(node_groups) < 1:
+            raise RuntimeError(
+                "No node groups found in cluster. Ensure Lepton workspace has at least one node group."
+            )
         node_group_map = {ng.metadata.name: ng for ng in node_groups}
-        node_group_id = node_group_map[self.node_group]
+        try:
+            node_group_id = node_group_map[self.node_group]
+        except KeyError:
+            raise RuntimeError(
+                "Could not find node group that matches requested ID in the Lepton workspace. Ensure your requested node group exists."
+            )
         return node_group_id
 
     def _valid_node_ids(self, node_group_id: DedicatedNodeGroup, client: APIClient) -> Set:
