@@ -76,6 +76,15 @@ lint = [
     "ruff>=0.4.4",
 ]
 
+docs = [
+    "astroid==3.3.8",
+    "colorama>=0.4.6",
+    "myst-parser",
+    "sphinx>=7",
+    "sphinx-autoapi>=3.0.0",
+    "nvidia-sphinx-theme"
+]
+
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
