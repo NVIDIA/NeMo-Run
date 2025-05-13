@@ -61,9 +61,9 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         self._scheduled_reqs: list[DockerJobRequest] = []
 
     def _submit_dryrun(self, app: AppDef, cfg: Executor) -> AppDryRunInfo[DockerJobRequest]:  # type: ignore
-        assert isinstance(cfg, DockerExecutor), (
-            f"{cfg.__class__} not supported for docker scheduler."
-        )
+        assert isinstance(
+            cfg, DockerExecutor
+        ), f"{cfg.__class__} not supported for docker scheduler."
         executor = cfg
 
         if len(app.roles) > 1:
@@ -253,6 +253,13 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             return filter_regex(regex, logs)
         else:
             return logs
+
+    def _cancel_existing(self, app_id: str) -> None:
+        req = DockerJobRequest.load(app_id=app_id)
+        if not req:
+            return None
+        for container in req.containers:
+            container.delete(client=self._docker_client, id=req.id)
 
     def close(self) -> None:
         # terminate all apps
