@@ -254,6 +254,13 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         else:
             return logs
 
+    def _cancel_existing(self, app_id: str) -> None:
+        req = DockerJobRequest.load(app_id=app_id)
+        if not req:
+            return None
+        for container in req.containers:
+            container.delete(client=self._docker_client, id=req.id)
+
     def close(self) -> None:
         # terminate all apps
         for req in self._scheduled_reqs:
