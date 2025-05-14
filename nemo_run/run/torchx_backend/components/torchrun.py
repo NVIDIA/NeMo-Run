@@ -61,6 +61,7 @@ def torchrun(
     mounts: Optional[list[str]] = None,
     debug: bool = False,
     dgxc: bool = False,
+    lepton: bool = False,
     use_env: bool = False,
 ) -> specs.AppDef:
     """
@@ -96,6 +97,7 @@ def torchrun(
                 See scheduler documentation for more info.
         debug: whether to run with preset debug flags enabled
         dgxc: whether to use a subset of settings for DGX Cloud
+        lepton: whether the experiment is running on Lepton AI
     """
     if (script is None) == (m is None):
         raise ValueError("exactly one of --script and -m must be specified")
@@ -140,6 +142,19 @@ def torchrun(
 
     if dgxc:
         cmd = ["--nnodes", nnodes_rep, "--nproc-per-node", nproc_per_node]
+    elif lepton:
+        cmd = [
+            "--nnodes",
+            nnodes_rep,
+            "--nproc-per-node",
+            nproc_per_node,
+            "--node-rank",
+            torchx_dist._noquote("$NODE_RANK"),
+            "--master-addr",
+            torchx_dist._noquote("$MASTER_ADDR"),
+            "--master-port",
+            torchx_dist._noquote("$MASTER_PORT"),
+        ]
     else:
         cmd = [
             "--rdzv-backend",

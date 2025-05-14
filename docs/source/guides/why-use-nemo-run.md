@@ -29,6 +29,7 @@ But once defined, it is seamless to launch your tasks. Currently, we support the
 - LocalExecutor
 - SlurmExecutor
 - SkypilotExecutor
+- LeptonExecutor
 
 This means that you can launch your configured task on one slurm cluster or the other, on a Kubernetes cluster, on one cloud or the other, or on all of them at the same time.
 
