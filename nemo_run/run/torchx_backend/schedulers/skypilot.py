@@ -88,7 +88,7 @@ class SkypilotScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         # NOTE: make sure any new init options are supported in create_scheduler(...)
         super().__init__("skypilot", session_name)
         assert _SKYPILOT_AVAILABLE, (
-            "Skypilot is not installed. Please install it using `pip install nemo_run[skypilot]"
+            'Skypilot is not installed. Please install it using `pip install "nemo_run[skypilot]"`'
         )
 
     def _run_opts(self) -> runopts:
@@ -105,6 +105,7 @@ class SkypilotScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
     def schedule(self, dryrun_info: AppDryRunInfo[SkypilotRequest]) -> str:
         req = dryrun_info.request
         task = req.task
+
         executor = req.executor
         executor.package(executor.packager, job_name=executor.job_name)
         job_id, handle = executor.launch(task)

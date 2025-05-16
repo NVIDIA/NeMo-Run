@@ -197,7 +197,7 @@ The `dependency_type` parameter specifies the type of dependency relationship:
 This functionality enables you to create complex workflows with proper orchestration between different tasks, such as starting a training job only after data preparation is complete, or running an evaluation only after training finishes successfully.
 
 #### SkypilotExecutor
-This executor is used to configure [Skypilot](https://skypilot.readthedocs.io/en/latest/docs/index.html). Make sure Skypilot is installed and atleast one cloud is configured using `sky check`.
+This executor is used to configure [Skypilot](https://skypilot.readthedocs.io/en/latest/docs/index.html). Make sure Skypilot is installed using `pip install "nemo_run[skypilot]"` and atleast one cloud is configured using `sky check`.
 
 Here's an example of the `SkypilotExecutor` for Kubernetes:
 ```python
