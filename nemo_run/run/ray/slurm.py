@@ -159,15 +159,6 @@ class SlurmRayCluster:
         self.cluster_map = {}
 
     def _get_ray_cluster_info(self, name: str, executor: SlurmExecutor) -> Dict[str, Any]:
-        """Get Ray cluster information from ray_cluster_info.json file.
-
-        Parameters:
-        - name (str): The name of the Ray cluster
-        - executor (SlurmExecutor): The executor containing the tunnel
-
-        Returns:
-            Dict containing Ray cluster information or empty dict if info not found
-        """
         executor.tunnel.connect()
         cluster_dir = os.path.join(executor.tunnel.job_dir, name)
         cmd = f"test -f {cluster_dir}/ray_cluster_info.json && cat {cluster_dir}/ray_cluster_info.json"
@@ -186,6 +177,7 @@ class SlurmRayCluster:
         name: str,
         executor: SlurmExecutor,
     ) -> Dict[str, Union[str, bool, None]]:
+        logger.info(f"Getting Ray cluster status for '{name}'")
         executor.tunnel.connect()
 
         # Try to find the job by name
@@ -248,6 +240,7 @@ class SlurmRayCluster:
         pre_ray_start_commands: Optional[list[str]] = None,
         dryrun: bool = False,
     ) -> Any:
+        logger.info(f"Creating Ray cluster '{name}'")
         # Check if a cluster with this name already exists
         status = self.get_ray_cluster_status(name, executor)
 
@@ -308,6 +301,7 @@ class SlurmRayCluster:
         timeout: int = 600,
         delay_between_attempts: int = 30,
     ) -> bool:
+        logger.info(f"Waiting until Ray cluster '{name}' is running")
         start_time = time.time()
         while time.time() - start_time < timeout:
             status = self.get_ray_cluster_status(name, executor)
@@ -335,6 +329,7 @@ class SlurmRayCluster:
         timeout: int = 60,
         poll_interval: int = 5,
     ) -> bool:
+        logger.info(f"Deleting Ray cluster '{name}'")
         status = self.get_ray_cluster_status(name, executor)
 
         if status["job_id"] is None:

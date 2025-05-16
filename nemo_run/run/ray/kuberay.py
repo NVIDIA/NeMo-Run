@@ -87,7 +87,7 @@ class KubeRayCluster:
                 return None
 
     def get_ray_cluster(self, name: str, k8s_namespace: str = "default") -> Any:
-        logger.info(f"Getting Ray cluster: {name} in namespace: {k8s_namespace}")
+        logger.info(f"Getting Ray cluster '{name}' in namespace '{k8s_namespace}'")
         """Get a specific Ray cluster in a given namespace.
 
         Parameters:
@@ -111,10 +111,12 @@ class KubeRayCluster:
             return resource
         except ApiException as e:
             if e.status == 404:
-                logger.error("raycluster resource is not found. error = {}".format(e))
+                logger.error(f"Ray cluster '{name}' not found in namespace '{k8s_namespace}': {e}")
                 return None
             else:
-                logger.error("error fetching custom resource: {}".format(e))
+                logger.error(
+                    f"Error fetching Ray cluster '{name}' in namespace '{k8s_namespace}': {e}"
+                )
                 return None
 
     def get_ray_cluster_status(
@@ -125,7 +127,7 @@ class KubeRayCluster:
         delay_between_attempts: int = 5,
     ) -> Any:
         logger.info(
-            f"Getting Ray cluster status: {name} in namespace: {k8s_namespace}, timeout: {timeout}s, delay: {delay_between_attempts}s"
+            f"Getting Ray cluster status for '{name}' in namespace '{k8s_namespace}', timeout: {timeout}s, delay: {delay_between_attempts}s"
         )
         """Get a specific Ray cluster in a given namespace.
 
@@ -152,20 +154,24 @@ class KubeRayCluster:
                 )
             except ApiException as e:
                 if e.status == 404:
-                    logger.error("raycluster resource is not found. error = {}".format(e))
+                    logger.error(
+                        f"Ray cluster '{name}' status fetch failed: resource not found: {e}"
+                    )
                     return None
                 else:
-                    logger.error("error fetching custom resource: {}".format(e))
+                    logger.error(
+                        f"Error fetching status for Ray cluster '{name}' in namespace '{k8s_namespace}': {e}"
+                    )
                     return None
 
             if "status" in resource and resource["status"]:
                 return resource["status"]
             else:
-                logger.info("raycluster {} status not set yet, waiting...".format(name))
+                logger.info(f"Ray cluster '{name}' status not set yet, waiting...")
                 time.sleep(delay_between_attempts)
                 timeout -= delay_between_attempts
 
-        logger.info("raycluster {} status not set yet, timing out...".format(name))
+        logger.info(f"Ray cluster '{name}' status not set yet, timing out...")
         return None
 
     def wait_until_ray_cluster_running(
@@ -178,7 +184,7 @@ class KubeRayCluster:
     ) -> bool:
         namespace = k8s_namespace or executor.namespace
         logger.info(
-            f"Waiting until Ray cluster: {name} in namespace: {namespace} is running, timeout: {timeout}s, delay: {delay_between_attempts}s"
+            f"Waiting until Ray cluster '{name}' is running in namespace '{namespace}', timeout: {timeout}s, delay: {delay_between_attempts}s"
         )
         """Get a specific Ray cluster in a given namespace.
 
@@ -197,23 +203,21 @@ class KubeRayCluster:
                 name, k8s_namespace or executor.namespace, timeout, delay_between_attempts
             )
             if not status:
-                logger.info(f"Ray cluster {name} status could not be retrieved")
+                logger.info(f"Ray cluster '{name}' status could not be retrieved")
                 return False
 
             # TODO: once we add State to Status, we should check for that as well  <if status and status["state"] == "Running":>
             if status and status["head"] and status["head"]["serviceIP"]:
-                logger.info(f"Ray cluster {name} is running")
+                logger.info(f"Ray cluster '{name}' is running")
                 return True
 
             logger.info(
-                "raycluster {} status is not running yet, current status is {}".format(
-                    name, status["state"] if status and "state" in status else "unknown"
-                )
+                f"Ray cluster '{name}' status is not running yet, current status: {status.get('state', 'unknown')}"
             )
             time.sleep(delay_between_attempts)
             timeout -= delay_between_attempts
 
-        logger.info("raycluster {} status is not running yet, timing out...".format(name))
+        logger.info(f"Ray cluster '{name}' status is not running yet, timing out...")
         return False
 
     def create_ray_cluster(
@@ -225,7 +229,7 @@ class KubeRayCluster:
         k8s_namespace: Optional[str] = None,
     ) -> Any:
         namespace = k8s_namespace or executor.namespace
-        logger.info(f"Creating Ray cluster: {name} in namespace: {namespace}")
+        logger.info(f"Creating Ray cluster '{name}' in namespace '{namespace}'")
         """Create a new Ray cluster custom resource.
 
         Parameters:
@@ -264,10 +268,10 @@ class KubeRayCluster:
             return resource
         except ApiException as e:
             if e.status == 409:
-                logger.error("raycluster resource already exists. error = {}".format(e.reason))
+                logger.error(f"Ray cluster '{name}' already exists: {e.reason}")
                 return None
             else:
-                logger.error("error creating custom resource: {}".format(e))
+                logger.error(f"Error creating Ray cluster '{name}' in namespace '{namespace}': {e}")
                 return None
 
     def delete_ray_cluster(
@@ -293,7 +297,7 @@ class KubeRayCluster:
             Optional[bool]: True if deletion was successful, None if already deleted or there was an error.
         """
         namespace = k8s_namespace or executor.namespace
-        logger.info(f"Deleting Ray cluster: {name} in namespace: {namespace}")
+        logger.info(f"Deleting Ray cluster '{name}' in namespace '{namespace}'")
 
         try:
             self.api.delete_namespaced_custom_object(
@@ -307,7 +311,7 @@ class KubeRayCluster:
             if not wait:
                 return True
 
-            logger.info(f"Waiting for Ray cluster {name} and its pods to be fully deleted...")
+            logger.info(f"Waiting for Ray cluster '{name}' and its pods to be fully deleted...")
             start_time = time.time()
             cluster_deleted = False
 
@@ -318,11 +322,11 @@ class KubeRayCluster:
                     try:
                         cluster = self.get_ray_cluster(name, namespace)
                         if not cluster:
-                            logger.info(f"Ray cluster CR {name} has been deleted")
+                            logger.info(f"Ray cluster CR '{name}' has been deleted")
                             cluster_deleted = True
                     except ApiException as e:
                         if e.status == 404:
-                            logger.info(f"Ray cluster CR {name} has been deleted")
+                            logger.info(f"Ray cluster CR '{name}' has been deleted")
                             cluster_deleted = True
                         else:
                             logger.error(f"Error checking Ray cluster status during deletion: {e}")
@@ -336,7 +340,7 @@ class KubeRayCluster:
                         )
 
                         if not pods.items:
-                            logger.info(f"All pods for Ray cluster {name} have been terminated")
+                            logger.info(f"All pods for Ray cluster '{name}' have been terminated")
                             return True
 
                         active_pods = [pod.metadata.name for pod in pods.items]
@@ -357,14 +361,14 @@ class KubeRayCluster:
 
             # If we reach here, we've timed out
             logger.warning(
-                f"Timed out waiting for Ray cluster {name} to be fully deleted after {timeout} seconds"
+                f"Timed out waiting for Ray cluster '{name}' to be fully deleted after {timeout} seconds"
             )
 
             # Check final state
             try:
                 cluster_exists = self.get_ray_cluster(name, namespace) is not None
                 if cluster_exists:
-                    logger.warning(f"Ray cluster CR {name} still exists after timeout")
+                    logger.warning(f"Ray cluster CR '{name}' still exists after timeout")
 
                 pods = self.core_v1_api.list_namespaced_pod(
                     namespace=namespace, label_selector=f"ray.io/cluster={name}"
@@ -372,19 +376,19 @@ class KubeRayCluster:
                 if pods.items:
                     pod_names = [pod.metadata.name for pod in pods.items]
                     logger.warning(
-                        f"Ray cluster {name} still has {len(pod_names)} pods: {', '.join(pod_names[:5])}"
+                        f"Ray cluster '{name}' still has {len(pod_names)} pods: {', '.join(pod_names[:5])}"
                     )
             except Exception as e:
-                logger.error(f"Error checking final state of Ray cluster {name}: {e}")
+                logger.error(f"Error checking final state of Ray cluster '{name}': {e}")
 
             return False
 
         except ApiException as e:
             if e.status == 404:
-                logger.warning(f"Ray cluster {name} was already deleted")
+                logger.warning(f"Ray cluster '{name}' was already deleted")
                 return None
             else:
-                logger.error(f"Error deleting the Ray cluster {name}: {e}")
+                logger.error(f"Error deleting Ray cluster '{name}': {e}")
                 return None
 
     def patch_ray_cluster(
@@ -395,7 +399,7 @@ class KubeRayCluster:
         k8s_namespace: Optional[str] = None,
     ) -> Any:
         namespace = k8s_namespace or executor.namespace
-        logger.info(f"Patching Ray cluster: {name} in namespace: {namespace}")
+        logger.info(f"Patching Ray cluster '{name}' in namespace '{namespace}'")
         """Patch an existing Ray cluster custom resource.
 
         Parameters:
@@ -417,10 +421,10 @@ class KubeRayCluster:
                 namespace=namespace,
             )
         except ApiException as e:
-            logger.error("raycluster `{}` failed to patch, with error: {}".format(name, e))
+            logger.error(f"Failed to patch Ray cluster '{name}': {e}")
             return False
         else:
-            logger.info("raycluster `%s` is patched successfully", name)
+            logger.info(f"Ray cluster '{name}' patched successfully")
 
         return True
 
