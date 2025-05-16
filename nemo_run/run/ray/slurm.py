@@ -25,10 +25,14 @@ import threading
 import time
 import warnings
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional, TypeAlias, Union
 
 from nemo_run.core.execution.slurm import SlurmExecutor, _as_sbatch_flag
 from nemo_run.core.execution.utils import fill_template
+from nemo_run.core.packaging.git import GitArchivePackager
+from nemo_run.core.tunnel.client import SSHTunnel
+from nemo_run.core.tunnel.rsync import rsync
 
 noquote: TypeAlias = str
 
@@ -42,6 +46,8 @@ class SlurmRayRequest:
     template_path: str
     executor: SlurmExecutor
     pre_ray_start_commands: Optional[list[str]] = None
+    command: Optional[str] = None
+    workdir: Optional[str] = None
 
     @staticmethod
     def get_job_name(executor: SlurmExecutor, name: str) -> str:
@@ -135,6 +141,8 @@ class SlurmRayRequest:
             "common_srun_args": get_srun_flags(
                 self.executor.container_mounts, self.executor.container_image
             ),
+            "command": self.command,
+            "command_workdir": self.workdir,
         }
 
         if self.pre_ray_start_commands:
@@ -239,26 +247,9 @@ class SlurmRayCluster:
         executor: SlurmExecutor,
         pre_ray_start_commands: Optional[list[str]] = None,
         dryrun: bool = False,
+        command: Optional[str] = None,
+        workdir: Optional[str] = None,
     ) -> Any:
-        logger.info(f"Creating Ray cluster '{name}'")
-        # Check if a cluster with this name already exists
-        status = self.get_ray_cluster_status(name, executor)
-
-        if status["job_id"] is not None:
-            job_state = status["state"]
-            if job_state in ["PENDING", "RUNNING", "CONFIGURING", "COMPLETING"]:
-                logger.info(
-                    f"Ray cluster '{name}' already exists with job ID {status['job_id']} "
-                    f"and is currently in {job_state} state. "
-                    f"Skipping creation."
-                )
-                return None
-            elif job_state not in ["COMPLETED", "CANCELLED", "FAILED", "TIMEOUT", "NOT_FOUND"]:
-                logger.warning(
-                    f"Ray cluster '{name}' exists with job ID {status['job_id']} "
-                    f"in state {job_state}. Creating new cluster anyway."
-                )
-
         cluster_dir = os.path.join(executor.tunnel.job_dir, name)
         ray_sbatch = SlurmRayRequest(
             name=name,
@@ -268,11 +259,40 @@ class SlurmRayCluster:
             ),
             executor=executor,
             pre_ray_start_commands=pre_ray_start_commands,
+            command=command,
+            workdir=workdir,
         ).materialize()
 
         if dryrun:
+            logger.info(f"Dry run: Ray cluster '{name}'")
             print(ray_sbatch)
             return
+
+        logger.info(f"Creating Ray cluster '{name}'")
+        # Check if a cluster with this name already exists
+        status = self.get_ray_cluster_status(name, executor)
+
+        if status["job_id"] is not None:
+            job_state = status["state"]
+            if job_state in ["PENDING", "RUNNING", "CONFIGURING"]:
+                logger.info(
+                    f"Ray cluster '{name}' already exists with job ID {status['job_id']} "
+                    f"and is currently in {job_state} state. "
+                    f"Skipping creation."
+                )
+                return None
+            elif job_state not in [
+                "COMPLETING",
+                "COMPLETED",
+                "CANCELLED",
+                "FAILED",
+                "TIMEOUT",
+                "NOT_FOUND",
+            ]:
+                logger.warning(
+                    f"Ray cluster '{name}' exists with job ID {status['job_id']} "
+                    f"in state {job_state}. Creating new cluster anyway."
+                )
 
         executor.tunnel.connect()
         executor.tunnel.run(f"mkdir -p {cluster_dir}")
@@ -292,6 +312,84 @@ class SlurmRayCluster:
 
         logger.info(f"Slurm job for Ray cluster '{name}' created with job ID {job_id}")
 
+        return job_id
+
+    def schedule_ray_job(
+        self,
+        name: str,
+        executor: SlurmExecutor,
+        command: str,
+        workdir: Optional[str] = None,
+        pre_ray_start_commands: Optional[list[str]] = None,
+        dryrun: bool = False,
+    ):
+        remote_workdir = None
+        if workdir:
+            if isinstance(executor.tunnel, SSHTunnel):
+                # Rsync workdir honoring .gitignore
+                remote_workdir = os.path.join(executor.tunnel.job_dir, name, "code")
+                if not dryrun:
+                    executor.tunnel.connect()
+                    assert executor.tunnel.session is not None, "Tunnel session is not connected"
+                    rsync(
+                        executor.tunnel.session,
+                        workdir,
+                        remote_workdir,
+                        rsync_opts="--filter=':- .gitignore'",
+                    )
+            else:
+                remote_workdir = workdir
+        elif executor.packager:
+            if not dryrun:
+                if isinstance(executor.tunnel, SSHTunnel):
+                    package_dir_ref = tempfile.TemporaryDirectory()
+                    package_dir = package_dir_ref.name
+                else:
+                    package_dir_ref = None
+                    package_dir = os.path.join(executor.tunnel.job_dir, name)
+
+                if isinstance(executor.packager, GitArchivePackager):
+                    output = subprocess.run(
+                        ["git", "rev-parse", "--show-toplevel"],
+                        check=True,
+                        stdout=subprocess.PIPE,
+                    )
+                    path = output.stdout.splitlines()[0].decode()
+                    base_path = Path(path).absolute()
+                else:
+                    base_path = Path(os.getcwd()).absolute()
+
+                local_tar_file = executor.packager.package(base_path, package_dir, name)
+                local_code_extraction_path = os.path.join(package_dir, "code")
+                os.makedirs(local_code_extraction_path, exist_ok=True)
+                subprocess.run(
+                    f"tar -xvzf {local_tar_file} -C {local_code_extraction_path} --ignore-zeros",
+                    shell=True,
+                    check=True,
+                )
+
+                if isinstance(executor.tunnel, SSHTunnel):
+                    remote_workdir = os.path.join(executor.tunnel.job_dir, name, "code")
+                    executor.tunnel.connect()
+                    assert executor.tunnel.session is not None, "Tunnel session is not connected"
+                    rsync(
+                        executor.tunnel.session,
+                        os.path.join(local_code_extraction_path, ""),
+                        remote_workdir,
+                        rsync_opts="--filter=':- .gitignore'",
+                    )
+                else:
+                    remote_workdir = local_code_extraction_path
+
+        assert remote_workdir is not None, "workdir is not set"
+        job_id = self.create_ray_cluster(
+            name,
+            executor,
+            pre_ray_start_commands=pre_ray_start_commands,
+            dryrun=dryrun,
+            command=command,
+            workdir=remote_workdir,
+        )
         return job_id
 
     def wait_until_ray_cluster_running(

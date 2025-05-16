@@ -209,6 +209,15 @@ class KubeRayCluster:
                 logger.error(f"Error creating Ray cluster '{name}' in namespace '{namespace}': {e}")
                 return None
 
+    def schedule_ray_job(
+        self,
+        name: str,
+        executor: KubeRayExecutor,
+        command: str,
+        workdir: str,
+    ):
+        raise NotImplementedError("KubeRay does not support scheduling jobs")
+
     def delete_ray_cluster(
         self,
         name: str,

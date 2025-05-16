@@ -55,6 +55,14 @@ class RayCluster:
                 name=self.name, executor=self.executor, timeout=timeout
             )
 
+    def schedule_job(
+        self, name: str, executor: Executor, command: str, workdir: str, dryrun: bool = False
+    ):
+        assert isinstance(self.executor, self.backend.EXECUTOR_CLS)
+        self.backend.schedule_ray_job(
+            name=name, executor=executor, command=command, workdir=workdir, dryrun=dryrun
+        )
+
     def port_forward(self, port: int = 8265, target_port: int = 8265, wait: bool = False):
         assert isinstance(self.executor, self.backend.EXECUTOR_CLS)
         if self._port_forward_map.get(port) is not None:
