@@ -14,32 +14,42 @@
 # limitations under the License.
 
 from dataclasses import dataclass
+from typing import Optional
 
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.kuberay import KubeRayExecutor
+from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.run.ray.kuberay import KubeRayCluster
+from nemo_run.run.ray.slurm import SlurmRayCluster
 
 
 @dataclass(kw_only=True)
 class RayCluster:
     BACKEND_MAP = {
         KubeRayExecutor: KubeRayCluster,
+        SlurmExecutor: SlurmRayCluster,
     }
 
     name: str
     executor: Executor
+    pre_ray_start_commands: Optional[list[str]] = None
 
     def __post_init__(self):
         if self.executor.__class__ not in self.BACKEND_MAP:
-            raise ValueError(f"Unsupported executor: {self.executor}")
+            raise ValueError(f"Unsupported executor: {self.executor.__class__}")
 
         self.backend = self.BACKEND_MAP[self.executor.__class__]()
 
         self._port_forward_map = {}
 
-    def start(self, wait_until_ready: bool = True, timeout: int = 1000):
+    def start(self, wait_until_ready: bool = True, timeout: int = 1000, dryrun: bool = False):
         assert isinstance(self.executor, self.backend.EXECUTOR_CLS)
-        self.backend.create_ray_cluster(name=self.name, executor=self.executor)
+        self.backend.create_ray_cluster(
+            name=self.name,
+            executor=self.executor,
+            pre_ray_start_commands=self.pre_ray_start_commands,
+            dryrun=dryrun,
+        )
         if wait_until_ready:
             self.backend.wait_until_ray_cluster_running(
                 name=self.name, executor=self.executor, timeout=timeout
@@ -52,7 +62,7 @@ class RayCluster:
 
         self._port_forward_map[port] = self.backend.port_forward(
             name=self.name,
-            k8s_namespace=self.executor.namespace,
+            executor=self.executor,
             port=port,
             target_port=target_port,
             wait=wait,

@@ -18,6 +18,7 @@ import logging
 import time
 from typing import Any, Optional
 
+import yaml
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
@@ -171,9 +172,9 @@ class KubeRayCluster:
         self,
         name: str,
         executor: KubeRayExecutor,
-        k8s_namespace: Optional[str] = None,
         timeout: int = 60,
         delay_between_attempts: int = 5,
+        k8s_namespace: Optional[str] = None,
     ) -> bool:
         namespace = k8s_namespace or executor.namespace
         logger.info(
@@ -216,7 +217,12 @@ class KubeRayCluster:
         return False
 
     def create_ray_cluster(
-        self, name: str, executor: KubeRayExecutor, k8s_namespace: Optional[str] = None
+        self,
+        name: str,
+        executor: KubeRayExecutor,
+        pre_ray_start_commands: Optional[list[str]] = None,
+        dryrun: bool = False,
+        k8s_namespace: Optional[str] = None,
     ) -> Any:
         namespace = k8s_namespace or executor.namespace
         logger.info(f"Creating Ray cluster: {name} in namespace: {namespace}")
@@ -229,12 +235,30 @@ class KubeRayCluster:
         Returns:
             Any: The created custom resource, or None if it already exists or there was an error.
         """
+        if pre_ray_start_commands:
+            k8s_pre_ray_start_commands = "\n".join(pre_ray_start_commands)
+            executor.lifecycle_kwargs["postStart"] = {
+                "exec": {
+                    "command": [
+                        "/bin/sh",
+                        "-c",
+                        k8s_pre_ray_start_commands,
+                    ]
+                }
+            }
+
+        body = executor.get_cluster_body(name)
+
+        if dryrun:
+            print(yaml.dump(body))
+            return
+
         try:
             resource: Any = self.api.create_namespaced_custom_object(
                 group=GROUP,
                 version=VERSION,
                 plural=PLURAL,
-                body=executor.get_cluster_body(name),
+                body=body,
                 namespace=k8s_namespace or executor.namespace,
             )
             return resource
@@ -405,7 +429,7 @@ class KubeRayCluster:
         name: str,
         port: int,
         target_port: int,
-        k8s_namespace: str,
+        executor: KubeRayExecutor,
         wait: bool = False,
     ):
         """Port forward a Ray cluster service using kubectl in a daemon thread.
@@ -435,7 +459,7 @@ class KubeRayCluster:
         import time
 
         # Get cluster details
-        cluster = self.get_ray_cluster(name, k8s_namespace or "default")
+        cluster = self.get_ray_cluster(name, executor.namespace or "default")
         if not cluster:
             raise RuntimeError(f"Could not find Ray cluster {name}")
 

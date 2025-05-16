@@ -14,22 +14,23 @@
 # limitations under the License.
 
 import os
+from typing import Optional
 
 import jinja2
 
 
-def fill_template(template_name: str, variables: dict) -> str:
+def fill_template(template_name: str, variables: dict, template_dir: Optional[str] = None) -> str:
     """Create a file from a Jinja template and return the filename."""
     assert template_name.endswith(".j2"), template_name
-    root_dir = os.path.dirname(__file__)
-    template_path = os.path.join(root_dir, "templates", template_name)
+    template_dir = template_dir or os.path.join(os.path.dirname(__file__), "templates")
+    template_path = os.path.join(template_dir, template_name)
     if not os.path.exists(template_path):
         raise FileNotFoundError(f'Template "{template_name}" does not exist.')
     with open(template_path, "r", encoding="utf-8") as fin:
         template = fin.read()
 
-    j2_template = jinja2.Environment(
-        loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), "templates"))
-    ).from_string(template)
+    j2_template = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir)).from_string(
+        template
+    )
     content = j2_template.render(**variables)
     return content
