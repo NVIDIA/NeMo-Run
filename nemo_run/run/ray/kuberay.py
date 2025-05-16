@@ -28,17 +28,6 @@ logger = logging.getLogger(__name__)
 
 
 class KubeRayCluster:
-    """
-    RayClusterApi provides APIs to list, get, create, build, update, delete rayclusters.
-
-    Methods:
-    - list_ray_clusters(k8s_namespace: str = "default", async_req: bool = False) -> Any:
-    - get_ray_cluster(name: str, k8s_namespace: str = "default") -> Any:
-    - create_ray_cluster(body: Any, k8s_namespace: str = "default") -> Any:
-    - delete_ray_cluster(name: str, k8s_namespace: str = "default") -> bool:
-    - patch_ray_cluster(name: str, ray_patch: Any, k8s_namespace: str = "default") -> Any:
-    """
-
     EXECUTOR_CLS = KubeRayExecutor
 
     # initial config to setup the kube client
@@ -54,18 +43,7 @@ class KubeRayCluster:
         logger.info(
             f"Listing Ray clusters in namespace: {k8s_namespace}, label_selector: {label_selector}, async_req: {async_req}"
         )
-        """List Ray clusters in a given namespace.
 
-        Parameters:
-        - k8s_namespace (str, optional): The namespace in which to list the Ray clusters. Defaults to "default".
-        - async_req (bool, optional): Whether to make the request asynchronously. Defaults to False.
-
-        Returns:
-            Any: The custom resource for Ray clusters in the specified namespace, or None if not found.
-
-        Raises:
-            ApiException: If there was an error fetching the custom resource.
-        """
         try:
             resource: Any = self.api.list_namespaced_custom_object(
                 group=GROUP,
@@ -88,18 +66,7 @@ class KubeRayCluster:
 
     def get_ray_cluster(self, name: str, k8s_namespace: str = "default") -> Any:
         logger.info(f"Getting Ray cluster '{name}' in namespace '{k8s_namespace}'")
-        """Get a specific Ray cluster in a given namespace.
 
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource. Defaults to "".
-        - k8s_namespace (str, optional): The namespace in which to retrieve the Ray cluster. Defaults to "default".
-
-        Returns:
-            Any: The custom resource for the specified Ray cluster, or None if not found.
-
-        Raises:
-            ApiException: If there was an error fetching the custom resource.
-        """
         try:
             resource: Any = self.api.get_namespaced_custom_object(
                 group=GROUP,
@@ -129,20 +96,7 @@ class KubeRayCluster:
         logger.info(
             f"Getting Ray cluster status for '{name}' in namespace '{k8s_namespace}', timeout: {timeout}s, delay: {delay_between_attempts}s"
         )
-        """Get a specific Ray cluster in a given namespace.
 
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource. Defaults to "".
-        - k8s_namespace (str, optional): The namespace in which to retrieve the Ray cluster. Defaults to "default".
-        - timeout (int, optional): The duration in seconds after which we stop trying to get status if still not set. Defaults to 60 seconds.
-        - delay_between_attempts (int, optional): The duration in seconds to wait between attempts to get status if not set. Defaults to 5 seconds.
-
-        Returns:
-            Any: The custom resource status for the specified Ray cluster, or None if not found.
-
-        Raises:
-            ApiException: If there was an error fetching the custom resource.
-        """
         while timeout > 0:
             try:
                 resource: Any = self.api.get_namespaced_custom_object_status(
@@ -186,18 +140,7 @@ class KubeRayCluster:
         logger.info(
             f"Waiting until Ray cluster '{name}' is running in namespace '{namespace}', timeout: {timeout}s, delay: {delay_between_attempts}s"
         )
-        """Get a specific Ray cluster in a given namespace.
 
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource. Defaults to "".
-        - k8s_namespace (str, optional): The namespace in which to retrieve the Ray cluster. Defaults to "default".
-        - timeout (int, optional): The duration in seconds after which we stop trying to get status. Defaults to 60 seconds.
-        - delay_between_attempts (int, optional): The duration in seconds to wait between attempts to get status if not set. Defaults to 5 seconds.
-
-        Returns:
-            Bool: True if the raycluster status is Running, False otherwise.
-
-        """
         while timeout > 0:
             status = self.get_ray_cluster_status(
                 name, k8s_namespace or executor.namespace, timeout, delay_between_attempts
@@ -230,15 +173,7 @@ class KubeRayCluster:
     ) -> Any:
         namespace = k8s_namespace or executor.namespace
         logger.info(f"Creating Ray cluster '{name}' in namespace '{namespace}'")
-        """Create a new Ray cluster custom resource.
 
-        Parameters:
-        - body (Any): The data of the custom resource to create.
-        - k8s_namespace (str, optional): The namespace in which to create the custom resource. Defaults to "default".
-
-        Returns:
-            Any: The created custom resource, or None if it already exists or there was an error.
-        """
         if pre_ray_start_commands:
             k8s_pre_ray_start_commands = "\n".join(pre_ray_start_commands)
             executor.lifecycle_kwargs["postStart"] = {
@@ -283,19 +218,6 @@ class KubeRayCluster:
         timeout: int = 300,
         poll_interval: int = 5,
     ) -> Optional[bool]:
-        """Delete a Ray cluster custom resource and optionally wait for deletion to complete.
-
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource to delete.
-        - executor (KubeRayExecutor): The executor containing configuration details.
-        - k8s_namespace (str, optional): The namespace in which the Ray cluster exists.
-        - wait (bool, optional): Whether to wait for the cluster and all its pods to be fully deleted. Defaults to False.
-        - timeout (int, optional): Maximum time to wait for deletion in seconds. Defaults to 300 seconds (5 minutes).
-        - poll_interval (int, optional): Time between checks for deletion status in seconds. Defaults to 5 seconds.
-
-        Returns:
-            Optional[bool]: True if deletion was successful, None if already deleted or there was an error.
-        """
         namespace = k8s_namespace or executor.namespace
         logger.info(f"Deleting Ray cluster '{name}' in namespace '{namespace}'")
 
@@ -400,16 +322,6 @@ class KubeRayCluster:
     ) -> Any:
         namespace = k8s_namespace or executor.namespace
         logger.info(f"Patching Ray cluster '{name}' in namespace '{namespace}'")
-        """Patch an existing Ray cluster custom resource.
-
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource to be patched.
-        - ray_patch (Any): The patch data for the Ray cluster.
-        - k8s_namespace (str, optional): The namespace in which the Ray cluster exists. Defaults to "default".
-
-        Returns:
-            bool: True if the patch was successful, False otherwise.
-        """
         try:
             # we patch the existing raycluster with the new config
             self.api.patch_namespaced_custom_object(
@@ -436,27 +348,6 @@ class KubeRayCluster:
         executor: KubeRayExecutor,
         wait: bool = False,
     ):
-        """Port forward a Ray cluster service using kubectl in a daemon thread.
-
-        When you want to stop the forwarding:
-            forward_thread.stop_forwarding()  # Call this method to stop forwarding
-
-        If wait=True, this function will block until interrupted (e.g., with Ctrl+C).
-
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource.
-        - port (int): The local port to use for forwarding.
-        - target_port (int): The target port on the Ray cluster to forward to.
-        - k8s_namespace (str, optional): The namespace in which the Ray cluster exists.
-        - wait (bool, optional): If True, block indefinitely until interrupted. Defaults to False.
-
-        Returns:
-        - ForwardingThread: A thread object with stop_forwarding method.
-
-        Raises:
-        - RuntimeError: If the Ray head service cannot be found.
-        - TimeoutError: If port forwarding fails to establish within the timeout period.
-        """
         import queue
         import subprocess
         import threading
@@ -618,14 +509,6 @@ class KubeRayCluster:
         return forward_thread
 
     def _wait_for_forwarding_termination(self, forward_thread, stop_event):
-        """Helper method to wait for port forwarding termination.
-
-        Sets up signal handlers and blocks until interrupted or the stop_event is set.
-
-        Parameters:
-        - forward_thread: The thread running the port forwarding.
-        - stop_event: The event used to signal the thread to stop.
-        """
         import signal
         import time
 

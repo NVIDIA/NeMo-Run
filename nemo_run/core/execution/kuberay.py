@@ -80,7 +80,7 @@ class KubeRayExecutor(Executor):
     head_ports: list[dict[str, Any]] = field(default_factory=list)
     volume_mounts: list[dict[str, Any]] = field(default_factory=list)
     volumes: list[dict[str, Any]] = field(default_factory=list)
-    reuse_volumes_in_worker_groups: bool = False
+    reuse_volumes_in_worker_groups: bool = True
     spec_kwargs: dict[str, Any] = field(default_factory=dict)
     lifecycle_kwargs: dict[str, Any] = field(default_factory=dict)
 
