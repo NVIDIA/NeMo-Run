@@ -334,6 +334,8 @@ class SlurmRayCluster:
 
         return job_id
 
+        return None
+
     def schedule_ray_job(
         self,
         name: str,
