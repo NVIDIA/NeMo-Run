@@ -140,6 +140,8 @@ class SlurmRayRequest:
             else:
                 new_mounts = mounts
 
+            new_mounts.append(f"{self.cluster_dir}:{self.cluster_dir}")
+
             _srun_flags += ["--container-mounts", ",".join(new_mounts)]
             container_workdir = self.workdir or self.cluster_dir
             _srun_flags.append(f"--container-workdir={container_workdir}")
