@@ -449,6 +449,8 @@ class Script(ConfigurableMixin):
     #: Whether to use ``python -m`` when executing via python.
     m: bool = False
 
+    metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
+
     def __post_init__(self):
         assert self.path or self.inline
         assert self.entrypoint, "Need to provide an entrypoint for script."

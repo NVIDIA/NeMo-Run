@@ -50,11 +50,13 @@ from torchx.specs import (
 )
 from torchx.specs.api import is_terminal
 
-from nemo_run.config import from_dict, get_nemorun_home
+from nemo_run.config import RUNDIR_NAME, from_dict, get_nemorun_home
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor, SlurmJobDetails
 from nemo_run.core.tunnel.client import LocalTunnel, PackagingJob, SSHTunnel, Tunnel
 from nemo_run.run import experiment as run_experiment
+from nemo_run.run.ray.cluster import USE_WITH_RAY_CLUSTER_KEY
+from nemo_run.run.ray.slurm import SlurmRayRequest
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -101,38 +103,52 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         executor.package(packager=executor.packager, job_name=Path(job_dir).name)
 
-        srun_cmds: list[list[str]] = []
-        jobs = []
-        envs = {}
-        values = executor.macro_values()
+        if app.metadata and app.metadata.get(USE_WITH_RAY_CLUSTER_KEY, False):
+            assert len(app.roles) == 1, "Only one command is supported for Ray jobs."
+            command = [app.roles[0].entrypoint] + app.roles[0].args
+            req = SlurmRayRequest(
+                name=app.roles[0].name,
+                launch_cmd=["sbatch", "--requeue", "--parsable"],
+                command=" ".join(command),
+                cluster_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name, "ray"),
+                template_name="ray.sub.j2",
+                executor=executor,
+                workdir=f"/{RUNDIR_NAME}/code",
+                nemo_run_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name),
+            )
+        else:
+            srun_cmds: list[list[str]] = []
+            jobs = []
+            envs = {}
+            values = executor.macro_values()
 
-        if values:
-            executor.env_vars = {
-                key: values.substitute(arg) for key, arg in executor.env_vars.items()
-            }
-            for resource_req in executor.resource_group:
-                resource_req.env_vars = {
-                    key: values.substitute(arg) for key, arg in resource_req.env_vars.items()
-                }
-
-        for role in app.roles:
             if values:
-                role = values.apply(role)
-            srun_cmd = [role.entrypoint] + role.args
-            srun_cmds.append([" ".join(srun_cmd)])
-            jobs.append(role.name)
-            envs |= role.env
+                executor.env_vars = {
+                    key: values.substitute(arg) for key, arg in executor.env_vars.items()
+                }
+                for resource_req in executor.resource_group:
+                    resource_req.env_vars = {
+                        key: values.substitute(arg) for key, arg in resource_req.env_vars.items()
+                    }
 
-        cmd = ["sbatch", "--requeue", "--parsable"]
-        req = SlurmBatchRequest(
-            cmd=cmd,
-            jobs=jobs,
-            command_groups=srun_cmds,
-            slurm_config=executor,
-            max_retries=min(role.max_retries for role in app.roles),
-            extra_env=envs,
-            launcher=executor.get_launcher(),
-        )
+            for role in app.roles:
+                if values:
+                    role = values.apply(role)
+                srun_cmd = [role.entrypoint] + role.args
+                srun_cmds.append([" ".join(srun_cmd)])
+                jobs.append(role.name)
+                envs |= role.env
+
+            cmd = ["sbatch", "--requeue", "--parsable"]
+            req = SlurmBatchRequest(
+                launch_cmd=cmd,
+                jobs=jobs,
+                command_groups=srun_cmds,
+                executor=executor,
+                max_retries=min(role.max_retries for role in app.roles),
+                extra_env=envs,
+                launcher=executor.get_launcher(),
+            )
 
         # Write and copy sbatch script
         sbatch_dir = executor.experiment_dir
@@ -144,10 +160,10 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         return AppDryRunInfo(req, repr)
 
-    def schedule(self, dryrun_info: AppDryRunInfo[SlurmBatchRequest]) -> str:  # type: ignore
+    def schedule(self, dryrun_info: AppDryRunInfo[SlurmBatchRequest | SlurmRayRequest]) -> str:  # type: ignore
         # Setup
         req = dryrun_info.request
-        slurm_executor = dryrun_info.request.slurm_config
+        slurm_executor = dryrun_info.request.executor
         assert slurm_executor.experiment_id, "Executor not assigned to experiment."
 
         job_dir = slurm_executor.job_dir
@@ -164,11 +180,11 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             cmd = ["sbatch", "--requeue", "--parsable"]
             slurm_deps = slurm_executor.parse_deps()
             cmd.append(f"--dependency={slurm_executor.dependency_type}:{':'.join(slurm_deps)}")
-            req.cmd = cmd
+            req.launch_cmd = cmd
 
         # Run sbatch script
-        req.cmd += [dst_path]
-        job_id = self.tunnel.run(" ".join(req.cmd)).stdout.strip()
+        req.launch_cmd += [dst_path]
+        job_id = self.tunnel.run(" ".join(req.launch_cmd)).stdout.strip()
 
         # Save metadata
         _save_job_dir(job_id, job_dir, tunnel, slurm_executor.job_details.ls_term)

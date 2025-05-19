@@ -60,10 +60,10 @@ class TestSlurmBatchRequest:
         extra_env = {"ENV_VAR": "value"}
         return (
             SlurmBatchRequest(
-                cmd=cmd,
+                launch_cmd=cmd,
                 jobs=["sample_job"],
                 command_groups=command_groups,
-                slurm_config=slurm_config,
+                executor=slurm_config,
                 max_retries=max_retries,
                 extra_env=extra_env,
             ),
@@ -95,10 +95,10 @@ class TestSlurmBatchRequest:
         extra_env = {"ENV_VAR": "value"}
         return (
             SlurmBatchRequest(
-                cmd=cmd,
+                launch_cmd=cmd,
                 jobs=["sample_job"],
                 command_groups=command_groups,
-                slurm_config=slurm_config,
+                executor=slurm_config,
                 max_retries=max_retries,
                 extra_env=extra_env,
                 launcher=slurm_config.get_launcher(),
@@ -140,10 +140,10 @@ class TestSlurmBatchRequest:
         extra_env = {"ENV_VAR": "value"}
         return (
             SlurmBatchRequest(
-                cmd=cmd,
+                launch_cmd=cmd,
                 jobs=["sample_job-0", "sample_job-1"],
                 command_groups=command_groups,
-                slurm_config=slurm_config,
+                executor=slurm_config,
                 max_retries=max_retries,
                 extra_env=extra_env,
             ),
@@ -155,7 +155,7 @@ class TestSlurmBatchRequest:
         self, group_slurm_request_with_artifact
     ) -> tuple[SlurmBatchRequest, str]:
         req, _ = group_slurm_request_with_artifact
-        req.slurm_config.monitor_group_job = False
+        req.executor.monitor_group_job = False
         return (
             req,
             os.path.join(ARTIFACTS_DIR, "group_slurm_no_monitor.sh"),
@@ -201,10 +201,10 @@ class TestSlurmBatchRequest:
         extra_env = {"ENV_VAR": "value"}
         return (
             SlurmBatchRequest(
-                cmd=cmd,
+                launch_cmd=cmd,
                 jobs=["sample_job-0", "sample_job-1"],
                 command_groups=command_groups,
-                slurm_config=executor,
+                executor=executor,
                 max_retries=max_retries,
                 extra_env=extra_env,
             ),
@@ -271,10 +271,10 @@ class TestSlurmBatchRequest:
         extra_env = {"ENV_VAR": "value"}
         return (
             SlurmBatchRequest(
-                cmd=cmd,
+                launch_cmd=cmd,
                 jobs=["sample_job-0", "sample_job-1"],
                 command_groups=command_groups,
-                slurm_config=slurm_config,
+                executor=slurm_config,
                 max_retries=max_retries,
                 extra_env=extra_env,
             ),
@@ -336,10 +336,10 @@ class TestSlurmBatchRequest:
         extra_env = {"ENV_VAR": "value"}
         return (
             SlurmBatchRequest(
-                cmd=cmd,
+                launch_cmd=cmd,
                 jobs=["sample_job-0", "sample_job-1"],
                 command_groups=command_groups,
-                slurm_config=slurm_config,
+                executor=slurm_config,
                 max_retries=max_retries,
                 extra_env=extra_env,
                 launcher=slurm_config.get_launcher(),
@@ -382,14 +382,14 @@ class TestSlurmBatchRequest:
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.dependencies = [
+        dummy_slurm_request.executor.dependencies = [
             "slurm_tunnel://nemo_run/depend1",
             "slurm_tunnel://nemo_run/depend2",
         ]
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --dependency=afterok:depend1:depend2" in sbatch_script
 
-        dummy_slurm_request.slurm_config.dependency_type = "afterany"
+        dummy_slurm_request.executor.dependency_type = "afterany"
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --dependency=afterany:depend1:depend2" in sbatch_script
 
@@ -398,11 +398,11 @@ class TestSlurmBatchRequest:
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.dependencies = [
+        dummy_slurm_request.executor.dependencies = [
             "slurm_tunnel://nemo_run/depend1",
             "slurm_tunnel://nemo_run/depend2",
         ]
-        dummy_slurm_request.slurm_config.memory_measure = True
+        dummy_slurm_request.executor.memory_measure = True
         sbatch_script = dummy_slurm_request.materialize()
         assert (
             "srun --ntasks=1 --ntasks-per-node=1 --output /root/sample_job/log-account-account.sample_job_%j_${SLURM_RESTART_COUNT:-0}.out --wait=60 --kill-on-bad-exit=1 --overlap nvidia-smi"
@@ -425,7 +425,7 @@ class TestSlurmBatchRequest:
                 return Path(self.folder) / "log_job.out"
 
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.job_details = CustomJobDetails()
+        dummy_slurm_request.executor.job_details = CustomJobDetails()
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --job-name=account-account.sample_job" in sbatch_script
         assert "--output /root/sample_job/log_job.out" in sbatch_script
@@ -447,7 +447,7 @@ class TestSlurmBatchRequest:
                 return Path(self.folder) / "log_job.out"
 
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.job_details = CustomJobDetails(
+        dummy_slurm_request.executor.job_details = CustomJobDetails(
             job_name="custom_sample_job", folder="/custom_folder"
         )
         sbatch_script = dummy_slurm_request.materialize()
@@ -460,8 +460,8 @@ class TestSlurmBatchRequest:
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.get_launcher().nsys_profile = True
-        launcher_prefix = dummy_slurm_request.slurm_config.get_launcher_prefix()
+        dummy_slurm_request.executor.get_launcher().nsys_profile = True
+        launcher_prefix = dummy_slurm_request.executor.get_launcher_prefix()
         assert launcher_prefix == [
             "profile",
             "-s",
@@ -482,8 +482,8 @@ class TestSlurmBatchRequest:
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.cpus_per_gpu = 10
-        dummy_slurm_request.slurm_config.gpus_per_task = None
+        dummy_slurm_request.executor.cpus_per_gpu = 10
+        dummy_slurm_request.executor.gpus_per_task = None
 
         with pytest.warns(match='"cpus_per_gpu" requires to set "gpus_per_task"'):
             dummy_slurm_request.materialize()
@@ -493,7 +493,7 @@ class TestSlurmBatchRequest:
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.array = "0-10"
+        dummy_slurm_request.executor.array = "0-10"
 
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --array=0-10" in sbatch_script
@@ -507,7 +507,7 @@ class TestSlurmBatchRequest:
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.additional_parameters = {"abc": "def"}
+        dummy_slurm_request.executor.additional_parameters = {"abc": "def"}
 
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --abc=def" in sbatch_script
@@ -517,7 +517,7 @@ class TestSlurmBatchRequest:
         dummy_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         dummy_slurm_request, _ = dummy_slurm_request_with_artifact
-        dummy_slurm_request.slurm_config.job_name_prefix = "my-custom-prefix:"
+        dummy_slurm_request.executor.job_name_prefix = "my-custom-prefix:"
 
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --job-name=my-custom-prefix:sample_job" in sbatch_script
@@ -537,7 +537,7 @@ class TestSlurmBatchRequest:
         het_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         het_slurm_request, artifact = het_slurm_request_with_artifact
-        executor = het_slurm_request.slurm_config
+        executor = het_slurm_request.executor
         self.apply_macros(executor)
         sbatch_script = het_slurm_request.materialize()
         expected = Path(artifact).read_text()
@@ -548,7 +548,7 @@ class TestSlurmBatchRequest:
         het_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         het_slurm_request, _ = het_slurm_request_with_artifact
-        het_slurm_request.slurm_config.dependencies = [
+        het_slurm_request.executor.dependencies = [
             "slurm_tunnel://nemo_run/depend1",
             "slurm_tunnel://nemo_run/depend2",
         ]
@@ -560,8 +560,8 @@ class TestSlurmBatchRequest:
         group_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         group_slurm_request, artifact = group_slurm_request_with_artifact
-        executor = group_slurm_request.slurm_config
-        group_slurm_request.slurm_config = SlurmExecutor.merge([executor], num_tasks=2)
+        executor = group_slurm_request.executor
+        group_slurm_request.executor = SlurmExecutor.merge([executor], num_tasks=2)
         self.apply_macros(executor)
         sbatch_script = group_slurm_request.materialize()
         expected = Path(artifact).read_text()
@@ -572,8 +572,8 @@ class TestSlurmBatchRequest:
         group_no_monitor_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         group_slurm_request, artifact = group_no_monitor_slurm_request_with_artifact
-        executor = group_slurm_request.slurm_config
-        group_slurm_request.slurm_config = SlurmExecutor.merge([executor], num_tasks=2)
+        executor = group_slurm_request.executor
+        group_slurm_request.executor = SlurmExecutor.merge([executor], num_tasks=2)
         self.apply_macros(executor)
         sbatch_script = group_slurm_request.materialize()
         expected = Path(artifact).read_text()
@@ -584,8 +584,8 @@ class TestSlurmBatchRequest:
         group_resource_req_slurm_request_with_artifact: tuple[SlurmBatchRequest, str],
     ):
         group_slurm_request, artifact = group_resource_req_slurm_request_with_artifact
-        executor = group_slurm_request.slurm_config
-        group_slurm_request.slurm_config = SlurmExecutor.merge([executor], num_tasks=2)
+        executor = group_slurm_request.executor
+        group_slurm_request.executor = SlurmExecutor.merge([executor], num_tasks=2)
         self.apply_macros(executor)
         sbatch_script = group_slurm_request.materialize()
         expected = Path(artifact).read_text()
@@ -607,15 +607,15 @@ class TestSlurmBatchRequest:
                 return Path(self.folder) / f"log_{self.job_name}.out"
 
         group_resource_req_slurm_request, _ = group_resource_req_slurm_request_with_artifact
-        group_resource_req_slurm_request.slurm_config.job_details = CustomJobDetails(
+        group_resource_req_slurm_request.executor.job_details = CustomJobDetails(
             job_name="custom_sample_job", folder="/custom_folder"
         )
-        group_resource_req_slurm_request.slurm_config.resource_group[0].job_details = copy.deepcopy(
-            group_resource_req_slurm_request.slurm_config.job_details
+        group_resource_req_slurm_request.executor.resource_group[0].job_details = copy.deepcopy(
+            group_resource_req_slurm_request.executor.job_details
         )
-        group_resource_req_slurm_request.slurm_config.resource_group[
-            1
-        ].job_details = CustomJobDetails(job_name="custom_sample_job_2", folder="/custom_folder_2")
+        group_resource_req_slurm_request.executor.resource_group[1].job_details = CustomJobDetails(
+            job_name="custom_sample_job_2", folder="/custom_folder_2"
+        )
 
         sbatch_script = group_resource_req_slurm_request.materialize()
         assert "#SBATCH --job-name=custom_sample_job" in sbatch_script
@@ -637,7 +637,7 @@ class TestSlurmBatchRequest:
         self, ft_het_slurm_request_with_artifact: tuple[SlurmBatchRequest, str]
     ):
         ft_het_slurm_request, artifact = ft_het_slurm_request_with_artifact
-        executor = ft_het_slurm_request.slurm_config
+        executor = ft_het_slurm_request.executor
         self.apply_macros(executor)
         sbatch_script = ft_het_slurm_request.materialize()
         expected = Path(artifact).read_text()
@@ -648,7 +648,7 @@ class TestSlurmBatchRequest:
     def test_het_job_name_prefix(self, het_slurm_request_with_artifact):
         # Set the job_name_prefix to a custom value
         het_request, _ = het_slurm_request_with_artifact
-        het_request.slurm_config.job_name_prefix = "prefix_"
+        het_request.executor.job_name_prefix = "prefix_"
 
         # Materialize the batch request script
         sbatch_script = het_request.materialize()
@@ -676,7 +676,7 @@ class TestSlurmBatchRequest:
                 return Path(self.folder) / "log_job.out"
 
         custom_name = "custom_het_job"
-        het_request.slurm_config.job_details = CustomJobDetails(
+        het_request.executor.job_details = CustomJobDetails(
             job_name=custom_name, folder="/custom_folder"
         )
         sbatch_script = het_request.materialize()

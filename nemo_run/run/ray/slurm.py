@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
 import json
 import logging
 import os
@@ -28,6 +29,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, TypeAlias, Union
 
+from nemo_run.config import RUNDIR_NAME, RUNDIR_SPECIAL_NAME
 from nemo_run.core.execution.slurm import SlurmExecutor, _as_sbatch_flag
 from nemo_run.core.execution.utils import fill_template
 from nemo_run.core.packaging.git import GitArchivePackager
@@ -43,11 +45,14 @@ logger = logging.getLogger(__name__)
 class SlurmRayRequest:
     name: str
     cluster_dir: str
-    template_path: str
+    template_name: str
+    template_dir: Optional[str] = None
     executor: SlurmExecutor
     pre_ray_start_commands: Optional[list[str]] = None
     command: Optional[str] = None
     workdir: Optional[str] = None
+    nemo_run_dir: Optional[str] = None
+    launch_cmd: list[str]
 
     @staticmethod
     def get_job_name(executor: SlurmExecutor, name: str) -> str:
@@ -125,8 +130,19 @@ class SlurmRayRequest:
             else:
                 _srun_flags.append("--gres=gpu:8")
 
-            _srun_flags.append(f"--container-workdir={self.cluster_dir}")
-            _srun_flags += ["--container-mounts", ",".join(mounts)]
+            if self.nemo_run_dir:
+                new_mounts = copy.deepcopy(mounts)
+                for i, mount in enumerate(new_mounts):
+                    if mount.startswith(RUNDIR_SPECIAL_NAME):
+                        new_mounts[i] = mount.replace(RUNDIR_SPECIAL_NAME, self.nemo_run_dir, 1)
+
+                new_mounts.append(f"{self.nemo_run_dir}:/{RUNDIR_NAME}")
+            else:
+                new_mounts = mounts
+
+            _srun_flags += ["--container-mounts", ",".join(new_mounts)]
+            container_workdir = self.workdir or self.cluster_dir
+            _srun_flags.append(f"--container-workdir={container_workdir}")
 
             return " ".join(_srun_flags)
 
@@ -148,7 +164,12 @@ class SlurmRayRequest:
         if self.pre_ray_start_commands:
             vars_to_fill["pre_ray_start_commands"] = "\n".join(self.pre_ray_start_commands)
 
-        sbatch_script = fill_template(self.template_path, vars_to_fill)
+        sbatch_script = fill_template(
+            self.template_name,
+            vars_to_fill,
+            template_dir=self.template_dir
+            or os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates"),
+        )
         return sbatch_script
 
     def __repr__(self) -> str:
@@ -254,13 +275,12 @@ class SlurmRayCluster:
         ray_sbatch = SlurmRayRequest(
             name=name,
             cluster_dir=cluster_dir,
-            template_path=os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "templates", "ray.sub.j2"
-            ),
+            template_name="ray.sub.j2",
             executor=executor,
             pre_ray_start_commands=pre_ray_start_commands,
             command=command,
             workdir=workdir,
+            launch_cmd=["sbatch", "--requeue", "--parsable"],
         ).materialize()
 
         if dryrun:
@@ -321,6 +341,7 @@ class SlurmRayCluster:
         command: str,
         workdir: Optional[str] = None,
         pre_ray_start_commands: Optional[list[str]] = None,
+        runtime_env_yaml: Optional[str] = None,
         dryrun: bool = False,
     ):
         remote_workdir = None

@@ -22,6 +22,8 @@ from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.run.ray.kuberay import KubeRayCluster
 from nemo_run.run.ray.slurm import SlurmRayCluster
 
+USE_WITH_RAY_CLUSTER_KEY = "use_with_ray_cluster"
+
 
 @dataclass(kw_only=True)
 class RayCluster:

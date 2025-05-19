@@ -26,8 +26,10 @@ from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.execution.local import LocalExecutor
+from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
+from nemo_run.run.ray.cluster import USE_WITH_RAY_CLUSTER_KEY
 from nemo_run.run.torchx_backend.components import ft_launcher, torchrun
 
 log: logging.Logger = logging.getLogger(__name__)
@@ -130,10 +132,12 @@ def package(
 
     if isinstance(fn_or_script, Partial):
         role_args, args, m, no_python, script, entrypoint = _get_details_from_partial(fn_or_script)
+        metadata = {}
     else:
         role_args, args, m, no_python, script, entrypoint = _get_details_from_script(
             fn_or_script, serialize_configs=True
         )
+        metadata = fn_or_script.metadata
         env = env | fn_or_script.env
 
     launcher = executor.get_launcher()
@@ -223,6 +227,14 @@ def package(
             role.entrypoint = "nsys"
             role.args = nsys_prefix + role.args
 
+    if metadata:
+        if USE_WITH_RAY_CLUSTER_KEY in metadata:
+            assert isinstance(executor, SlurmExecutor), (
+                f"{USE_WITH_RAY_CLUSTER_KEY} is only supported for SlurmExecutor"
+            )
+            assert len(app_def.roles) == 1, "Only one command is supported for Ray jobs."
+
+    app_def.metadata = metadata
     return app_def
 
 

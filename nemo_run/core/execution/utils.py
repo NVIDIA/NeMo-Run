@@ -25,7 +25,7 @@ def fill_template(template_name: str, variables: dict, template_dir: Optional[st
     template_dir = template_dir or os.path.join(os.path.dirname(__file__), "templates")
     template_path = os.path.join(template_dir, template_name)
     if not os.path.exists(template_path):
-        raise FileNotFoundError(f'Template "{template_name}" does not exist.')
+        raise FileNotFoundError(f'Template "{template_path}" does not exist.')
     with open(template_path, "r", encoding="utf-8") as fin:
         template = fin.read()
 
