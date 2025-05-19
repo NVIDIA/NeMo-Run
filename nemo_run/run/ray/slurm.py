@@ -334,8 +334,6 @@ class SlurmRayCluster:
 
         return job_id
 
-        return None
-
     def schedule_ray_job(
         self,
         name: str,
@@ -413,6 +411,19 @@ class SlurmRayCluster:
             command=command,
             workdir=remote_workdir,
         )
+
+        # Descriptive log for the user with useful paths / identifiers
+        cluster_dir = os.path.join(executor.tunnel.job_dir, name)
+        logger.info(
+            f"""\n\n\033[1;34mRay job submitted to Slurm cluster at {executor.tunnel.key}:\033[0m
+    • \033[1mJob ID\033[0m         : \033[32m{job_id}\033[0m
+    • \033[1mCluster dir\033[0m    : {cluster_dir}
+    • \033[1mLogs directory\033[0m : {os.path.join(cluster_dir, "logs")}
+    • \033[1mSBATCH script\033[0m  : {os.path.join(cluster_dir, "ray.sub")}
+    • \033[1mRemote workdir\033[0m : {remote_workdir}
+    (use `squeue -j {job_id}` to check status, `scancel {job_id}` to cancel)\n"""
+        )
+
         return job_id
 
     def wait_until_ray_cluster_running(
