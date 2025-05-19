@@ -396,6 +396,55 @@ class TestLeptonExecutor:
 
         assert executor.nproc_per_node() == 1
 
+    def test_valid_storage_mounts(self):
+        executor = LeptonExecutor(
+            container_image="nvcr.io/nvidia/test:latest",
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+        )
+
+        assert executor._validate_mounts() is None
+
+    def test_valid_storage_mounts_with_mount_from(self):
+        executor = LeptonExecutor(
+            container_image="nvcr.io/nvidia/test:latest",
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[
+                {"path": "/workspace", "mount_path": "/workspace", "from": "local-storage:nfs"}
+            ],
+        )
+
+        assert executor._validate_mounts() is None
+
+    def test_missing_storage_mount_options(self):
+        executor = LeptonExecutor(
+            container_image="nvcr.io/nvidia/test:latest",
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace"}],
+        )
+
+        with pytest.raises(RuntimeError):
+            executor._validate_mounts()
+
+    def test_missing_storage_mount_options_mount_path(self):
+        executor = LeptonExecutor(
+            container_image="nvcr.io/nvidia/test:latest",
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"mount_path": "/workspace"}],
+        )
+
+        with pytest.raises(RuntimeError):
+            executor._validate_mounts()
+
+    def test_valid_storage_mounts_with_random_args(self):
+        executor = LeptonExecutor(
+            container_image="nvcr.io/nvidia/test:latest",
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace", "random": True}],
+        )
+
+        assert executor._validate_mounts() is None
+
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_status_running_and_ready(self, mock_APIClient):
         mock_instance = MagicMock()
