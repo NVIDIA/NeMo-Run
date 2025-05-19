@@ -900,7 +900,7 @@ class SlurmBatchRequest:
 
         # commandline (this will run the function and args specified in the file provided as argument)
         # We pass --output and --error here, because the SBATCH command doesn't work as expected with a filename pattern
-        stderr_flags = [] if self.executor.stderr_to_stdout else ["--error", stderr]
+        # Removed redundant assignment to stderr_flags
 
         srun_commands = []
         group_env_vars = []
