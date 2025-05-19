@@ -17,6 +17,7 @@ import os
 from typing import Optional
 
 import jinja2
+from jinja2 import select_autoescape
 
 
 def fill_template(template_name: str, variables: dict, template_dir: Optional[str] = None) -> str:
@@ -29,8 +30,9 @@ def fill_template(template_name: str, variables: dict, template_dir: Optional[st
     with open(template_path, "r", encoding="utf-8") as fin:
         template = fin.read()
 
-    j2_template = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir)).from_string(
-        template
-    )
+    j2_template = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(template_dir),
+        autoescape=select_autoescape(['html', 'xml'])
+    ).from_string(template)
     content = j2_template.render(**variables)
     return content
