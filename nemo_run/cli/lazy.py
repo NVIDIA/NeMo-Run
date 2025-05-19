@@ -721,7 +721,10 @@ def _args_to_dictconfig(args: list[tuple[str, str, Any]]) -> DictConfig:
             if part not in current:
                 current[part] = {}
             elif not isinstance(current[part], dict):
-                current[part] = {}  # Convert to dict if it wasn't already
+                if isinstance(current[part], str):
+                    current[part] = {"_factory_": current[part]}
+                else:
+                    current[part] = {}  # Convert to dict if it wasn't already
             current = current[part]
 
         # Add the operator suffix if it's not a simple assignment
