@@ -632,6 +632,13 @@ def my_model(hidden_size: int = 256, num_layers: int = 3, activation: str = "rel
 
 
 @run.cli.factory
+@run.autoconvert
+def my_other_model(hidden_size: int = 512, num_layers: int = 3, activation: str = "relu") -> Model:
+    """Create a model configuration."""
+    return Model(hidden_size=hidden_size, num_layers=num_layers, activation=activation)
+
+
+@run.cli.factory
 def my_optimizer(
     learning_rate: float = 0.001, weight_decay: float = 1e-5, betas: List[float] = [0.9, 0.999]
 ) -> run.Config[Optimizer]:
@@ -879,6 +886,26 @@ class TestEntrypointRunner:
     class SomeObject:
         value_1: int
         value_2: int
+
+    def test_with_factory_and_overwrite(self, runner, app):
+        # Test CLI execution with factory and parameter overwrite
+        result = runner.invoke(
+            app,
+            [
+                "my_llm",
+                "train_model",
+                "model=my_other_model",
+                "model.num_layers=10",
+                "--yes",
+            ],
+            env={"INCLUDE_WORKSPACE_FILE": "false"},
+        )
+        assert result.exit_code == 0
+
+        output = result.stdout
+        assert "Training model with the following configuration:" in output
+        # Check that my_model_2's default hidden_size (512) is used
+        assert "Model: Model(hidden_size=512, num_layers=10, activation='relu')" in output
 
 
 class TestDefaultFactory:
