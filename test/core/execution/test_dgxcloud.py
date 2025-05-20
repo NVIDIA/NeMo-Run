@@ -334,7 +334,7 @@ class TestDGXCloudExecutor:
         mock_status.assert_called()
 
     @patch("requests.post")
-    def test_create_distributed_job(self, mock_post):
+    def test_create_training_job(self, mock_post):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.text = '{"status": "submitted"}'
@@ -354,7 +354,7 @@ class TestDGXCloudExecutor:
         executor.pvc_job_dir = "/workspace/nemo_run/job_dir"
         executor.env_vars = {"TEST_VAR": "test_value"}
 
-        response = executor.create_distributed_job(
+        response = executor.create_training_job(
             token="test_token",
             project_id="proj_id",
             cluster_id="cluster_id",
@@ -385,7 +385,7 @@ class TestDGXCloudExecutor:
     @patch.object(DGXCloudExecutor, "get_auth_token")
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
     @patch.object(DGXCloudExecutor, "move_data")
-    @patch.object(DGXCloudExecutor, "create_distributed_job")
+    @patch.object(DGXCloudExecutor, "create_training_job")
     def test_launch_success(self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token):
         mock_get_token.return_value = "test_token"
         mock_get_ids.return_value = ("proj_id", "cluster_id")
@@ -455,7 +455,7 @@ class TestDGXCloudExecutor:
     @patch.object(DGXCloudExecutor, "get_auth_token")
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
     @patch.object(DGXCloudExecutor, "move_data")
-    @patch.object(DGXCloudExecutor, "create_distributed_job")
+    @patch.object(DGXCloudExecutor, "create_training_job")
     def test_launch_job_creation_failed(
         self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token
     ):

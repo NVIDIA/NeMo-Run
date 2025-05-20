@@ -202,41 +202,80 @@ class DGXCloudExecutor(Executor):
                 resp.text,
             )
 
-    def create_distributed_job(self, token: str, project_id: str, cluster_id: str, name: str):
+    def create_training_job(self, token: str, project_id: str, cluster_id: str, name: str) -> requests.Response:
         """
-        Creates a distributed PyTorch job using the provided project/cluster IDs.
+        Creates a training job on DGX Cloud using the provided project/cluster IDs.
+        For multi-node jobs, creates a distributed workload. Otherwise creates a single-node training.
+
+        Args:
+            token: Authentication token for DGX Cloud API
+            project_id: ID of the project to create the job in
+            cluster_id: ID of the cluster to create the job on
+            name: Name for the job
+
+        Returns:
+            Response object from the API request
         """
+        # Validate inputs
+        if not token or not project_id or not cluster_id:
+            raise ValueError("Token, project ID, and cluster ID are required")
 
-        url = f"{self.base_url}/workloads/distributed"
-        headers = self._default_headers(token=token)
+        if self.nodes < 1:
+            raise ValueError("Node count must be at least 1")
 
-        payload = {
+        # Common payload elements
+        common_payload = {
             "name": name,
             "useGivenNameAsPrefix": True,
             "projectId": project_id,
             "clusterId": cluster_id,
-            "spec": {
-                "command": f"/bin/bash {self.pvc_job_dir}/launch_script.sh",
-                "image": self.container_image,
+        }
+
+        # Common spec elements
+        common_spec = {
+            "command": f"/bin/bash {self.pvc_job_dir}/launch_script.sh",
+            "image": self.container_image,
+            "compute": {"gpuDevicesRequest": self.gpus_per_node},
+            "storage": {"pvc": self.pvcs},
+            "environmentVariables": [
+                {"name": key, "value": value} for key, value in self.env_vars.items()
+            ],
+            **self.custom_spec,
+        }
+
+        # Determine endpoint and build payload based on node count
+        if self.nodes > 1:
+            url = f"{self.base_url}/workloads/distributed"
+
+            # Add distributed-specific parameters
+            distributed_spec = {
                 "distributedFramework": self.distributed_framework,
                 "minReplicas": self.nodes,
                 "maxReplicas": self.nodes,
                 "numWorkers": self.nodes,
-                "compute": {"gpuDevicesRequest": self.gpus_per_node},
-                "storage": {"pvc": self.pvcs},
-                "environmentVariables": [
-                    {"name": key, "value": value} for key, value in self.env_vars.items()
-                ],
-                **self.custom_spec,
-            },
-        }
+            }
 
+            payload = {
+                **common_payload,
+                "spec": {**common_spec, **distributed_spec}
+            }
+        else:
+            url = f"{self.base_url}/workloads/trainings"
+            payload = {
+                **common_payload,
+                "spec": common_spec
+            }
+
+        headers = self._default_headers(token=token)
         response = requests.post(url, json=payload, headers=headers)
+
         logger.debug(
-            "Created distributed job; response code=%s, content=%s",
+            "Created %s job; response code=%s, content=%s",
+            "distributed" if self.nodes > 1 else "training",
             response.status_code,
             response.text.strip(),
         )
+
         return response
 
     def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
@@ -262,8 +301,8 @@ cd /nemo_run/code
             logger.info("Creating data movement workload")
             self.move_data(token, project_id, cluster_id)
 
-        logger.info("Creating distributed workload")
-        resp = self.create_distributed_job(token, project_id, cluster_id, name)
+        logger.info("Creating training workload")
+        resp = self.create_training_job(token, project_id, cluster_id, name)
         if resp.status_code not in [200, 202]:
             raise RuntimeError(f"Failed to create job, status_code={resp.status_code}")
 
