@@ -8,3 +8,4 @@ Guides
    execution
    management
    why-use-nemo-run
+   ray

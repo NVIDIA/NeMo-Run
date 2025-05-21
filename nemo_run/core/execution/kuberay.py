@@ -16,9 +16,16 @@
 
 import copy
 import logging
+import os
 import re
+import subprocess
+import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+
+from kubernetes import client, watch
+from kubernetes.client import CoreV1Api
+from kubernetes.client.rest import ApiException
 
 from nemo_run.core.execution.base import Executor
 
@@ -82,6 +89,7 @@ class KubeRayExecutor(Executor):
     volumes: list[dict[str, Any]] = field(default_factory=list)
     reuse_volumes_in_worker_groups: bool = True
     spec_kwargs: dict[str, Any] = field(default_factory=dict)
+    container_kwargs: dict[str, Any] = field(default_factory=dict)
     lifecycle_kwargs: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -116,10 +124,12 @@ class KubeRayExecutor(Executor):
             memory_limits=self.head_memory,
             ray_start_params=self.ray_start_params,
             head_ports=self.head_ports,
+            env_vars=self.env_vars,
             volumes=self.volumes,
             volume_mounts=self.volume_mounts,
             spec_kwargs=self.spec_kwargs,
             lifecycle_kwargs=self.lifecycle_kwargs,
+            container_kwargs=self.container_kwargs,
         )
         for worker_group in self.worker_groups:
             cluster = populate_worker_group(
@@ -141,6 +151,8 @@ class KubeRayExecutor(Executor):
                 annotations=worker_group.annotations,
                 spec_kwargs=self.spec_kwargs,
                 lifecycle_kwargs=self.lifecycle_kwargs,
+                container_kwargs=self.container_kwargs,
+                env_vars=self.env_vars,
             )
         return cluster
 
@@ -183,15 +195,17 @@ def populate_ray_head(
     memory_limits: str,
     ray_start_params: dict,
     head_ports: list[dict[str, Any]],
+    env_vars: dict[str, str],
     volume_mounts: list[dict[str, Any]],
     volumes: list[dict[str, Any]],
     spec_kwargs: dict[str, Any],
     lifecycle_kwargs: dict[str, Any],
+    container_kwargs: dict[str, Any],
 ) -> dict[str, Any]:
     # make sure metadata exists
     if "spec" in cluster.keys():
         if "headGroupSpec" not in cluster.keys():
-            logger.info(f"setting the headGroupSpec for cluster {cluster['metadata']['name']}")
+            logger.debug(f"setting the headGroupSpec for cluster {cluster['metadata']['name']}")
             cluster["spec"]["headGroupSpec"] = []
     else:
         logger.error("error creating ray head, the spec and/or metadata is not define")
@@ -211,6 +225,7 @@ def populate_ray_head(
                         "image": ray_image,
                         "name": "ray-head",
                         "ports": head_ports,
+                        "env": [{"name": k, "value": v} for k, v in env_vars.items()],
                         "lifecycle": {
                             "preStop": {"exec": {"command": ["/bin/sh", "-c", "ray stop"]}},
                             **lifecycle_kwargs,
@@ -223,6 +238,7 @@ def populate_ray_head(
                             "limits": {"cpu": cpu_limits, "memory": memory_limits},
                         },
                         "volumeMounts": volume_mounts,
+                        **container_kwargs,
                     }
                 ],
                 "volumes": volumes,
@@ -253,6 +269,8 @@ def populate_worker_group(
     annotations: dict[str, Any],
     spec_kwargs: dict[str, Any],
     lifecycle_kwargs: dict[str, Any],
+    container_kwargs: dict[str, Any],
+    env_vars: dict[str, str],
 ) -> dict[str, Any]:
     assert is_valid_name(group_name)
     assert max_replicas >= min_replicas
@@ -286,16 +304,18 @@ def populate_worker_group(
                 "containers": [
                     {
                         "image": ray_image,
+                        "name": "ray-worker",
+                        "env": [{"name": k, "value": v} for k, v in env_vars.items()],
                         "lifecycle": {
                             "preStop": {"exec": {"command": ["/bin/sh", "-c", "ray stop"]}},
                             **lifecycle_kwargs,
                         },
-                        "name": "ray-worker",
                         "resources": {
                             "requests": resource_requests,
                             "limits": resource_limits,
                         },
                         "volumeMounts": volume_mounts,
+                        **container_kwargs,
                     }
                 ],
                 "volumes": volumes,
@@ -435,3 +455,142 @@ def is_valid_label(name: str) -> bool:
         logger.error(msg)
         return False
     return True
+
+
+def sync_workdir_via_pod(
+    *,
+    name: str,
+    namespace: str,
+    workdir: str,
+    core_v1_api: CoreV1Api,
+    volumes: List[dict[str, object]],
+    volume_mounts: List[dict[str, object]],
+    workspace_path: str = "/workspace",
+    image: str = "alpine:3.19",
+    cleanup: bool = False,
+    cleanup_timeout: int = 5,
+) -> None:
+    """Spin up a throw-away Pod that mounts the same volumes as the Ray
+    cluster and streams *workdir* into *workspace_path* inside the mount.
+
+    The function blocks until the copy is complete and the Pod is removed.
+    Requires that the *kubectl* binary is available in PATH and can access
+    the same cluster context as the Kubernetes Python client.
+    """
+
+    pod_name = f"{name}-dm"
+
+    # Pod manifest
+    pod_body = client.V1Pod(
+        metadata=client.V1ObjectMeta(name=pod_name, namespace=namespace),
+        spec=client.V1PodSpec(
+            restart_policy="Never",
+            containers=[
+                client.V1Container(
+                    name="mover",
+                    image=image,
+                    command=["sh", "-c", "sleep infinity"],
+                    volume_mounts=volume_mounts,
+                    lifecycle={
+                        "postStart": {
+                            "exec": {
+                                "command": [
+                                    "sh",
+                                    "-c",
+                                    # Install rsync on first container start if missing (Alpine)
+                                    "command -v rsync >/dev/null 2>&1 || apk add --no-cache rsync",
+                                ]
+                            }
+                        }
+                    },
+                )
+            ],
+            volumes=volumes,
+        ),
+    )
+
+    # Create Pod (idempotent – reuse if already exists)
+    logger.info(
+        f"Creating data-mover pod '{pod_name}' in namespace '{namespace}' (or re-using if present)"
+    )
+    try:
+        core_v1_api.create_namespaced_pod(namespace=namespace, body=pod_body)
+    except ApiException as e:
+        if e.status == 409:  # AlreadyExists
+            logger.info(f"Data-mover pod '{pod_name}' already exists – will reuse it")
+        else:
+            raise
+
+    # Wait until pod is Running
+    w = watch.Watch()
+    for event in w.stream(
+        core_v1_api.list_namespaced_pod,
+        namespace=namespace,
+        field_selector=f"metadata.name={pod_name}",
+        timeout_seconds=120,
+    ):
+        pod_obj: client.V1Pod = event.get("object")  # type: ignore[assignment]
+        phase = pod_obj.status.phase if pod_obj.status else None
+        if phase == "Running":
+            w.stop()
+            break
+    else:
+        raise RuntimeError("Data-mover pod did not reach Running state in time")
+
+    # Ensure workspace dir exists
+    subprocess.check_call(
+        [
+            "kubectl",
+            "exec",
+            "-n",
+            namespace,
+            pod_name,
+            "--",
+            "mkdir",
+            "-p",
+            workspace_path,
+        ]
+    )
+
+    # Use rsync over kubectl exec
+    rsync_cmd: list[str] = [
+        "rsync",
+        "-az",
+        "--delete",
+    ]
+
+    # Respect .gitignore rules if present in the workdir
+    if os.path.isfile(os.path.join(workdir, ".gitignore")):
+        rsync_cmd.extend(["--filter=:- .gitignore"])
+
+    # Tell rsync to reach the remote side via kubectl exec
+    rsync_cmd.extend(
+        [
+            "-e",
+            f"kubectl exec -i -n {namespace} {pod_name}",
+            "--",  # Marks end-of-options for rsync – mandatory when the dest starts with "--:"
+            f"{os.path.abspath(workdir).rstrip(os.sep)}/",
+            f"--:{workspace_path.rstrip('/')}/",
+        ]
+    )
+
+    # Emit the full command for easier troubleshooting
+    logger.debug("Running rsync command: %s", " ".join(rsync_cmd))
+
+    subprocess.check_call(rsync_cmd)
+
+    if cleanup:
+        logger.info("Workdir synced to PVC via data-mover pod. Cleaning up…")
+        core_v1_api.delete_namespaced_pod(
+            name=pod_name, namespace=namespace, body=client.V1DeleteOptions()
+        )
+
+        # Wait for termination
+        timeout = time.time() + cleanup_timeout
+        while time.time() < timeout:
+            try:
+                core_v1_api.read_namespaced_pod(name=pod_name, namespace=namespace)
+            except ApiException as e:
+                if e.status == 404:
+                    break
+            time.sleep(2)

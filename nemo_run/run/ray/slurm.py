@@ -27,7 +27,7 @@ import time
 import warnings
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, TypeAlias, Union
+from typing import Any, Optional, TypeAlias
 
 from nemo_run.config import RUNDIR_NAME, RUNDIR_SPECIAL_NAME
 from nemo_run.core.execution.slurm import SlurmExecutor, _as_sbatch_flag
@@ -39,6 +39,71 @@ from nemo_run.core.tunnel.rsync import rsync
 noquote: TypeAlias = str
 
 logger = logging.getLogger(__name__)
+
+# -----------------------------------------------------------------------------
+# Shared helper: cancel a Slurm job (used by SlurmRayCluster & SlurmRayJob)
+# -----------------------------------------------------------------------------
+
+
+def cancel_slurm_job(
+    executor: SlurmExecutor,
+    name: str,
+    job_id: int | str,
+    *,
+    wait: bool = False,
+    timeout: int = 60,
+    poll_interval: int = 5,
+) -> bool:
+    """Cancel a Slurm *job_id* and optionally wait until it terminates."""
+
+    executor.tunnel.connect()
+    logger.info(f"Cancelling Slurm job {job_id} for '{name}'")
+
+    try:
+        executor.tunnel.run(f"scancel {job_id}")
+    except Exception as e:
+        logger.error(f"Failed to cancel job {job_id} for '{name}': {e}")
+        return False
+
+    if not wait:
+        return True
+
+    start_ts = time.time()
+    while time.time() - start_ts < timeout:
+        res = executor.tunnel.run(f"squeue -j {job_id} -h -o %T", warn=True)
+        state = res.stdout.strip()
+
+        if not state:
+            logger.info(f"Job {job_id} for '{name}' successfully cancelled")
+            return True
+
+        if state in {"FAILED", "CANCELLED", "TIMEOUT", "COMPLETED"}:
+            logger.info(f"Job {job_id} for '{name}' now in terminal state {state}")
+            return True
+
+        logger.debug(f"Waiting for job {job_id} ('{name}') to terminate…")
+        time.sleep(poll_interval)
+
+    logger.warning(f"Timed-out waiting for job {job_id} ('{name}') to cancel")
+    return False
+
+
+def get_last_job_id(cluster_dir: str, executor: SlurmExecutor) -> Optional[int]:
+    """Return the last job ID for this cluster."""
+    job_ids_file = os.path.join(cluster_dir, "job_ids.json")
+    if isinstance(executor.tunnel, SSHTunnel):
+        job_ids_result = executor.tunnel.run(f"cat {job_ids_file}", warn=True)
+        if job_ids_result.return_code == 0:
+            job_ids = json.loads(job_ids_result.stdout)
+            return int(job_ids[-1])
+        else:
+            return None
+    else:
+        if not os.path.exists(job_ids_file):
+            return None
+        with open(job_ids_file, "r") as f:
+            job_ids = json.load(f)
+        return int(job_ids[-1])
 
 
 @dataclass(kw_only=True)
@@ -183,13 +248,26 @@ class SlurmRayRequest:
 {self.materialize()}"""
 
 
+@dataclass(kw_only=True)
 class SlurmRayCluster:
     EXECUTOR_CLS = SlurmExecutor
 
-    def __init__(self):
-        self.cluster_map = {}
+    name: str
+    executor: SlurmExecutor
 
-    def _get_ray_cluster_info(self, name: str, executor: SlurmExecutor) -> Dict[str, Any]:
+    def __post_init__(self):
+        self.cluster_map: dict[str, str] = {}
+
+    def _get_ray_cluster_info(
+        self,
+        name: Optional[str] = None,
+        executor: Optional[SlurmExecutor] = None,
+    ) -> dict[str, Any]:
+        # Private helper – intentionally undocumented (no public docstring)
+
+        name = name or self.name
+        executor = executor or self.executor
+
         executor.tunnel.connect()
         cluster_dir = os.path.join(executor.tunnel.job_dir, name)
         cmd = f"test -f {cluster_dir}/ray_cluster_info.json && cat {cluster_dir}/ray_cluster_info.json"
@@ -203,12 +281,12 @@ class SlurmRayCluster:
                 return {}
         return {}
 
-    def get_ray_cluster_status(
+    def _status(
         self,
-        name: str,
-        executor: SlurmExecutor,
-    ) -> Dict[str, Union[str, bool, None]]:
-        logger.info(f"Getting Ray cluster status for '{name}'")
+    ) -> dict[str, str | bool | None]:
+        name = self.name
+        executor = self.executor
+        logger.debug(f"Getting Ray cluster status for '{name}'")
         executor.tunnel.connect()
 
         # Try to find the job by name
@@ -220,38 +298,29 @@ class SlurmRayCluster:
         job_id = result.stdout.strip()
 
         # If job not found in running jobs, check if it's in cluster_map
-        if not job_id and name in self.cluster_map:
-            job_id = self.cluster_map[name]
-            # Verify this job_id exists
-            cmd = f"squeue -j {job_id} -h -o %A"
-            result = executor.tunnel.run(cmd)
-            if not result.stdout.strip():
-                # Job might be completed, check sacct
-                cmd = f"sacct -j {job_id} --format=State --noheader --parsable2"
-                result = executor.tunnel.run(cmd)
-                if result.stdout.strip():
-                    state = result.stdout.strip().split("\n")[0]
-                    return {"state": state, "job_id": job_id, "ray_ready": state == "COMPLETED"}
-                # Job not found in sacct either, so it doesn't exist
-                return {"state": "NOT_FOUND", "job_id": None, "ray_ready": False}
+        if not job_id:
+            if name in self.cluster_map:
+                job_id = self.cluster_map[name]
+            else:
+                job_id = get_last_job_id(os.path.join(executor.tunnel.job_dir, name), executor)
 
         if not job_id:
             return {"state": "NOT_FOUND", "job_id": None, "ray_ready": False}
 
         # Store job_id in cluster_map for future reference
-        self.cluster_map[name] = job_id
+        self.cluster_map[name] = str(job_id)
 
         # Check job status
         cmd = f"squeue -j {job_id} -h -o %T"
-        result = executor.tunnel.run(cmd)
+        result = executor.tunnel.run(cmd, warn=True)
 
-        if not result.stdout.strip():
+        if result.return_code != 0 or not result.stdout.strip():
             # Job not found in squeue, check sacct
             cmd = f"sacct -j {job_id} --format=State --noheader --parsable2"
             result = executor.tunnel.run(cmd)
             status = result.stdout.strip().split("\n")[0] if result.stdout.strip() else "UNKNOWN"
 
-            return {"state": status, "job_id": job_id, "ray_ready": status == "COMPLETED"}
+            return {"state": status, "job_id": str(job_id), "ray_ready": status == "COMPLETED"}
 
         status = result.stdout.strip()
 
@@ -262,17 +331,74 @@ class SlurmRayCluster:
             if ray_cluster_info:
                 ray_ready = True
 
-        return {"state": status, "job_id": job_id, "ray_ready": ray_ready}
+        return {"state": status, "job_id": str(job_id), "ray_ready": ray_ready}
 
-    def create_ray_cluster(
+    def status(
         self,
-        name: str,
-        executor: SlurmExecutor,
+        *,
+        display: bool = False,
+    ) -> dict[str, Any]:
+        """Return the current Slurm and Ray status for this cluster.
+
+        Parameters
+        ----------
+        display : bool, optional
+            When *True* print a pretty, colourised summary to the logger.  Defaults to *False*.
+
+        Returns
+        -------
+        dict[str, Any]
+            Mapping with keys ``state`` (str), ``job_id`` (str | None) and ``ray_ready`` (bool).
+        """
+        status_dict = self._status()
+        if display:
+            cluster_dir = os.path.join(self.executor.tunnel.job_dir, self.name)
+            logs_dir = os.path.join(cluster_dir, "logs")
+            logger.info(
+                f"""\n\n\033[1;34mRay cluster status (Slurm) at {self.executor.tunnel.key}:\033[0m
+        • \033[1mName\033[0m       : {self.name}
+        • \033[1mJob ID\033[0m     : {status_dict.get("job_id")}
+        • \033[1mState\033[0m      : {status_dict.get("state")}
+        • \033[1mRay ready\033[0m  : {status_dict.get("ray_ready")}
+        • \033[1mCluster dir\033[0m: {cluster_dir}
+        • \033[1mLogs dir\033[0m   : {logs_dir}
+        (use `squeue -j {status_dict.get("job_id")}` to check status, `scancel {status_dict.get("job_id")}` to cancel)\n"""
+            )
+
+        return status_dict
+
+    def create(
+        self,
         pre_ray_start_commands: Optional[list[str]] = None,
         dryrun: bool = False,
         command: Optional[str] = None,
         workdir: Optional[str] = None,
     ) -> Any:
+        """Create (or reuse) a Slurm-backed Ray cluster and return its job-id.
+
+        If an active cluster with the same *name* already exists, that cluster is reused and
+        *None* is returned. With *dryrun=True* the generated SBATCH script is printed instead of
+        being submitted.
+
+        Parameters
+        ----------
+        pre_ray_start_commands : list[str] | None
+            Shell commands to run on each node *before* Ray is started.
+        dryrun : bool, optional
+            When *True* do **not** submit the job – only print the SBATCH script. Defaults to
+            *False*.
+        command : str | None
+            Optional command executed after the Ray head node is ready (e.g. ``ray job submit``).
+        workdir : str | None
+            Remote working directory that becomes the CWD inside the container.
+
+        Returns
+        -------
+        str | None
+            The Slurm job-id string, or *None* for dry-run / reuse cases.
+        """
+        name = self.name
+        executor = self.executor
         cluster_dir = os.path.join(executor.tunnel.job_dir, name)
         ray_sbatch = SlurmRayRequest(
             name=name,
@@ -286,19 +412,19 @@ class SlurmRayCluster:
         ).materialize()
 
         if dryrun:
-            logger.info(f"Dry run: Ray cluster '{name}'")
+            logger.debug(f"Dry run: Ray cluster '{name}'")
             print(ray_sbatch)
-            return
+            return None
 
         logger.info(f"Creating Ray cluster '{name}'")
         # Check if a cluster with this name already exists
-        status = self.get_ray_cluster_status(name, executor)
+        status = self.status()
 
         if status["job_id"] is not None:
             job_state = status["state"]
             if job_state in ["PENDING", "RUNNING", "CONFIGURING"]:
-                logger.info(
-                    f"Ray cluster '{name}' already exists with job ID {status['job_id']} "
+                logger.debug(
+                    f"Ray cluster '{name}' already exists with ID {status['job_id']} "
                     f"and is currently in {job_state} state. "
                     f"Skipping creation."
                 )
@@ -312,7 +438,7 @@ class SlurmRayCluster:
                 "NOT_FOUND",
             ]:
                 logger.warning(
-                    f"Ray cluster '{name}' exists with job ID {status['job_id']} "
+                    f"Ray cluster '{name}' exists with ID {status['job_id']} "
                     f"in state {job_state}. Creating new cluster anyway."
                 )
 
@@ -332,113 +458,25 @@ class SlurmRayCluster:
         # Store job_id in cluster_map
         self.cluster_map[name] = job_id
 
-        logger.info(f"Slurm job for Ray cluster '{name}' created with job ID {job_id}")
+        logger.info(f"Slurm job for Ray cluster '{name}' created with ID {job_id}")
 
         return job_id
 
-    def schedule_ray_job(
+    def wait_until_running(
         self,
-        name: str,
-        executor: SlurmExecutor,
-        command: str,
-        workdir: Optional[str] = None,
-        pre_ray_start_commands: Optional[list[str]] = None,
-        runtime_env_yaml: Optional[str] = None,
-        dryrun: bool = False,
-    ):
-        remote_workdir = None
-        if workdir:
-            if isinstance(executor.tunnel, SSHTunnel):
-                # Rsync workdir honoring .gitignore
-                remote_workdir = os.path.join(executor.tunnel.job_dir, name, "code")
-                if not dryrun:
-                    executor.tunnel.connect()
-                    assert executor.tunnel.session is not None, "Tunnel session is not connected"
-                    rsync(
-                        executor.tunnel.session,
-                        workdir,
-                        remote_workdir,
-                        rsync_opts="--filter=':- .gitignore'",
-                    )
-            else:
-                remote_workdir = workdir
-        elif executor.packager:
-            if not dryrun:
-                if isinstance(executor.tunnel, SSHTunnel):
-                    package_dir_ref = tempfile.TemporaryDirectory()
-                    package_dir = package_dir_ref.name
-                else:
-                    package_dir_ref = None
-                    package_dir = os.path.join(executor.tunnel.job_dir, name)
-
-                if isinstance(executor.packager, GitArchivePackager):
-                    output = subprocess.run(
-                        ["git", "rev-parse", "--show-toplevel"],
-                        check=True,
-                        stdout=subprocess.PIPE,
-                    )
-                    path = output.stdout.splitlines()[0].decode()
-                    base_path = Path(path).absolute()
-                else:
-                    base_path = Path(os.getcwd()).absolute()
-
-                local_tar_file = executor.packager.package(base_path, package_dir, name)
-                local_code_extraction_path = os.path.join(package_dir, "code")
-                os.makedirs(local_code_extraction_path, exist_ok=True)
-                subprocess.run(
-                    f"tar -xvzf {local_tar_file} -C {local_code_extraction_path} --ignore-zeros",
-                    shell=True,
-                    check=True,
-                )
-
-                if isinstance(executor.tunnel, SSHTunnel):
-                    remote_workdir = os.path.join(executor.tunnel.job_dir, name, "code")
-                    executor.tunnel.connect()
-                    assert executor.tunnel.session is not None, "Tunnel session is not connected"
-                    rsync(
-                        executor.tunnel.session,
-                        os.path.join(local_code_extraction_path, ""),
-                        remote_workdir,
-                        rsync_opts="--filter=':- .gitignore'",
-                    )
-                else:
-                    remote_workdir = local_code_extraction_path
-
-        assert remote_workdir is not None, "workdir is not set"
-        job_id = self.create_ray_cluster(
-            name,
-            executor,
-            pre_ray_start_commands=pre_ray_start_commands,
-            dryrun=dryrun,
-            command=command,
-            workdir=remote_workdir,
-        )
-
-        # Descriptive log for the user with useful paths / identifiers
-        cluster_dir = os.path.join(executor.tunnel.job_dir, name)
-        logger.info(
-            f"""\n\n\033[1;34mRay job submitted to Slurm cluster at {executor.tunnel.key}:\033[0m
-    • \033[1mJob ID\033[0m         : \033[32m{job_id}\033[0m
-    • \033[1mCluster dir\033[0m    : {cluster_dir}
-    • \033[1mLogs directory\033[0m : {os.path.join(cluster_dir, "logs")}
-    • \033[1mSBATCH script\033[0m  : {os.path.join(cluster_dir, "ray.sub")}
-    • \033[1mRemote workdir\033[0m : {remote_workdir}
-    (use `squeue -j {job_id}` to check status, `scancel {job_id}` to cancel)\n"""
-        )
-
-        return job_id
-
-    def wait_until_ray_cluster_running(
-        self,
-        name: str,
-        executor: SlurmExecutor,
         timeout: int = 600,
         delay_between_attempts: int = 30,
     ) -> bool:
+        """Block until the Ray head reports *ready* or the timeout expires.
+
+        Returns *True* when the cluster reaches the ``RUNNING`` + ``ray_ready`` state, otherwise
+        *False*.
+        """
+        name = self.name
         logger.info(f"Waiting until Ray cluster '{name}' is running")
         start_time = time.time()
         while time.time() - start_time < timeout:
-            status = self.get_ray_cluster_status(name, executor)
+            status = self.status()
 
             if status["ray_ready"]:
                 logger.info(f"Ray cluster '{name}' is ready.")
@@ -449,22 +487,38 @@ class SlurmRayCluster:
                 logger.error(f"Ray cluster '{name}' failed to start. Job state: {status['state']}")
                 return False
 
-            logger.info(f"Ray cluster '{name}' is not ready, waiting for it to be ready...")
+            logger.debug(f"Ray cluster '{name}' is not ready, waiting for it to be ready...")
             time.sleep(delay_between_attempts)
 
-        logger.info(f"Ray cluster '{name}' is not ready after {timeout} seconds")
+        logger.debug(f"Ray cluster '{name}' is not ready after {timeout} seconds")
         return False
 
-    def delete_ray_cluster(
+    def delete(
         self,
-        name: str,
-        executor: SlurmExecutor,
         wait: bool = False,
         timeout: int = 60,
         poll_interval: int = 5,
     ) -> bool:
-        logger.info(f"Deleting Ray cluster '{name}'")
-        status = self.get_ray_cluster_status(name, executor)
+        """Terminate the Slurm job backing this Ray cluster.
+
+        Parameters
+        ----------
+        wait : bool, optional
+            If *True* block until the job leaves the queue (or *timeout* elapses).
+        timeout : int, optional
+            Maximum seconds to wait when *wait* is *True*. Defaults to *60*.
+        poll_interval : int, optional
+            Seconds between successive ``squeue`` polls. Defaults to *5*.
+
+        Returns
+        -------
+        bool
+            *True* if the job was successfully cancelled (or already gone), *False* otherwise.
+        """
+        name = self.name
+        executor = self.executor
+        logger.debug(f"Deleting Ray cluster '{name}'")
+        status = self.status()
 
         if status["job_id"] is None:
             logger.warning(f"Ray cluster '{name}' does not exist or is already deleted")
@@ -477,64 +531,30 @@ class SlurmRayCluster:
             state in status["state"]  # type: ignore
             for state in ["COMPLETED", "FAILED", "CANCELLED", "TIMEOUT", "NOT_FOUND"]
         ):
-            logger.info(f"Ray cluster '{name}' job {job_id} is already in state {status['state']}")
+            logger.debug(f"Ray cluster '{name}' {job_id} is already in state {status['state']}")
             # Remove from cluster_map
             if name in self.cluster_map:
                 del self.cluster_map[name]
             return True
-        # Cancel the job
-        executor.tunnel.connect()
-        cmd = f"scancel {job_id}"
-        logger.info(f"Cancelling Ray cluster '{name}' job {job_id}")
 
-        try:
-            executor.tunnel.run(cmd)
-        except Exception as e:
-            logger.error(f"Failed to cancel Ray cluster '{name}' job {job_id}: {e}")
-            return False
+        success = cancel_slurm_job(
+            executor,
+            name,
+            job_id,
+            wait=wait,
+            timeout=timeout,
+            poll_interval=poll_interval,
+        )
 
-        # Remove from cluster_map if it exists
         if name in self.cluster_map:
             del self.cluster_map[name]
 
-        # Wait for job to be fully terminated if requested
-        if wait:
-            start_time = time.time()
-            while time.time() - start_time < timeout:
-                status = self.get_ray_cluster_status(name, executor)
-
-                # If job is not found anymore, it's been successfully cancelled
-                if status["job_id"] is None:
-                    logger.info(
-                        f"Ray cluster '{name}' job {job_id} has been successfully cancelled"
-                    )
-                    if name in self.cluster_map:
-                        del self.cluster_map[name]
-                    return True
-
-                # If job is in a terminated state, success
-                if any(state in status["state"] for state in ["CANCELLED", "FAILED", "TIMEOUT"]):  # type: ignore
-                    logger.info(
-                        f"Ray cluster '{name}' job {job_id} is now in state {status['state']}"
-                    )
-                    if name in self.cluster_map:
-                        del self.cluster_map[name]
-                    return True
-
-                logger.info(f"Waiting for Ray cluster '{name}' job {job_id} to terminate...")
-                time.sleep(poll_interval)
-
-            logger.warning(f"Timed out waiting for Ray cluster '{name}' job {job_id} to terminate")
-            return False
-
-        return True
+        return success
 
     def port_forward(
         self,
-        name: str,
-        port: int,
-        target_port: int,
-        executor: SlurmExecutor,
+        port: int = 8265,
+        target_port: int = 8265,
         wait: bool = False,
     ):
         """Port forward to a Ray cluster using SSH tunnel.
@@ -559,7 +579,9 @@ class SlurmRayCluster:
         - TimeoutError: If port forwarding fails to establish within the timeout period.
         """
         # Check if cluster exists and is running
-        status = self.get_ray_cluster_status(name, executor)
+        name = self.name
+        executor = self.executor
+        status = self.status()
         if status["job_id"] is None:
             raise RuntimeError(f"Could not find Ray cluster {name}")
 
@@ -781,7 +803,7 @@ class SlurmRayCluster:
                     self._ssh_process = None  # Ensure it's cleared
 
             def stop_forwarding(self):
-                logger.info("Stopping port forwarding")
+                logger.debug("Stopping port forwarding")
                 self._stop_event.set()
 
         # Create and start the forwarding thread
@@ -808,7 +830,7 @@ class SlurmRayCluster:
                 original_sigterm_handler = signal.getsignal(signal.SIGTERM)
 
                 def signal_handler(sig, frame):
-                    logger.info(f"Received signal {sig} to stop port forwarding")
+                    logger.debug(f"Received signal {sig} to stop port forwarding")
                     stop_event.set()
 
                     # Restore original signal handlers
@@ -819,7 +841,7 @@ class SlurmRayCluster:
                 signal.signal(signal.SIGINT, signal_handler)
                 signal.signal(signal.SIGTERM, signal_handler)
 
-                logger.info("Port forwarding is active. Press Ctrl+C to stop...")
+                logger.debug("Port forwarding is active. Press Ctrl+C to stop...")
                 while not stop_event.is_set():
                     if not forward_thread.is_alive():
                         logger.error(
@@ -858,3 +880,275 @@ class SlurmRayCluster:
                                 f"SSH process (PID: {forward_thread._ssh_process.pid}) did not respond to kill."
                             )
         return forward_thread
+
+
+@dataclass(kw_only=True)
+class SlurmRayJob:
+    """Lightweight helper around a single Ray Slurm job returned by ``schedule_ray_job``.
+
+    Parameters
+    ----------
+    name : str
+        Logical name of the Ray cluster (not necessarily the Slurm job-name).
+    job_id : str
+        Numeric Slurm job id returned by ``sbatch``.
+    cluster_dir : str
+        Remote directory where cluster artefacts (logs, SBATCH script, etc.) are stored.
+    executor : SlurmExecutor
+        The executor used to submit/run the job. We only need it for its tunnel.
+    """
+
+    name: str
+    executor: SlurmExecutor
+
+    # ---------------------------------------------------------------------
+    # Internals
+    # ---------------------------------------------------------------------
+    def __post_init__(self):
+        self.cluster_dir = os.path.join(self.executor.tunnel.job_dir, self.name)
+        self.job_id = None
+
+    def _logs_path(self) -> str:
+        # Private helper – path construction only (no public docstring)
+        assert self.cluster_dir is not None, "cluster_dir is not set"
+        return os.path.join(self.cluster_dir, "logs", "ray-job.log")
+
+    # ------------------------------------------------------------------
+    # Public helpers
+    # ------------------------------------------------------------------
+
+    def stop(
+        self,
+        *,
+        wait: bool = False,
+        timeout: int = 60,
+        poll_interval: int = 5,
+    ) -> bool:
+        """Cancel this Slurm Ray *job* (optionally blocking until it disappears).
+
+        Parameters
+        ----------
+        wait : bool, optional
+            If *True* block until the job is gone / in a terminal state, up to
+            *timeout* seconds.  Defaults to *False* (fire-and-forget).
+        timeout : int, optional
+            Max seconds to wait when *wait* is *True*.  Defaults to *60*.
+        poll_interval : int, optional
+            Seconds between ``squeue`` polls when waiting.  Defaults to *5*.
+        """
+
+        if self.job_id is None:
+            self.job_id = get_last_job_id(self.cluster_dir, self.executor)
+            if self.job_id is None:
+                raise RuntimeError(f"Ray job '{self.name}' has no job_id")
+
+        return cancel_slurm_job(
+            self.executor,
+            self.name,
+            self.job_id,
+            wait=wait,
+            timeout=timeout,
+            poll_interval=poll_interval,
+        )
+
+    def logs(self, follow: bool = False, lines: int = 100, timeout: int = 100) -> None:
+        """Show the remote ``ray-job.log``.
+
+        Parameters
+        ----------
+        follow : bool, optional
+            If *True* we stream the log (`tail -f`).  Otherwise the last *lines*
+            lines are printed.  Defaults to *False*.
+        lines : int, optional
+            Number of lines to show when *follow* is *False*.  Ignored when
+            *follow* is *True*.
+        timeout : int, optional
+            Max seconds to wait for the log file to appear on the remote host
+            before giving up.  Only applies if the file does not yet exist.
+        """
+        # Lazily resolve missing job-id and fail only if still unavailable
+        if self.job_id is None:
+            self.job_id = get_last_job_id(self.cluster_dir, self.executor)
+            if self.job_id is None:
+                raise RuntimeError(f"Ray job '{self.name}' has no job_id")
+
+        self.executor.tunnel.connect()
+        log_path = self._logs_path()
+        if follow:
+            # Run tail in background on remote host and poll Slurm until the
+            # job disappears from `squeue`. When it is gone, we kill the
+            # background tail which makes the whole SSH command exit
+            # gracefully so our local call returns without manual Ctrl+C.
+            cmd = (
+                "bash -c '"
+                f'tail -n {lines} -F "{log_path}" & '
+                "TAIL_PID=$!; "
+                f"while squeue -j {self.job_id} -h | grep -q .; do sleep 5; done; "
+                "kill $TAIL_PID; wait $TAIL_PID'"
+            )
+        else:
+            cmd = f"tail -n {lines} {log_path}"
+
+        # Ensure file exists or wait up to *timeout* seconds
+        start_ts = time.time()
+        exists = False
+        while time.time() - start_ts < timeout:
+            print(f"Checking if {log_path} exists")
+            test_result = self.executor.tunnel.run(f"test -f {log_path}", hide=True, warn=True)
+            if test_result.return_code == 0:
+                exists = True
+                break
+            time.sleep(2)
+
+        if not exists:
+            logger.warning(
+                f"Log file {log_path} not found after {timeout}s. Skipping tail."  # noqa: G004
+            )
+            return
+
+        try:
+            self.executor.tunnel.run(cmd, hide=False, warn=True)
+        except KeyboardInterrupt:
+            # User interrupted tailing; stop remote process (connection will close automatically).
+            logger.debug("Stopped tailing logs (Ctrl+C)")
+            # Fabric/Invoke should handle remote process termination. We just return.
+
+    def status(self, display: bool = True) -> dict[str, Any]:
+        """Return and pretty-print current Slurm/Ray status for this job."""
+        assert self.cluster_dir is not None, "cluster_dir is not set"
+        if self.job_id is None:
+            self.job_id = get_last_job_id(self.cluster_dir, self.executor)
+
+        cluster = SlurmRayCluster(name=self.name, executor=self.executor)
+        if self.job_id is not None:
+            cluster.cluster_map[self.name] = str(self.job_id)
+
+        status_info = cluster.status(display=False)
+
+        # Build a concise, colourful summary mirroring the submission banner
+        sbatch_script = os.path.join(self.cluster_dir, "ray.sub")
+        logs_dir = os.path.join(self.cluster_dir, "logs")
+        if display:
+            logger.info(
+                f"""\n\n\033[1;34mRay job status for Slurm cluster at {self.executor.tunnel.key}:\033[0m
+        • \033[1mJob ID\033[0m         : \033[32m{self.job_id}\033[0m
+        • \033[1mState\033[0m          : {status_info.get("state", "UNKNOWN")}
+        • \033[1mRay ready\033[0m      : {status_info.get("ray_ready", False)}
+        • \033[1mCluster dir\033[0m    : {self.cluster_dir}
+        • \033[1mLogs directory\033[0m : {logs_dir}
+        • \033[1mSBATCH script\033[0m  : {sbatch_script}
+        (use `squeue -j {self.job_id}` to check status, `scancel {self.job_id}` to cancel,
+        `tail -f {self._logs_path()}` to view logs)\n"""
+            )
+        return status_info
+
+    def start(
+        self,
+        command: str,
+        workdir: str,
+        runtime_env_yaml: Optional[str] | None = None,
+        pre_ray_start_commands: Optional[list[str]] = None,
+        dryrun: bool = False,
+    ):
+        """Submit a Ray job via Slurm and return a *live* SlurmRayJob helper.
+
+        This is a thin wrapper around :py:meth:`SlurmRayCluster.schedule_ray_job` so
+        that users can work directly with *RayJob* rather than *RayCluster*
+        helpers::
+
+            SlurmRayJob.start(
+                name="my-job",
+                executor=my_slurm_executor,
+                command="python train.py",
+                workdir="./src",
+            )
+        """
+        # ------------------------------------------------------------------
+        # 1)  Early exit if a RayJob with this *logical* name already exists
+        # ------------------------------------------------------------------
+        cluster = SlurmRayCluster(name=self.name, executor=self.executor)
+        if cluster.status()["job_id"] is not None:
+            raise RuntimeError(f"Ray job '{self.name}' already exists")
+
+        # ------------------------------------------------------------------
+        # 2)  Ship *workdir* over to the remote side (or package via packager)
+        # ------------------------------------------------------------------
+        remote_workdir: Optional[str] = None
+
+        if workdir:
+            if isinstance(self.executor.tunnel, SSHTunnel):
+                # Rsync workdir honouring .gitignore
+                remote_workdir = os.path.join(self.executor.tunnel.job_dir, self.name, "code")
+                if not dryrun:
+                    self.executor.tunnel.connect()
+                    assert self.executor.tunnel.session is not None, (
+                        "Tunnel session is not connected"
+                    )
+                    rsync(
+                        self.executor.tunnel.session,
+                        workdir,
+                        remote_workdir,
+                        rsync_opts="--filter=':- .gitignore'",
+                    )
+            else:
+                remote_workdir = workdir
+        elif self.executor.packager is not None:
+            # Use the packager to create an archive which we then extract on the
+            # submission host and optionally rsync to the target.
+            if not dryrun:
+                if isinstance(self.executor.tunnel, SSHTunnel):
+                    package_dir = tempfile.mkdtemp(prefix="nemo_packager_")
+                else:
+                    package_dir = os.path.join(self.executor.tunnel.job_dir, self.name)
+
+                # Base path for packaging – either Git repo root (GitArchivePackager)
+                # or current cwd for generic packagers.
+                if isinstance(self.executor.packager, GitArchivePackager):
+                    output = subprocess.run(
+                        ["git", "rev-parse", "--show-toplevel"],
+                        check=True,
+                        stdout=subprocess.PIPE,
+                    )
+                    path = output.stdout.splitlines()[0].decode()
+                    base_path = Path(path).absolute()
+                else:
+                    base_path = Path(os.getcwd()).absolute()
+
+                local_tar_file = self.executor.packager.package(base_path, package_dir, self.name)
+                local_code_extraction_path = os.path.join(package_dir, "code")
+                os.makedirs(local_code_extraction_path, exist_ok=True)
+                subprocess.run(
+                    f"tar -xvzf {local_tar_file} -C {local_code_extraction_path} --ignore-zeros",
+                    shell=True,
+                    check=True,
+                )
+
+                if isinstance(self.executor.tunnel, SSHTunnel):
+                    remote_workdir = os.path.join(self.executor.tunnel.job_dir, self.name, "code")
+                    self.executor.tunnel.connect()
+                    assert self.executor.tunnel.session is not None, (
+                        "Tunnel session is not connected"
+                    )
+                    rsync(
+                        self.executor.tunnel.session,
+                        os.path.join(local_code_extraction_path, ""),
+                        remote_workdir,
+                        rsync_opts="--filter=':- .gitignore'",
+                    )
+                else:
+                    remote_workdir = local_code_extraction_path
+
+        assert remote_workdir is not None, "workdir could not be determined"
+
+        # ------------------------------------------------------------------
+        # 3)  Spin up / reuse the Ray *cluster* (Slurm array job)
+        # ------------------------------------------------------------------
+        job_id = cluster.create(
+            pre_ray_start_commands=pre_ray_start_commands,
+            dryrun=dryrun,
+            command=command,
+            workdir=remote_workdir,
+        )
+
+        self.job_id = job_id
+        self.status()

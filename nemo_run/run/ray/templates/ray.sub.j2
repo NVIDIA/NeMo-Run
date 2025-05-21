@@ -43,6 +43,14 @@ MAX_WORKER_PORT=${MAX_WORKER_PORT:-54257}
 
 # Directory setup
 export CLUSTER_DIR={{ cluster_dir }}
+JOB_IDS_FILE="$CLUSTER_DIR/job_ids.json"
+if [[ -f "$JOB_IDS_FILE" ]]; then
+  tmp="$(mktemp)"
+  jq --arg id "$SLURM_JOB_ID" '. + [$id]' "$JOB_IDS_FILE" > "$tmp" && mv "$tmp" "$JOB_IDS_FILE"
+else
+  echo "[\"$SLURM_JOB_ID\"]" > "$JOB_IDS_FILE"
+fi
+
 mkdir -p $CLUSTER_DIR/scripts
 
 export LOG_DIR={{ log_dir }}
@@ -289,7 +297,7 @@ echo "[INFO] Ray cluster information saved to $CLUSTER_DIR/ray_cluster_info.json
 # This driver process is responsible for launching a job on the Ray cluster
 CONTAINER_CWD=$(scontrol show job $SLURM_JOB_ID --json | jq -r '.jobs[].current_working_directory')
 # Define command to be empty by default
-COMMAND="${COMMAND:-{{ command }}}"
+COMMAND="${COMMAND:-{{ command | default('', true) }}}"
 COMMAND_WORKDIR={{ command_workdir | default('$CONTAINER_CWD') }}
 
 if [[ -n "$COMMAND" ]]; then
