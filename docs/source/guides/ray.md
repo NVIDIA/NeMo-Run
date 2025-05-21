@@ -101,7 +101,7 @@ job.start(
     runtime_env_yaml="/path/to/runtime_env.yaml",  # optional
     pre_ray_start_commands=pre_ray_start,
 )
-job.follow_logs_until_completion()
+job.logs(follow=True)
 
 # 5) Clean-up
 cluster.stop()
@@ -175,7 +175,7 @@ job.start(
     workdir="/path/to/project/",   # rsync'ed via SSH to the cluster_dir/code/
     pre_ray_start_commands=pre_ray_start,
 )
-job.follow_logs_until_completion()
+job.logs(follow=True)
 
 # 6) Tear everything down (or just let the wall-time expire)
 cluster.stop()
@@ -246,7 +246,7 @@ def main() -> None:
     job.start(command=args.command, workdir="./")
 
     # 4) Stream logs and block until completion
-    job.follow_logs_until_completion()
+    job.logs(follow=True)
 
     # 5) Tidy-up
     cluster.stop()
