@@ -48,6 +48,7 @@ if [[ -f "$JOB_IDS_FILE" ]]; then
   tmp="$(mktemp)"
   jq --arg id "$SLURM_JOB_ID" '. + [$id]' "$JOB_IDS_FILE" > "$tmp" && mv "$tmp" "$JOB_IDS_FILE"
 else
+  touch "$JOB_IDS_FILE"
   echo "[\"$SLURM_JOB_ID\"]" > "$JOB_IDS_FILE"
 fi
 
