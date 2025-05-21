@@ -202,7 +202,9 @@ class DGXCloudExecutor(Executor):
                 resp.text,
             )
 
-    def create_training_job(self, token: str, project_id: str, cluster_id: str, name: str) -> requests.Response:
+    def create_training_job(
+        self, token: str, project_id: str, cluster_id: str, name: str
+    ) -> requests.Response:
         """
         Creates a training job on DGX Cloud using the provided project/cluster IDs.
         For multi-node jobs, creates a distributed workload. Otherwise creates a single-node training.
@@ -255,16 +257,10 @@ class DGXCloudExecutor(Executor):
                 "numWorkers": self.nodes,
             }
 
-            payload = {
-                **common_payload,
-                "spec": {**common_spec, **distributed_spec}
-            }
+            payload = {**common_payload, "spec": {**common_spec, **distributed_spec}}
         else:
             url = f"{self.base_url}/workloads/trainings"
-            payload = {
-                **common_payload,
-                "spec": common_spec
-            }
+            payload = {**common_payload, "spec": common_spec}
 
         headers = self._default_headers(token=token)
         response = requests.post(url, json=payload, headers=headers)
