@@ -186,7 +186,7 @@ class SlurmRayRequest:
             if self.executor.gres:
                 return f"--gres={self.executor.gres}"
             elif self.executor.gpus_per_node:
-                return f"gpu:{self.executor.gpus_per_node}"
+                return f"--gres=gpu:{self.executor.gpus_per_node}"
             else:
                 return ""
 
