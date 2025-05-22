@@ -408,7 +408,7 @@ class SlurmRayCluster:
             pre_ray_start_commands=pre_ray_start_commands,
             command=command,
             workdir=workdir,
-            launch_cmd=["sbatch", "--requeue", "--parsable"],
+            launch_cmd=["sbatch", "--requeue", "--parsable", "--dependency=singleton"],
         ).materialize()
 
         if dryrun:
@@ -993,7 +993,7 @@ class SlurmRayJob:
         start_ts = time.time()
         exists = False
         while time.time() - start_ts < timeout:
-            print(f"Checking if {log_path} exists")
+            logger.debug(f"Checking if {log_path} exists")
             test_result = self.executor.tunnel.run(f"test -f {log_path}", hide=True, warn=True)
             if test_result.return_code == 0:
                 exists = True
@@ -1064,14 +1064,7 @@ class SlurmRayJob:
             )
         """
         # ------------------------------------------------------------------
-        # 1)  Early exit if a RayJob with this *logical* name already exists
-        # ------------------------------------------------------------------
-        cluster = SlurmRayCluster(name=self.name, executor=self.executor)
-        if cluster.status()["job_id"] is not None:
-            raise RuntimeError(f"Ray job '{self.name}' already exists")
-
-        # ------------------------------------------------------------------
-        # 2)  Ship *workdir* over to the remote side (or package via packager)
+        # Ship *workdir* over to the remote side (or package via packager)
         # ------------------------------------------------------------------
         remote_workdir: Optional[str] = None
 
@@ -1141,8 +1134,9 @@ class SlurmRayJob:
         assert remote_workdir is not None, "workdir could not be determined"
 
         # ------------------------------------------------------------------
-        # 3)  Spin up / reuse the Ray *cluster* (Slurm array job)
+        # Spin up / reuse the Ray *cluster* (Slurm array job)
         # ------------------------------------------------------------------
+        cluster = SlurmRayCluster(name=self.name, executor=self.executor)
         job_id = cluster.create(
             pre_ray_start_commands=pre_ray_start_commands,
             dryrun=dryrun,

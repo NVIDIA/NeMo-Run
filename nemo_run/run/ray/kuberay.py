@@ -98,7 +98,6 @@ class KubeRayCluster:
         self,
         timeout: int = 60,
         delay_between_attempts: int = 5,
-        *,
         display: bool = False,
     ) -> Any:
         """Return the ``status`` stanza of the RayCluster CR (blocking).
@@ -109,7 +108,7 @@ class KubeRayCluster:
         namespace = self.executor.namespace or "default"
         name = self.name
 
-        logger.info(
+        logger.debug(
             f"Getting Ray cluster status for '{name}' in namespace '{namespace}', "
             f"timeout: {timeout}s, delay: {delay_between_attempts}s"
         )
@@ -150,10 +149,25 @@ class KubeRayCluster:
 
     def wait_until_running(
         self,
-        timeout: int = 60,
+        timeout: int = 600,
         delay_between_attempts: int = 5,
     ) -> bool:
-        """Block until the Ray head service has a reachable IP (or timeout)."""
+        """Block until the Ray head service has a reachable IP **and** the head pod is running.
+
+        The previous implementation returned as soon as the operator had
+        populated ``status.head.serviceIP`` in the RayCluster CR.  This is a
+        good proxy for readiness of the *service* object but does **not**
+        guarantee that the underlying *pod* has actually reached the
+        ``Running``/``Ready`` state.
+
+        We now additionally query the Kubernetes API for the head pod and
+        ensure that it is both *Running* **and** *Ready* before returning
+        success.  The head pod is identified via the same labels that the
+        KubeRay operator applies to every pod:
+
+        • ``ray.io/cluster=<cluster-name>``
+        • ``ray.io/node-type=head``
+        """
 
         namespace = self.executor.namespace or "default"
         name = self.name
@@ -163,23 +177,60 @@ class KubeRayCluster:
             f"timeout: {timeout}s, delay: {delay_between_attempts}s"
         )
 
+        def _head_pod_is_ready() -> bool:
+            """Return *True* if the head pod exists and is Running/Ready."""
+            try:
+                pods = self.core_v1_api.list_namespaced_pod(
+                    namespace=namespace, label_selector=f"ray.io/cluster={name}"
+                )
+            except ApiException as e:
+                logger.debug(f"Error listing pods for Ray cluster '{name}': {e}")
+                return False
+
+            for pod in pods.items:
+                labels = pod.metadata.labels or {}
+                # Newer KubeRay versions set `ray.io/node-type=head`; fall back to
+                # a heuristic on the pod name otherwise.
+                is_head = labels.get("ray.io/node-type") == "head" or "-head" in pod.metadata.name
+                if not is_head:
+                    continue
+
+                if pod.status.phase != "Running":
+                    return False
+
+                # Ensure the Ready condition is *True* (best-effort)
+                if pod.status.conditions:
+                    for cond in pod.status.conditions:
+                        if cond.type == "Ready":
+                            return cond.status == "True"
+                # If no conditions, fall back to phase only
+                return True
+
+            # No head pod found
+            return False
+
         remaining = timeout
         while remaining > 0:
             poll_window = min(delay_between_attempts, remaining)
-            status = self.status(poll_window, poll_window, display=False)
+
+            status = self.status(display=False)
             if not status:
                 logger.info(f"Ray cluster '{name}' status could not be retrieved")
                 return False
 
-            # TODO: once the operator exposes a proper .state field, use that
-            # For now we infer readiness from the presence of head.serviceIP
-            if status.get("head", {}).get("serviceIP"):
-                logger.info(f"Ray cluster '{name}' is running")
+            svc_ip_ready = bool(status.get("head", {}).get("serviceIP"))
+            pod_ready = False
+            if svc_ip_ready:
+                pod_ready = _head_pod_is_ready()
+
+            if svc_ip_ready and pod_ready:
+                logger.info(f"Ray cluster '{name}' is running and head pod is ready")
                 return True
 
             logger.debug(
-                f"Ray cluster '{name}' status is not running yet, current status: {status.get('state', 'unknown')}"
+                f"Ray cluster '{name}' not ready yet – svc_ip_ready={svc_ip_ready}, pod_ready={pod_ready}"
             )
+
             remaining -= poll_window
 
         logger.debug(f"Ray cluster '{name}' status is not running yet, timing out...")

@@ -21,7 +21,7 @@ import re
 import subprocess
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from kubernetes import client, watch
 from kubernetes.client import CoreV1Api
@@ -80,9 +80,9 @@ class KubeRayExecutor(Executor):
     image: str = ""  # Will be set in __post_init__ if empty
     head_cpu: str = "1"
     head_memory: str = "2Gi"
-    ray_start_params: Dict[str, Any] = field(default_factory=dict)
-    worker_groups: List[KubeRayWorkerGroup] = field(default_factory=list)
-    labels: Dict[str, Any] = field(default_factory=dict)
+    ray_start_params: dict[str, Any] = field(default_factory=dict)
+    worker_groups: list[KubeRayWorkerGroup] = field(default_factory=list)
+    labels: dict[str, Any] = field(default_factory=dict)
     service_type: str = "ClusterIP"
     head_ports: list[dict[str, Any]] = field(default_factory=list)
     volume_mounts: list[dict[str, Any]] = field(default_factory=list)
@@ -344,7 +344,7 @@ def update_worker_group_replicas(
     max_replicas: int,
     min_replicas: int,
     replicas: int,
-) -> Tuple[dict, bool]:
+) -> tuple[dict, bool]:
     assert cluster["spec"]["workerGroupSpecs"]
     assert max_replicas >= min_replicas
 
@@ -366,7 +366,7 @@ def update_worker_group_resources(
     cpu_limits: str,
     memory_limits: str,
     container_name="unspecified",
-) -> Tuple[dict, bool]:
+) -> tuple[dict, bool]:
     assert cluster["spec"]["workerGroupSpecs"]
 
     worker_groups = cluster["spec"]["workerGroupSpecs"]
@@ -417,7 +417,7 @@ def duplicate_worker_group(
     cluster: dict,
     group_name: str,
     new_group_name: str,
-) -> Tuple[dict, bool]:
+) -> tuple[dict, bool]:
     assert is_valid_name(new_group_name)
     assert cluster["spec"]["workerGroupSpecs"]
 
@@ -436,7 +436,7 @@ def duplicate_worker_group(
 def delete_worker_group(
     cluster: dict,
     group_name: str,
-) -> Tuple[dict, bool]:
+) -> tuple[dict, bool]:
     assert cluster["spec"]["workerGroupSpecs"]
 
     worker_groups = cluster["spec"]["workerGroupSpecs"]
@@ -463,8 +463,8 @@ def sync_workdir_via_pod(
     namespace: str,
     workdir: str,
     core_v1_api: CoreV1Api,
-    volumes: List[dict[str, object]],
-    volume_mounts: List[dict[str, object]],
+    volumes: list[dict[str, object]],
+    volume_mounts: list[dict[str, object]],
     workspace_path: str = "/workspace",
     image: str = "alpine:3.19",
     cleanup: bool = False,
