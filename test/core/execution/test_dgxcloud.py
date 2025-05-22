@@ -334,7 +334,8 @@ class TestDGXCloudExecutor:
         mock_status.assert_called()
 
     @patch("requests.post")
-    def test_create_training_job(self, mock_post):
+    def test_create_training_job_single_node(self, mock_post):
+        """Test that single node jobs use the correct training endpoint and payload structure."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.text = '{"status": "submitted"}'
@@ -346,7 +347,7 @@ class TestDGXCloudExecutor:
             app_secret="test_app_secret",
             project_name="test_project",
             container_image="nvcr.io/nvidia/test:latest",
-            nodes=2,
+            nodes=1,
             gpus_per_node=8,
             pvc_nemo_run_dir="/workspace/nemo_run",
             pvcs=[{"path": "workspace", "claimName": "test-claim"}],
@@ -363,10 +364,14 @@ class TestDGXCloudExecutor:
 
         assert response == mock_response
 
-        # Check if the API call is made correctly
+        # Check if the API call is made correctly for single node
         mock_post.assert_called_once()
-        # The URL is the first argument to post
         args, kwargs = mock_post.call_args
+
+        # Verify single node endpoint
+        assert args[0] == "https://dgxapi.example.com/workloads/trainings"
+
+        # Verify payload structure for single node job
         assert kwargs["json"]["name"] == "test_job"
         assert kwargs["json"]["projectId"] == "proj_id"
         assert kwargs["json"]["clusterId"] == "cluster_id"
@@ -375,18 +380,82 @@ class TestDGXCloudExecutor:
             kwargs["json"]["spec"]["command"]
             == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
         )
-        assert kwargs["json"]["spec"]["numWorkers"] == 2
         assert kwargs["json"]["spec"]["compute"]["gpuDevicesRequest"] == 8
-        assert kwargs["json"]["spec"]["environmentVariables"] == [
-            {"name": "TEST_VAR", "value": "test_value"}
-        ]
+
+        # Verify distributed-specific fields are NOT present
+        assert "distributedFramework" not in kwargs["json"]["spec"]
+        assert "minReplicas" not in kwargs["json"]["spec"]
+        assert "maxReplicas" not in kwargs["json"]["spec"]
+        assert "numWorkers" not in kwargs["json"]["spec"]
+
+        assert kwargs["headers"] == executor._default_headers(token="test_token")
+
+    @patch("requests.post")
+    def test_create_training_job_multi_node(self, mock_post):
+        """Test that multi-node jobs use the correct distributed endpoint and payload structure."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = '{"status": "submitted"}'
+        mock_post.return_value = mock_response
+
+        executor = DGXCloudExecutor(
+            base_url="https://dgxapi.example.com",
+            app_id="test_app_id",
+            app_secret="test_app_secret",
+            project_name="test_project",
+            container_image="nvcr.io/nvidia/test:latest",
+            nodes=2,
+            gpus_per_node=8,
+            distributed_framework="PyTorch",
+            pvc_nemo_run_dir="/workspace/nemo_run",
+            pvcs=[{"path": "workspace", "claimName": "test-claim"}],
+        )
+        executor.pvc_job_dir = "/workspace/nemo_run/job_dir"
+        executor.env_vars = {"TEST_VAR": "test_value"}
+
+        response = executor.create_training_job(
+            token="test_token",
+            project_id="proj_id",
+            cluster_id="cluster_id",
+            name="test_job",
+        )
+
+        assert response == mock_response
+
+        # Check if the API call is made correctly for multi-node
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+
+        # Verify multi-node endpoint
+        assert args[0] == "https://dgxapi.example.com/workloads/distributed"
+
+        # Verify payload structure for multi-node job
+        assert kwargs["json"]["name"] == "test_job"
+        assert kwargs["json"]["projectId"] == "proj_id"
+        assert kwargs["json"]["clusterId"] == "cluster_id"
+        assert kwargs["json"]["spec"]["image"] == "nvcr.io/nvidia/test:latest"
+        assert (
+            kwargs["json"]["spec"]["command"]
+            == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
+        )
+        assert kwargs["json"]["spec"]["compute"]["gpuDevicesRequest"] == 8
+
+        # Verify distributed-specific fields
+        assert kwargs["json"]["spec"]["distributedFramework"] == "PyTorch"
+        assert kwargs["json"]["spec"]["minReplicas"] == 2
+        assert kwargs["json"]["spec"]["maxReplicas"] == 2
+        assert kwargs["json"]["spec"]["numWorkers"] == 2
+
         assert kwargs["headers"] == executor._default_headers(token="test_token")
 
     @patch.object(DGXCloudExecutor, "get_auth_token")
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
     @patch.object(DGXCloudExecutor, "move_data")
     @patch.object(DGXCloudExecutor, "create_training_job")
-    def test_launch_success(self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token):
+    def test_launch_single_node(
+        self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token
+    ):
+        """Test that launch correctly handles single-node job submission."""
         mock_get_token.return_value = "test_token"
         mock_get_ids.return_value = ("proj_id", "cluster_id")
 
@@ -402,7 +471,10 @@ class TestDGXCloudExecutor:
                 app_secret="test_app_secret",
                 project_name="test_project",
                 container_image="nvcr.io/nvidia/test:latest",
+                nodes=1,  # Single node
+                gpus_per_node=8,  # 8 GPUs per node
                 pvc_nemo_run_dir="/workspace/nemo_run",
+                pvcs=[{"path": "/workspace", "claimName": "test-claim"}],
             )
             executor.job_dir = tmp_dir
 
@@ -411,11 +483,66 @@ class TestDGXCloudExecutor:
             assert job_id == "job123"
             assert status == "Pending"
             assert os.path.exists(os.path.join(tmp_dir, "launch_script.sh"))
+
+            # Verify launch script contents for single node
+            with open(os.path.join(tmp_dir, "launch_script.sh"), "r") as f:
+                script = f.read()
+                assert "python train.py" in script
+
             mock_get_token.assert_called_once()
             mock_get_ids.assert_called_once_with("test_token")
             mock_move_data.assert_called_once_with("test_token", "proj_id", "cluster_id")
             mock_create_job.assert_called_once_with(
                 "test_token", "proj_id", "cluster_id", "test-job"
+            )
+
+    @patch.object(DGXCloudExecutor, "get_auth_token")
+    @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
+    @patch.object(DGXCloudExecutor, "move_data")
+    @patch.object(DGXCloudExecutor, "create_training_job")
+    def test_launch_multi_node(self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token):
+        """Test that launch correctly handles multi-node job submission."""
+        mock_get_token.return_value = "test_token"
+        mock_get_ids.return_value = ("proj_id", "cluster_id")
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"workloadId": "job456", "actualPhase": "Pending"}
+        mock_create_job.return_value = mock_response
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            executor = DGXCloudExecutor(
+                base_url="https://dgxapi.example.com",
+                app_id="test_app_id",
+                app_secret="test_app_secret",
+                project_name="test_project",
+                container_image="nvcr.io/nvidia/test:latest",
+                nodes=2,  # Multi-node
+                gpus_per_node=8,
+                distributed_framework="PyTorch",
+                pvc_nemo_run_dir="/workspace/nemo_run",
+                pvcs=[{"path": "/workspace", "claimName": "test-claim"}],
+            )
+            executor.job_dir = tmp_dir
+
+            job_id, status = executor.launch(
+                "test_multi_job", ["python", "-m", "torch.distributed.run", "train.py"]
+            )
+
+            assert job_id == "job456"
+            assert status == "Pending"
+            assert os.path.exists(os.path.join(tmp_dir, "launch_script.sh"))
+
+            # Verify launch script contents for multi-node
+            with open(os.path.join(tmp_dir, "launch_script.sh"), "r") as f:
+                script = f.read()
+                assert "python -m torch.distributed.run train.py" in script
+
+            mock_get_token.assert_called_once()
+            mock_get_ids.assert_called_once_with("test_token")
+            mock_move_data.assert_called_once_with("test_token", "proj_id", "cluster_id")
+            mock_create_job.assert_called_once_with(
+                "test_token", "proj_id", "cluster_id", "test-multi-job"
             )
 
     @patch.object(DGXCloudExecutor, "get_auth_token")
