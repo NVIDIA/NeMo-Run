@@ -182,18 +182,23 @@ class SlurmRayRequest:
         for key, value in self.executor.env_vars.items():
             env_vars.append(f"export {key.upper()}={value}")
 
+        def get_gres_specification() -> str:
+            if self.executor.gres:
+                return f"--gres={self.executor.gres}"
+            elif self.executor.gpus_per_node:
+                return f"gpu:{self.executor.gpus_per_node}"
+            else:
+                return ""
+
         def get_srun_flags(mounts: list[str], container_image: Optional[str]) -> str:
             _srun_flags = [f"--container-image={container_image}"] if container_image else []
             _srun_flags.append("--no-container-mount-home")
             _srun_flags.append("--mpi=pmix")
             _srun_flags.append(f"-A={self.executor.account}")
             _srun_flags.append(f"-p={self.executor.partition}")
-            if self.executor.gres:
-                _srun_flags.append(f"--gres={self.executor.gres}")
-            elif self.executor.gpus_per_node:
-                _srun_flags.append(f"--gres=gpu:{self.executor.gpus_per_node}")
-            else:
-                _srun_flags.append("--gres=gpu:8")
+            gres_specification = get_gres_specification()
+            if gres_specification:
+                _srun_flags.append(gres_specification)
 
             if self.nemo_run_dir:
                 new_mounts = copy.deepcopy(mounts)
@@ -226,6 +231,7 @@ class SlurmRayRequest:
             ),
             "command": self.command,
             "command_workdir": self.workdir,
+            "gres_specification": get_gres_specification(),
         }
 
         if self.pre_ray_start_commands:
