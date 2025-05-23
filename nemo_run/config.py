@@ -49,6 +49,9 @@ RUNDIR_NAME = "nemo_run"
 RUNDIR_SPECIAL_NAME = "/$nemo_run"
 SCRIPTS_DIR = "scripts"
 
+# Metadata keys
+USE_WITH_RAY_CLUSTER_KEY = "use_with_ray_cluster"
+
 
 def get_nemorun_home() -> str:
     """
