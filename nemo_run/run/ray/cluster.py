@@ -14,32 +14,43 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Type
 
 from nemo_run.core.execution.base import Executor
-from nemo_run.core.execution.kuberay import KubeRayExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
-from nemo_run.run.ray.kuberay import KubeRayCluster
 from nemo_run.run.ray.slurm import SlurmRayCluster
+
+# Import guard for Kubernetes dependencies
+try:
+    from nemo_run.core.execution.kuberay import KubeRayExecutor
+    from nemo_run.run.ray.kuberay import KubeRayCluster
+
+    _KUBERAY_AVAILABLE = True
+except ImportError:
+    KubeRayExecutor = None
+    KubeRayCluster = None
+    _KUBERAY_AVAILABLE = False
 
 USE_WITH_RAY_CLUSTER_KEY = "use_with_ray_cluster"
 
 
 @dataclass(kw_only=True)
 class RayCluster:
-    BACKEND_MAP = {
-        KubeRayExecutor: KubeRayCluster,
-        SlurmExecutor: SlurmRayCluster,
-    }
-
     name: str
     executor: Executor
 
     def __post_init__(self):
-        if self.executor.__class__ not in self.BACKEND_MAP:
+        backend_map: dict[Type[Executor], Type] = {
+            SlurmExecutor: SlurmRayCluster,
+        }
+
+        if _KUBERAY_AVAILABLE and KubeRayExecutor is not None and KubeRayCluster is not None:
+            backend_map[KubeRayExecutor] = KubeRayCluster
+
+        if self.executor.__class__ not in backend_map:
             raise ValueError(f"Unsupported executor: {self.executor.__class__}")
 
-        backend_cls = self.BACKEND_MAP[self.executor.__class__]
+        backend_cls = backend_map[self.executor.__class__]
         self.backend = backend_cls(name=self.name, executor=self.executor)  # type: ignore[arg-type]
 
         self._port_forward_map = {}
