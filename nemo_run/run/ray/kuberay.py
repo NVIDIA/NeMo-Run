@@ -15,9 +15,14 @@
 # Based on https://github.com/ray-project/kuberay/blob/master/clients/python-client/python_client/kuberay_cluster_api.py
 
 import logging
+import os
+import subprocess
 import time
-from typing import Any, Optional
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Optional
 
+import yaml
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 
@@ -26,250 +31,286 @@ from nemo_run.core.execution.kuberay import GROUP, PLURAL, VERSION, KubeRayExecu
 logger = logging.getLogger(__name__)
 
 
+@dataclass(kw_only=True)
 class KubeRayCluster:
-    """
-    RayClusterApi provides APIs to list, get, create, build, update, delete rayclusters.
+    """Lightweight helper around the KubeRay operator RayCluster CRD lifecycle.
 
-    Methods:
-    - list_ray_clusters(k8s_namespace: str = "default", async_req: bool = False) -> Any:
-    - get_ray_cluster(name: str, k8s_namespace: str = "default") -> Any:
-    - create_ray_cluster(body: Any, k8s_namespace: str = "default") -> Any:
-    - delete_ray_cluster(name: str, k8s_namespace: str = "default") -> bool:
-    - patch_ray_cluster(name: str, ray_patch: Any, k8s_namespace: str = "default") -> Any:
+    The class mirrors :class:`SlurmRayCluster` and :class:`KubeRayJob` – it's
+    a lightweight dataclass holding just two identifying fields (*name* and
+    *executor*).  All Kubernetes clients are instantiated lazily in
+    :py:meth:`__post_init__`.
     """
 
+    # ------------------------------------------------------------------
+    # Class-level constants / type bindings
+    # ------------------------------------------------------------------
     EXECUTOR_CLS = KubeRayExecutor
 
-    # initial config to setup the kube client
-    def __init__(self):
-        # loading the config
-        self.kube_config: Optional[Any] = config.load_kube_config()
+    # ------------------------------------------------------------------
+    # Primary identifiers (mirrors SlurmRayCluster API)
+    # ------------------------------------------------------------------
+    name: str
+    executor: KubeRayExecutor
+
+    # ------------------------------------------------------------------
+    # Dataclass lifecycle hooks
+    # ------------------------------------------------------------------
+    def __post_init__(self) -> None:  # noqa: D401 – simple verb is fine
+        """Initialise Kubernetes API clients once the instance is created."""
+        # Load local kube-config once; the function returns *None* so we don't store it.
+        config.load_kube_config()
+
+        # The dedicated clients are what we interact with throughout the class
+        # – separating CoreV1 for pods/services from CustomObjects for CRDs.
         self.api = client.CustomObjectsApi()
         self.core_v1_api = client.CoreV1Api()
 
-    def list_ray_clusters(
-        self, k8s_namespace: str = "default", label_selector: str = "", async_req: bool = False
+    def _get(
+        self,
+        name: Optional[str] = None,
+        k8s_namespace: Optional[str] = None,
     ) -> Any:
-        logger.info(
-            f"Listing Ray clusters in namespace: {k8s_namespace}, label_selector: {label_selector}, async_req: {async_req}"
-        )
-        """List Ray clusters in a given namespace.
+        # Return the RayCluster custom object, if present.
 
-        Parameters:
-        - k8s_namespace (str, optional): The namespace in which to list the Ray clusters. Defaults to "default".
-        - async_req (bool, optional): Whether to make the request asynchronously. Defaults to False.
+        name = name or self.name
+        namespace = k8s_namespace or self.executor.namespace or "default"
 
-        Returns:
-            Any: The custom resource for Ray clusters in the specified namespace, or None if not found.
+        logger.debug(f"Getting Ray cluster '{name}' in namespace '{namespace}'")
 
-        Raises:
-            ApiException: If there was an error fetching the custom resource.
-        """
-        try:
-            resource: Any = self.api.list_namespaced_custom_object(
-                group=GROUP,
-                version=VERSION,
-                plural=PLURAL,
-                namespace=k8s_namespace,
-                label_selector=label_selector,
-                async_req=async_req,
-            )
-            if "items" in resource:
-                return resource
-            return None
-        except ApiException as e:
-            if e.status == 404:
-                logger.error("raycluster resource is not found. error = {}".format(e))
-                return None
-            else:
-                logger.error("error fetching custom resource: {}".format(e))
-                return None
-
-    def get_ray_cluster(self, name: str, k8s_namespace: str = "default") -> Any:
-        logger.info(f"Getting Ray cluster: {name} in namespace: {k8s_namespace}")
-        """Get a specific Ray cluster in a given namespace.
-
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource. Defaults to "".
-        - k8s_namespace (str, optional): The namespace in which to retrieve the Ray cluster. Defaults to "default".
-
-        Returns:
-            Any: The custom resource for the specified Ray cluster, or None if not found.
-
-        Raises:
-            ApiException: If there was an error fetching the custom resource.
-        """
         try:
             resource: Any = self.api.get_namespaced_custom_object(
                 group=GROUP,
                 version=VERSION,
                 plural=PLURAL,
                 name=name,
-                namespace=k8s_namespace,
+                namespace=namespace,
             )
             return resource
         except ApiException as e:
             if e.status == 404:
-                logger.error("raycluster resource is not found. error = {}".format(e))
+                logger.error(f"Ray cluster '{name}' not found in namespace '{namespace}': {e}")
                 return None
             else:
-                logger.error("error fetching custom resource: {}".format(e))
+                logger.error(f"Error fetching Ray cluster '{name}' in namespace '{namespace}': {e}")
                 return None
 
-    def get_ray_cluster_status(
+    def status(
         self,
-        name: str,
-        k8s_namespace: str = "default",
         timeout: int = 60,
         delay_between_attempts: int = 5,
+        display: bool = False,
     ) -> Any:
-        logger.info(
-            f"Getting Ray cluster status: {name} in namespace: {k8s_namespace}, timeout: {timeout}s, delay: {delay_between_attempts}s"
-        )
-        """Get a specific Ray cluster in a given namespace.
+        """Return the ``status`` stanza of the RayCluster CR (blocking).
 
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource. Defaults to "".
-        - k8s_namespace (str, optional): The namespace in which to retrieve the Ray cluster. Defaults to "default".
-        - timeout (int, optional): The duration in seconds after which we stop trying to get status if still not set. Defaults to 60 seconds.
-        - delay_between_attempts (int, optional): The duration in seconds to wait between attempts to get status if not set. Defaults to 5 seconds.
-
-        Returns:
-            Any: The custom resource status for the specified Ray cluster, or None if not found.
-
-        Raises:
-            ApiException: If there was an error fetching the custom resource.
+        Polls until the CR contains a *status* field or *timeout* is reached.
         """
-        while timeout > 0:
+
+        namespace = self.executor.namespace or "default"
+        name = self.name
+
+        logger.debug(
+            f"Getting Ray cluster status for '{name}' in namespace '{namespace}', "
+            f"timeout: {timeout}s, delay: {delay_between_attempts}s"
+        )
+
+        remaining = timeout
+        while remaining > 0:
             try:
                 resource: Any = self.api.get_namespaced_custom_object_status(
                     group=GROUP,
                     version=VERSION,
                     plural=PLURAL,
                     name=name,
-                    namespace=k8s_namespace,
+                    namespace=namespace,
                 )
             except ApiException as e:
                 if e.status == 404:
-                    logger.error("raycluster resource is not found. error = {}".format(e))
+                    logger.debug(
+                        f"Ray cluster '{name}' status fetch failed: resource not found: {e}"
+                    )
                     return None
-                else:
-                    logger.error("error fetching custom resource: {}".format(e))
-                    return None
+                logger.error(
+                    f"Error fetching status for Ray cluster '{name}' in namespace '{namespace}': {e}"
+                )
+                return None
 
-            if "status" in resource and resource["status"]:
-                return resource["status"]
-            else:
-                logger.info("raycluster {} status not set yet, waiting...".format(name))
-                time.sleep(delay_between_attempts)
-                timeout -= delay_between_attempts
+            if resource.get("status"):
+                status_dict = resource["status"]
+                if display:
+                    self._display_banner(status_dict)
+                return status_dict
 
-        logger.info("raycluster {} status not set yet, timing out...".format(name))
+            logger.debug(f"Ray cluster '{name}' status not set yet, waiting...")
+            time.sleep(delay_between_attempts)
+            remaining -= delay_between_attempts
+
+        logger.debug(f"Ray cluster '{name}' status not set yet, timing out...")
         return None
 
-    def wait_until_ray_cluster_running(
+    def wait_until_running(
         self,
-        name: str,
-        executor: KubeRayExecutor,
-        k8s_namespace: Optional[str] = None,
-        timeout: int = 60,
+        timeout: int = 600,
         delay_between_attempts: int = 5,
     ) -> bool:
-        namespace = k8s_namespace or executor.namespace
-        logger.info(
-            f"Waiting until Ray cluster: {name} in namespace: {namespace} is running, timeout: {timeout}s, delay: {delay_between_attempts}s"
-        )
-        """Get a specific Ray cluster in a given namespace.
+        """Block until the Ray head service has a reachable IP **and** the head pod is running.
 
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource. Defaults to "".
-        - k8s_namespace (str, optional): The namespace in which to retrieve the Ray cluster. Defaults to "default".
-        - timeout (int, optional): The duration in seconds after which we stop trying to get status. Defaults to 60 seconds.
-        - delay_between_attempts (int, optional): The duration in seconds to wait between attempts to get status if not set. Defaults to 5 seconds.
+        The previous implementation returned as soon as the operator had
+        populated ``status.head.serviceIP`` in the RayCluster CR.  This is a
+        good proxy for readiness of the *service* object but does **not**
+        guarantee that the underlying *pod* has actually reached the
+        ``Running``/``Ready`` state.
 
-        Returns:
-            Bool: True if the raycluster status is Running, False otherwise.
+        We now additionally query the Kubernetes API for the head pod and
+        ensure that it is both *Running* **and** *Ready* before returning
+        success.  The head pod is identified via the same labels that the
+        KubeRay operator applies to every pod:
 
+        • ``ray.io/cluster=<cluster-name>``
+        • ``ray.io/node-type=head``
         """
-        while timeout > 0:
-            status = self.get_ray_cluster_status(
-                name, k8s_namespace or executor.namespace, timeout, delay_between_attempts
-            )
-            if not status:
-                logger.info(f"Ray cluster {name} status could not be retrieved")
+
+        namespace = self.executor.namespace or "default"
+        name = self.name
+
+        logger.info(
+            f"Waiting until Ray cluster '{name}' is running in namespace '{namespace}', "
+            f"timeout: {timeout}s, delay: {delay_between_attempts}s"
+        )
+
+        def _head_pod_is_ready() -> bool:
+            """Return *True* if the head pod exists and is Running/Ready."""
+            try:
+                pods = self.core_v1_api.list_namespaced_pod(
+                    namespace=namespace, label_selector=f"ray.io/cluster={name}"
+                )
+            except ApiException as e:
+                logger.debug(f"Error listing pods for Ray cluster '{name}': {e}")
                 return False
 
-            # TODO: once we add State to Status, we should check for that as well  <if status and status["state"] == "Running":>
-            if status and status["head"] and status["head"]["serviceIP"]:
-                logger.info(f"Ray cluster {name} is running")
+            for pod in pods.items:
+                labels = pod.metadata.labels or {}
+                # Newer KubeRay versions set `ray.io/node-type=head`; fall back to
+                # a heuristic on the pod name otherwise.
+                is_head = labels.get("ray.io/node-type") == "head" or "-head" in pod.metadata.name
+                if not is_head:
+                    continue
+
+                if pod.status.phase != "Running":
+                    return False
+
+                # Ensure the Ready condition is *True* (best-effort)
+                if pod.status.conditions:
+                    for cond in pod.status.conditions:
+                        if cond.type == "Ready":
+                            return cond.status == "True"
+                # If no conditions, fall back to phase only
                 return True
 
-            logger.info(
-                "raycluster {} status is not running yet, current status is {}".format(
-                    name, status["state"] if status and "state" in status else "unknown"
-                )
-            )
-            time.sleep(delay_between_attempts)
-            timeout -= delay_between_attempts
+            # No head pod found
+            return False
 
-        logger.info("raycluster {} status is not running yet, timing out...".format(name))
+        remaining = timeout
+        while remaining > 0:
+            poll_window = min(delay_between_attempts, remaining)
+
+            status = self.status(display=False)
+            if not status:
+                logger.info(f"Ray cluster '{name}' status could not be retrieved")
+                return False
+
+            svc_ip_ready = bool(status.get("head", {}).get("serviceIP"))
+            pod_ready = False
+            if svc_ip_ready:
+                pod_ready = _head_pod_is_ready()
+
+            if svc_ip_ready and pod_ready:
+                logger.info(f"Ray cluster '{name}' is running and head pod is ready")
+                return True
+
+            logger.debug(
+                f"Ray cluster '{name}' not ready yet – svc_ip_ready={svc_ip_ready}, pod_ready={pod_ready}"
+            )
+
+            remaining -= poll_window
+
+        logger.debug(f"Ray cluster '{name}' status is not running yet, timing out...")
         return False
 
-    def create_ray_cluster(
-        self, name: str, executor: KubeRayExecutor, k8s_namespace: Optional[str] = None
+    def create(
+        self,
+        pre_ray_start_commands: Optional[list[str]] = None,
+        dryrun: bool = False,
     ) -> Any:
-        namespace = k8s_namespace or executor.namespace
-        logger.info(f"Creating Ray cluster: {name} in namespace: {namespace}")
-        """Create a new Ray cluster custom resource.
+        """Create the RayCluster CR (idempotent)."""
 
-        Parameters:
-        - body (Any): The data of the custom resource to create.
-        - k8s_namespace (str, optional): The namespace in which to create the custom resource. Defaults to "default".
+        namespace = self.executor.namespace or "default"
+        name = self.name
 
-        Returns:
-            Any: The created custom resource, or None if it already exists or there was an error.
-        """
+        logger.info(f"Creating Ray cluster '{name}' in namespace '{namespace}'")
+
+        # Ensure lifecycle_kwargs dict exists (older executor versions may omit it)
+        if not hasattr(self.executor, "lifecycle_kwargs") or self.executor.lifecycle_kwargs is None:
+            self.executor.lifecycle_kwargs = {}
+
+        if pre_ray_start_commands:
+            k8s_pre_ray_start_commands = "\n".join(pre_ray_start_commands)
+            self.executor.lifecycle_kwargs["postStart"] = {
+                "exec": {"command": ["/bin/sh", "-c", k8s_pre_ray_start_commands]}
+            }
+
+        body = self.executor.get_cluster_body(name)
+
+        if dryrun:
+            print(yaml.dump(body))
+            return body
+
         try:
             resource: Any = self.api.create_namespaced_custom_object(
                 group=GROUP,
                 version=VERSION,
                 plural=PLURAL,
-                body=executor.get_cluster_body(name),
-                namespace=k8s_namespace or executor.namespace,
+                body=body,
+                namespace=namespace,
             )
             return resource
         except ApiException as e:
             if e.status == 409:
-                logger.error("raycluster resource already exists. error = {}".format(e.reason))
+                logger.error(f"Ray cluster '{name}' already exists: {e.reason}")
                 return None
-            else:
-                logger.error("error creating custom resource: {}".format(e))
-                return None
+            logger.error(f"Error creating Ray cluster '{name}' in namespace '{namespace}': {e}")
+            return None
 
-    def delete_ray_cluster(
+    def delete(
         self,
-        name: str,
-        executor: KubeRayExecutor,
-        k8s_namespace: Optional[str] = None,
         wait: bool = False,
         timeout: int = 300,
         poll_interval: int = 5,
     ) -> Optional[bool]:
-        """Delete a Ray cluster custom resource and optionally wait for deletion to complete.
+        """Delete the RayCluster CR and, optionally, wait for full teardown.
 
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource to delete.
-        - executor (KubeRayExecutor): The executor containing configuration details.
-        - k8s_namespace (str, optional): The namespace in which the Ray cluster exists.
-        - wait (bool, optional): Whether to wait for the cluster and all its pods to be fully deleted. Defaults to False.
-        - timeout (int, optional): Maximum time to wait for deletion in seconds. Defaults to 300 seconds (5 minutes).
-        - poll_interval (int, optional): Time between checks for deletion status in seconds. Defaults to 5 seconds.
+        Parameters
+        ----------
+        wait : bool, default False
+            When *True*, block until the RayCluster CR and all its pods have
+            disappeared.  A best-effort poll is performed every
+            *poll_interval* seconds up to *timeout* seconds.
+        timeout : int, default 300
+            Maximum time in seconds to wait for deletion when *wait* is
+            enabled.
+        poll_interval : int, default 5
+            Interval between successive status checks.
 
-        Returns:
-            Optional[bool]: True if deletion was successful, None if already deleted or there was an error.
+        Returns
+        -------
+        bool | None
+            • *True*  – deletion confirmed.
+            • *False* – timed out while waiting.
+            • *None*  – cluster already absent before the call.
         """
-        namespace = k8s_namespace or executor.namespace
-        logger.info(f"Deleting Ray cluster: {name} in namespace: {namespace}")
+        namespace = self.executor.namespace or "default"
+        name = self.name
+
+        logger.info(f"Deleting Ray cluster '{name}' in namespace '{namespace}'")
 
         try:
             self.api.delete_namespaced_custom_object(
@@ -283,7 +324,7 @@ class KubeRayCluster:
             if not wait:
                 return True
 
-            logger.info(f"Waiting for Ray cluster {name} and its pods to be fully deleted...")
+            logger.debug(f"Waiting for Ray cluster '{name}' and its pods to be fully deleted...")
             start_time = time.time()
             cluster_deleted = False
 
@@ -292,13 +333,13 @@ class KubeRayCluster:
                 # Check if CR still exists
                 if not cluster_deleted:
                     try:
-                        cluster = self.get_ray_cluster(name, namespace)
+                        cluster = self._get(name=name, k8s_namespace=namespace)
                         if not cluster:
-                            logger.info(f"Ray cluster CR {name} has been deleted")
+                            logger.info(f"Ray cluster CR '{name}' has been deleted")
                             cluster_deleted = True
                     except ApiException as e:
                         if e.status == 404:
-                            logger.info(f"Ray cluster CR {name} has been deleted")
+                            logger.info(f"Ray cluster CR '{name}' has been deleted")
                             cluster_deleted = True
                         else:
                             logger.error(f"Error checking Ray cluster status during deletion: {e}")
@@ -312,11 +353,11 @@ class KubeRayCluster:
                         )
 
                         if not pods.items:
-                            logger.info(f"All pods for Ray cluster {name} have been terminated")
+                            logger.info(f"All pods for Ray cluster '{name}' have been terminated")
                             return True
 
                         active_pods = [pod.metadata.name for pod in pods.items]
-                        logger.info(
+                        logger.debug(
                             f"Waiting for {len(active_pods)} pods to terminate: {', '.join(active_pods[:3])}"
                             + (
                                 f"... and {len(active_pods) - 3} more"
@@ -333,14 +374,14 @@ class KubeRayCluster:
 
             # If we reach here, we've timed out
             logger.warning(
-                f"Timed out waiting for Ray cluster {name} to be fully deleted after {timeout} seconds"
+                f"Timed out waiting for Ray cluster '{name}' to be fully deleted after {timeout} seconds"
             )
 
             # Check final state
             try:
-                cluster_exists = self.get_ray_cluster(name, namespace) is not None
+                cluster_exists = self._get(name=name, k8s_namespace=namespace) is not None
                 if cluster_exists:
-                    logger.warning(f"Ray cluster CR {name} still exists after timeout")
+                    logger.warning(f"Ray cluster CR '{name}' still exists after timeout")
 
                 pods = self.core_v1_api.list_namespaced_pod(
                     namespace=namespace, label_selector=f"ray.io/cluster={name}"
@@ -348,40 +389,43 @@ class KubeRayCluster:
                 if pods.items:
                     pod_names = [pod.metadata.name for pod in pods.items]
                     logger.warning(
-                        f"Ray cluster {name} still has {len(pod_names)} pods: {', '.join(pod_names[:5])}"
+                        f"Ray cluster '{name}' still has {len(pod_names)} pods: {', '.join(pod_names[:5])}"
                     )
             except Exception as e:
-                logger.error(f"Error checking final state of Ray cluster {name}: {e}")
+                logger.error(f"Error checking final state of Ray cluster '{name}': {e}")
 
             return False
 
         except ApiException as e:
             if e.status == 404:
-                logger.warning(f"Ray cluster {name} was already deleted")
+                logger.warning(f"Ray cluster '{name}' was already deleted")
                 return None
             else:
-                logger.error(f"Error deleting the Ray cluster {name}: {e}")
+                logger.error(f"Error deleting Ray cluster '{name}': {e}")
                 return None
 
-    def patch_ray_cluster(
+    def patch(
         self,
-        name: str,
         ray_patch: Any,
-        executor: KubeRayExecutor,
-        k8s_namespace: Optional[str] = None,
     ) -> Any:
-        namespace = k8s_namespace or executor.namespace
-        logger.info(f"Patching Ray cluster: {name} in namespace: {namespace}")
-        """Patch an existing Ray cluster custom resource.
+        """Patch the RayCluster custom resource with a user-supplied body.
 
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource to be patched.
-        - ray_patch (Any): The patch data for the Ray cluster.
-        - k8s_namespace (str, optional): The namespace in which the Ray cluster exists. Defaults to "default".
+        The patch is applied using the Kubernetes *merge* strategy, mirroring
+        ``kubectl patch --type=merge``.
 
-        Returns:
-            bool: True if the patch was successful, False otherwise.
+        Parameters
+        ----------
+        ray_patch : Any
+            A JSON-serialisable object representing the patch to apply.
+
+        Returns
+        -------
+        bool
+            *True* on success, *False* if the API call raised an exception.
         """
+        namespace = self.executor.namespace or "default"
+        name = self.name
+        logger.info(f"Patching Ray cluster '{name}' in namespace '{namespace}'")
         try:
             # we patch the existing raycluster with the new config
             self.api.patch_namespaced_custom_object(
@@ -393,49 +437,46 @@ class KubeRayCluster:
                 namespace=namespace,
             )
         except ApiException as e:
-            logger.error("raycluster `{}` failed to patch, with error: {}".format(name, e))
+            logger.error(f"Failed to patch Ray cluster '{name}': {e}")
             return False
         else:
-            logger.info("raycluster `%s` is patched successfully", name)
+            logger.info(f"Ray cluster '{name}' patched successfully")
 
         return True
 
     def port_forward(
         self,
-        name: str,
         port: int,
         target_port: int,
-        k8s_namespace: str,
         wait: bool = False,
     ):
-        """Port forward a Ray cluster service using kubectl in a daemon thread.
+        """Expose the Ray head service locally via *kubectl port-forward*.
 
-        When you want to stop the forwarding:
-            forward_thread.stop_forwarding()  # Call this method to stop forwarding
+        Parameters
+        ----------
+        port : int
+            Local port on which to listen.
+        target_port : int
+            Port number of the Ray head service inside the cluster.
+        wait : bool, default False
+            If *True*, block until the user terminates the process (SIGINT or
+            SIGTERM).  Otherwise a daemon thread is returned immediately.
 
-        If wait=True, this function will block until interrupted (e.g., with Ctrl+C).
-
-        Parameters:
-        - name (str): The name of the Ray cluster custom resource.
-        - port (int): The local port to use for forwarding.
-        - target_port (int): The target port on the Ray cluster to forward to.
-        - k8s_namespace (str, optional): The namespace in which the Ray cluster exists.
-        - wait (bool, optional): If True, block indefinitely until interrupted. Defaults to False.
-
-        Returns:
-        - ForwardingThread: A thread object with stop_forwarding method.
-
-        Raises:
-        - RuntimeError: If the Ray head service cannot be found.
-        - TimeoutError: If port forwarding fails to establish within the timeout period.
+        Returns
+        -------
+        threading.Thread
+            The daemon thread encapsulating the port-forwarding subprocess.
         """
         import queue
         import subprocess
         import threading
         import time
 
+        name = self.name
+        executor = self.executor
+
         # Get cluster details
-        cluster = self.get_ray_cluster(name, k8s_namespace or "default")
+        cluster = self._get(name=name, k8s_namespace=executor.namespace or "default")
         if not cluster:
             raise RuntimeError(f"Could not find Ray cluster {name}")
 
@@ -465,11 +506,11 @@ class KubeRayCluster:
                 self._stop_event = stop_event
 
             def stop_forwarding(self):
-                logger.info("Stopping port forwarding")
+                logger.debug("Stopping port forwarding")
                 self._stop_event.set()
 
         def forward_port_daemon():
-            logger.info(
+            logger.debug(
                 f"Starting port forwarding from localhost:{port} to service {service_name}:{target_port} in namespace {namespace}"
             )
 
@@ -489,10 +530,13 @@ class KubeRayCluster:
                         namespace,
                     ]
 
-                    logger.info(f"Running command: {' '.join(cmd)}")
+                    logger.debug(f"Running command: {' '.join(cmd)}")
 
                     process = subprocess.Popen(
-                        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                        cmd,
+                        stdout=subprocess.DEVNULL,  # avoid dead-lock on unread STDOUT
+                        stderr=subprocess.PIPE,
+                        text=True,
                     )
 
                     # Signal success to the main thread after short wait to ensure it started
@@ -501,7 +545,7 @@ class KubeRayCluster:
                         if not connection_established:
                             connection_established = True
                             status_queue.put(("success", None))
-                            logger.info("Port forwarding connection established")
+                            logger.debug("Port forwarding connection established")
 
                         # Wait for the process to complete or be killed
                         while not stop_event.is_set() and process.poll() is None:
@@ -521,7 +565,6 @@ class KubeRayCluster:
 
                         # If process exited with error, log it
                         if process.returncode != 0:
-                            # Safe way to read stderr that handles None case
                             stderr_output = ""
                             if process.stderr:
                                 stderr_output = process.stderr.read() or ""
@@ -531,7 +574,7 @@ class KubeRayCluster:
                             )
 
                         # If we get here, the connection was closed unexpectedly
-                        logger.info(
+                        logger.debug(
                             "Port forwarding connection closed, reconnecting in 5 seconds..."
                         )
                         time.sleep(5)
@@ -590,14 +633,6 @@ class KubeRayCluster:
         return forward_thread
 
     def _wait_for_forwarding_termination(self, forward_thread, stop_event):
-        """Helper method to wait for port forwarding termination.
-
-        Sets up signal handlers and blocks until interrupted or the stop_event is set.
-
-        Parameters:
-        - forward_thread: The thread running the port forwarding.
-        - stop_event: The event used to signal the thread to stop.
-        """
         import signal
         import time
 
@@ -606,7 +641,7 @@ class KubeRayCluster:
         original_sigterm_handler = signal.getsignal(signal.SIGTERM)
 
         def signal_handler(sig, frame):
-            logger.info("Received signal to stop port forwarding")
+            logger.info("Received signal to stop port forwarding.")
             stop_event.set()
 
             # Restore original signal handlers
@@ -631,5 +666,345 @@ class KubeRayCluster:
                 stop_event.set()
 
             # Wait for the thread to finish
+            logger.info("Waiting for port forwarding thread to finish for 5 seconds...")
             forward_thread.join(timeout=5)
             logger.info("Port forwarding stopped")
+
+    # Helper to print banner
+    def _display_banner(self, status_dict: Any) -> None:
+        namespace = self.executor.namespace or "default"
+        logger.info(
+            f"""\n\n\033[1;34mRay cluster status (KubeRay) in namespace {namespace}:\033[0m
+    • \033[1mName\033[0m       : {self.name}
+    • \033[1mState\033[0m      : {status_dict.get("state", "UNKNOWN") if isinstance(status_dict, dict) else "UNKNOWN"}
+    • \033[1mHead svc IP\033[0m: {status_dict.get("head", {}).get("serviceIP") if isinstance(status_dict, dict) else "N/A"}
+    (use `kubectl get rayclusters {self.name} -n {namespace}` to inspect, `kubectl delete rayclusters {self.name} -n {namespace}` to delete)\n"""
+        )
+
+
+@dataclass(kw_only=True)
+class KubeRayJob:
+    """Helper object for interacting with a KubeRay RayJob.
+
+    Parameters
+    ----------
+    name : str
+        Name of the RayJob custom resource.
+    namespace : str
+        Kubernetes namespace in which the job was created.
+    """
+
+    name: str
+    executor: KubeRayExecutor
+
+    def __post_init__(self):
+        # Lazily create K8s API clients if not supplied
+        self.api = client.CustomObjectsApi()
+        self.core_v1_api = client.CoreV1Api()
+        # Ensure backward-compat: if cluster is None we still work (stand-alone usage)
+
+    # ------------------------------------------------------------------
+    # Public helpers mirroring SlurmRayJob API for downstream symmetry.
+    # ------------------------------------------------------------------
+
+    def stop(self) -> None:
+        """Delete the RayJob custom resource (equivalent to job cancellation)."""
+        logger.debug(f"Cancelling RayJob '{self.name}' in namespace '{self.executor.namespace}'")
+        try:
+            self.api.delete_namespaced_custom_object(
+                group="ray.io",
+                version="v1",
+                plural="rayjobs",
+                name=self.name,
+                namespace=self.executor.namespace,
+            )
+            logger.debug(f"RayJob '{self.name}' cancellation requested (CR deleted)")
+        except ApiException as e:
+            if e.status == 404:
+                logger.warning(f"RayJob '{self.name}' not found – maybe already deleted")
+            else:
+                logger.error(f"Failed to cancel RayJob '{self.name}': {e}")
+
+    def logs(self, follow: bool = False, lines: int = 100) -> None:
+        """Stream or show logs from the RayJob submitter pod.
+
+        This simply shells out to ``kubectl logs -l job-name=<rayjob>`` which
+        is how the Ray docs recommend fetching RayJob logs.
+        """
+
+        cmd = [
+            "kubectl",
+            "logs",
+            "-l",
+            f"job-name={self.name}",
+            "-n",
+            self.executor.namespace,
+        ]
+
+        if follow:
+            cmd.append("-f")
+        else:
+            cmd.extend(["--tail", str(lines)])
+
+        logger.info(
+            f"Running: {' '.join(cmd)} (streaming={'yes' if follow else 'no'}, tail={lines})"
+        )
+
+        try:
+            if follow:
+                subprocess.run(cmd, check=False)
+            else:
+                output = subprocess.check_output(cmd, text=True)
+                print(output)
+        except FileNotFoundError:
+            logger.error("kubectl not found in PATH – cannot fetch logs")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"kubectl logs returned non-zero exit status {e.returncode}")
+
+    def status(self, display: bool = True) -> Dict[str, Any]:
+        """Return current RayJob status as a lightweight dict and pretty-print it."""
+
+        try:
+            resource = self.api.get_namespaced_custom_object(
+                group="ray.io",
+                version="v1",
+                plural="rayjobs",
+                name=self.name,
+                namespace=self.executor.namespace,
+            )
+        except ApiException as e:
+            logger.error(f"Failed to fetch status for RayJob '{self.name}': {e}")
+            return {"jobStatus": "ERROR", "jobDeploymentStatus": "ERROR"}
+
+        status = resource.get("status", {}) if isinstance(resource, dict) else {}
+        job_status = status.get("jobStatus", "UNKNOWN")
+        deployment_status = status.get("jobDeploymentStatus", "UNKNOWN")
+
+        if display:
+            logger.info(
+                f"""\n\n\033[1;34mRay Job status for KubeRay cluster in namespace {self.executor.namespace}:\033[0m
+        • \033[1mName\033[0m       : {self.name}
+        • \033[1mJob status\033[0m : {job_status}
+        • \033[1mDeployment\033[0m : {deployment_status}
+        (use `kubectl logs -l job-name={self.name} -n {self.executor.namespace} -f` to view logs)\n"""
+            )
+
+        return {"jobStatus": job_status, "jobDeploymentStatus": deployment_status}
+
+    # ------------------------------------------------------------------
+    # Convenience: tail logs asynchronously while waiting for completion,
+    # then optionally delete the RayJob CR once finished.
+    # ------------------------------------------------------------------
+
+    def follow_logs_until_completion(
+        self,
+        poll_interval: int = 10,
+        delete_on_finish: bool = True,
+    ) -> None:
+        """Stream job logs in real-time and clean up when the RayJob ends.
+
+        This helper starts a background thread running ``kubectl logs -f``
+        while the main thread polls the RayJob status every *poll_interval*
+        seconds.  As soon as the job transitions to a terminal state
+        (SUCCEEDED/FAILED or Deployment Complete/Failed) the log thread is
+        joined and – if *delete_on_finish* is *True* – the RayJob CR is
+        deleted.
+        """
+
+        # ------------------------------------------------------------------
+        # 1) Poll until the RayJob is actually running – only then start logs
+        # ------------------------------------------------------------------
+
+        RUNNING_DEPLOY_STATUS = "Running"
+
+        while True:
+            st = self.status(display=True)
+            if st.get("jobDeploymentStatus") == RUNNING_DEPLOY_STATUS:
+                break
+
+            # If job already finished/failed before reaching Running, bail out
+            if st.get("jobDeploymentStatus") in {"Complete", "Failed"}:
+                if delete_on_finish:
+                    self.stop()
+                return
+            time.sleep(poll_interval)
+
+        # ------------------------------------------------------------------
+        # 2) Start log streaming in a daemon thread
+        # ------------------------------------------------------------------
+
+        def _tail():
+            try:
+                self.logs(follow=True)
+            except Exception as e:  # pragma: no cover – logging only
+                logger.error(f"Log tailing thread encountered an error: {e}")
+
+        import threading
+
+        log_thread = threading.Thread(target=_tail, daemon=True)
+        log_thread.start()
+
+        # ------------------------------------------------------------------
+        # 3) Poll until RayJob ends, then cleanup
+        # ------------------------------------------------------------------
+
+        TERMINAL_JOB_STATUSES = {"SUCCEEDED", "FAILED"}
+        TERMINAL_DEPLOY_STATUSES = {"Complete", "Failed"}
+
+        try:
+            while True:
+                status = self.status(display=False)
+                if (
+                    status.get("jobStatus") in TERMINAL_JOB_STATUSES
+                    or status.get("jobDeploymentStatus") in TERMINAL_DEPLOY_STATUSES
+                ):
+                    break
+                time.sleep(poll_interval)
+        finally:
+            log_thread.join(timeout=5)
+
+            if delete_on_finish:
+                try:
+                    self.stop()
+                except Exception as e:  # pragma: no cover
+                    logger.debug(f"Ignoring error during job cleanup: {e}")
+
+    def start(
+        self,
+        command: str,
+        workdir: str | None = None,
+        runtime_env_yaml: str | None = None,
+        pre_ray_start_commands: Optional[list[str]] = None,
+        dryrun: bool = False,
+    ):
+        """Create a RayJob CR via the KubeRay operator and return a live helper.
+
+        This is a front-door convenience wrapper around
+        :py:meth:`KubeRayCluster.schedule_ray_job` so users can directly do::
+
+            KubeRayJob.start(
+                name="my-job",
+                executor=my_kuberay_executor,
+                command="python train.py",
+                workdir="./src",
+            )
+        """
+        # We directly replicate the logic previously living in
+        # `KubeRayCluster.schedule_ray_job` so that callers interact solely with
+        # *job* helpers, keeping cluster classes focused on cluster lifecycle
+        # only.
+
+        # ------------------------------------------------------------------
+        # 1.  Handle optional *workdir* sync (data-mover pod).
+        # ------------------------------------------------------------------
+        from nemo_run.core.execution.kuberay import sync_workdir_via_pod
+
+        name = self.name
+        executor = self.executor
+        namespace = executor.namespace
+
+        # Ensure lifecycle_kwargs dict exists on executor
+        if not hasattr(executor, "lifecycle_kwargs") or executor.lifecycle_kwargs is None:
+            executor.lifecycle_kwargs = {}
+
+        if pre_ray_start_commands:
+            k8s_pre_cmds = "\n".join(pre_ray_start_commands)
+            executor.lifecycle_kwargs["postStart"] = {
+                "exec": {"command": ["/bin/sh", "-c", k8s_pre_cmds]}
+            }
+
+        if workdir:
+            if not executor.volumes or not executor.volume_mounts:
+                raise ValueError(
+                    "`workdir` specified but executor has no volumes/volume_mounts to mount it."
+                )
+
+            workspace_path = os.path.join(
+                executor.volume_mounts[0]["mountPath"], Path(workdir).name
+            )
+
+            if not dryrun:
+                sync_workdir_via_pod(
+                    name=name,
+                    namespace=namespace,
+                    workdir=workdir,
+                    core_v1_api=self.core_v1_api,
+                    volumes=executor.volumes,
+                    volume_mounts=executor.volume_mounts,
+                    workspace_path=workspace_path,
+                )
+
+        # In-place patch of executor.lifecycle_kwargs with *postStart* if needed
+        if pre_ray_start_commands:
+            executor.lifecycle_kwargs["postStart"] = {
+                "exec": {"command": ["/bin/sh", "-c", "\n".join(pre_ray_start_commands)]}
+            }
+
+        # ------------------------------------------------------------------
+        # 2.  Build RayCluster spec (via executor).
+        # ------------------------------------------------------------------
+        cluster_name = f"{name}-raycluster"
+        ray_cluster_body = executor.get_cluster_body(cluster_name)
+        ray_cluster_spec = ray_cluster_body.get("spec", {})
+
+        # Ensure consistent workingDir inside all Ray containers so that relative
+        # paths in `ray job submit` resolve as expected.
+        container_workdir = "/workspace"
+        if workdir:
+            container_workdir = os.path.join(
+                executor.volume_mounts[0]["mountPath"], Path(workdir).name
+            )
+
+        def _apply_workdir(pod_template: dict):
+            try:
+                for c in pod_template["spec"]["containers"]:
+                    c["workingDir"] = container_workdir
+            except Exception:
+                pass  # ignore malformed specs
+
+        if "headGroupSpec" in ray_cluster_spec:
+            _apply_workdir(ray_cluster_spec["headGroupSpec"]["template"])
+
+        for w in ray_cluster_spec.get("workerGroupSpecs", []):
+            _apply_workdir(w["template"])  # type: ignore[arg-type]
+
+        # ------------------------------------------------------------------
+        # 3.  Assemble RayJob CRD manifest
+        # ------------------------------------------------------------------
+        if runtime_env_yaml and os.path.isfile(Path(runtime_env_yaml)):
+            with open(runtime_env_yaml, "r") as f:
+                runtime_env_yaml = f.read()
+
+        rayjob_body = {
+            "apiVersion": "ray.io/v1",
+            "kind": "RayJob",
+            "metadata": {
+                "name": name,
+                "namespace": namespace,
+            },
+            "spec": {
+                "entrypoint": command,
+                "shutdownAfterJobFinishes": True,
+                "rayClusterSpec": ray_cluster_spec,
+                "runtimeEnvYAML": runtime_env_yaml,
+            },
+        }
+
+        if dryrun:
+            print(yaml.dump(rayjob_body))
+            return rayjob_body
+
+        # Create the RayJob CR via Kubernetes API
+        try:
+            self.api.create_namespaced_custom_object(
+                group="ray.io",
+                version="v1",
+                plural="rayjobs",
+                body=rayjob_body,
+                namespace=namespace,
+            )
+            self.status()
+        except ApiException as e:
+            if e.status == 409:
+                raise RuntimeError(f"RayJob '{name}' already exists: {e.reason}")
+            raise RuntimeError(f"Error creating RayJob '{name}': {e}")

@@ -748,10 +748,10 @@ def _as_sbatch_flag(key: str, value: Any) -> str:
 
 @dataclass(kw_only=True)
 class SlurmBatchRequest:
-    cmd: list[str]
+    launch_cmd: list[str]
     jobs: list[str]
     command_groups: list[list[str]]
-    slurm_config: SlurmExecutor
+    executor: SlurmExecutor
     max_retries: int
     setup: Optional[list[str]] = None
     extra_env: dict[str, str]
@@ -786,7 +786,7 @@ class SlurmBatchRequest:
             In case an erroneous keyword argument is added, a list of all eligible parameters
             is printed, with their default values
         """
-        args = asdict(self.slurm_config)  # noqa: F821
+        args = asdict(self.executor)  # noqa: F821
         parameters = {
             k: v for k, v in args.items() if v is not None and k in SlurmExecutor.SBATCH_FLAGS
         }
@@ -800,18 +800,16 @@ class SlurmBatchRequest:
         # add necessary parameters
         original_job_name: str = self.jobs[0]  # type: ignore
         job_name_prefix = (
-            self.slurm_config.job_name_prefix
-            if self.slurm_config.job_name_prefix
-            else f"{self.slurm_config.account}-{self.slurm_config.account.split('_')[-1]}."
+            self.executor.job_name_prefix
+            if self.executor.job_name_prefix
+            else f"{self.executor.account}-{self.executor.account.split('_')[-1]}."
         )
         job_name = f"{job_name_prefix}{original_job_name}"
         slurm_job_dir = (
-            self.slurm_config.tunnel.job_dir
-            if self.slurm_config.tunnel
-            else self.slurm_config.job_dir
+            self.executor.tunnel.job_dir if self.executor.tunnel else self.executor.job_dir
         )
-        job_directory_name = Path(self.slurm_config.job_dir).name
-        job_details = self.slurm_config.job_details
+        job_directory_name = Path(self.executor.job_dir).name
+        job_details = self.executor.job_details
 
         if not job_details.job_name:
             job_details.job_name = job_name
@@ -824,41 +822,41 @@ class SlurmBatchRequest:
         stdout = str(job_details.stdout)
         stderr = str(job_details.stderr)
 
-        if self.slurm_config.array is not None:
+        if self.executor.array is not None:
             stdout = stdout.replace("%j", "%A_%a")
             stderr = stderr.replace("%j", "%A_%a")
         parameters["output"] = stdout.replace("%t", "0")
 
-        if not self.slurm_config.stderr_to_stdout:
+        if not self.executor.stderr_to_stdout:
             parameters["error"] = stderr.replace("%t", "0")
 
-        if self.slurm_config.additional_parameters is not None:
-            parameters.update(self.slurm_config.additional_parameters)
+        if self.executor.additional_parameters is not None:
+            parameters.update(self.executor.additional_parameters)
 
         # now create
-        sbatch_cmd = " ".join([shlex.quote(arg) for arg in self.cmd])
+        sbatch_cmd = " ".join([shlex.quote(arg) for arg in self.launch_cmd])
 
         sbatch_flags = []
-        if self.slurm_config.heterogeneous:
-            assert len(self.jobs) == len(self.slurm_config.resource_group), (
-                f"Number of jobs {len(self.jobs)} must match number of resource group requests {len(self.slurm_config.resource_group)}.\nIf you are just submitting a single job, make sure that heterogeneous=False in the executor."
+        if self.executor.heterogeneous:
+            assert len(self.jobs) == len(self.executor.resource_group), (
+                f"Number of jobs {len(self.jobs)} must match number of resource group requests {len(self.executor.resource_group)}.\nIf you are just submitting a single job, make sure that heterogeneous=False in the executor."
             )
-            final_group_index = len(self.slurm_config.resource_group) - 1
-            if self.slurm_config.het_group_indices:
-                final_group_index = self.slurm_config.het_group_indices.index(
-                    max(self.slurm_config.het_group_indices)
+            final_group_index = len(self.executor.resource_group) - 1
+            if self.executor.het_group_indices:
+                final_group_index = self.executor.het_group_indices.index(
+                    max(self.executor.het_group_indices)
                 )
 
-            for i in range(len(self.slurm_config.resource_group)):
-                resource_req = self.slurm_config.resource_group[i]
+            for i in range(len(self.executor.resource_group)):
+                resource_req = self.executor.resource_group[i]
                 if resource_req.het_group_index:
-                    assert self.slurm_config.resource_group[i - 1].het_group_index is not None, (
+                    assert self.executor.resource_group[i - 1].het_group_index is not None, (
                         "het_group_index must be set for all requests in resource_group"
                     )
                     if (
                         i > 0
                         and resource_req.het_group_index
-                        == self.slurm_config.resource_group[i - 1].het_group_index
+                        == self.executor.resource_group[i - 1].het_group_index
                     ):
                         continue
 
@@ -887,33 +885,31 @@ class SlurmBatchRequest:
             for k in sorted(parameters):
                 sbatch_flags.append(_as_sbatch_flag(k, parameters[k]))
 
-        if self.slurm_config.dependencies:
-            slurm_deps = self.slurm_config.parse_deps()
+        if self.executor.dependencies:
+            slurm_deps = self.executor.parse_deps()
             sbatch_flags.append(
                 _as_sbatch_flag(
-                    "dependency", f"{self.slurm_config.dependency_type}:{':'.join(slurm_deps)}"
+                    "dependency", f"{self.executor.dependency_type}:{':'.join(slurm_deps)}"
                 )
             )
 
         env_vars = []
-        full_env_vars = self.slurm_config.env_vars | self.extra_env
+        full_env_vars = self.executor.env_vars | self.extra_env
         for key, value in full_env_vars.items():
             env_vars.append(f"export {key.upper()}={value}")
 
         # commandline (this will run the function and args specified in the file provided as argument)
         # We pass --output and --error here, because the SBATCH command doesn't work as expected with a filename pattern
-        stderr_flags = [] if self.slurm_config.stderr_to_stdout else ["--error", stderr]
+        # Removed redundant assignment to stderr_flags
 
         srun_commands = []
         group_env_vars = []
         srun_stdout = noquote(job_details.srun_stdout)
         stderr_flags = (
-            []
-            if self.slurm_config.stderr_to_stdout
-            else ["--error", noquote(job_details.srun_stderr)]
+            [] if self.executor.stderr_to_stdout else ["--error", noquote(job_details.srun_stderr)]
         )
         memory_measure_out = None
-        if self.slurm_config.memory_measure:
+        if self.executor.memory_measure:
             memory_measure_out = srun_stdout
 
         def get_container_flags(
@@ -937,10 +933,10 @@ class SlurmBatchRequest:
             return _container_flags
 
         for group_ind, command_group in enumerate(self.command_groups):
-            if self.slurm_config.run_as_group and len(self.slurm_config.resource_group) == len(
+            if self.executor.run_as_group and len(self.executor.resource_group) == len(
                 self.command_groups
             ):
-                resource_req = self.slurm_config.resource_group[group_ind]
+                resource_req = self.executor.resource_group[group_ind]
                 if not resource_req.job_details.job_name:
                     resource_req.job_details.job_name = f"{job_name_prefix}{self.jobs[group_ind]}"
 
@@ -952,7 +948,7 @@ class SlurmBatchRequest:
                 cmd_stdout = noquote(resource_req.job_details.srun_stdout)
                 cmd_stderr = (
                     []
-                    if self.slurm_config.stderr_to_stdout
+                    if self.executor.stderr_to_stdout
                     else [
                         "--error",
                         noquote(resource_req.job_details.srun_stderr),
@@ -980,20 +976,20 @@ class SlurmBatchRequest:
                 if cmd_stderr:
                     cmd_stderr[-1] = cmd_stderr[-1].replace(original_job_name, self.jobs[group_ind])
                 _container_flags = get_container_flags(
-                    base_mounts=self.slurm_config.container_mounts,
+                    base_mounts=self.executor.container_mounts,
                     src_job_dir=os.path.join(
                         slurm_job_dir,
                         job_directory_name,
                     ),
-                    container_image=self.slurm_config.container_image,
+                    container_image=self.executor.container_image,
                 )
                 _srun_args = ["--wait=60", "--kill-on-bad-exit=1"]
-                _srun_args.extend(self.slurm_config.srun_args or [])
+                _srun_args.extend(self.executor.srun_args or [])
 
-            if self.slurm_config.run_as_group and self.slurm_config.heterogeneous:
+            if self.executor.run_as_group and self.executor.heterogeneous:
                 het_group_index = (
-                    self.slurm_config.resource_group[group_ind].het_group_index
-                    if self.slurm_config.resource_group[group_ind].het_group_index is not None
+                    self.executor.resource_group[group_ind].het_group_index
+                    if self.executor.resource_group[group_ind].het_group_index is not None
                     else group_ind
                 )
                 het_group_flag = [f"--het-group={het_group_index}"]
@@ -1018,10 +1014,10 @@ class SlurmBatchRequest:
             )
             command = " ".join(command_group)
 
-            if self.slurm_config.run_as_group:
+            if self.executor.run_as_group:
                 srun_command = f"{srun_cmd} {command} & pids[{group_ind}]=$!"
                 if group_ind != len(self.command_groups) - 1:
-                    srun_command += f"\n\nsleep {self.slurm_config.wait_time_for_group_job}\n"
+                    srun_command += f"\n\nsleep {self.executor.wait_time_for_group_job}\n"
             else:
                 srun_command = f"{srun_cmd} {command}"
 
@@ -1033,15 +1029,14 @@ class SlurmBatchRequest:
             "max_retries": self.max_retries,
             "env_vars": env_vars,
             "head_node_ip_var": SlurmExecutor.HEAD_NODE_IP_VAR,
-            "setup_lines": self.slurm_config.setup_lines,
+            "setup_lines": self.executor.setup_lines,
             "memory_measure": memory_measure_out,
             "srun_commands": srun_commands,
             "group_env_vars": group_env_vars,
-            "heterogeneous": self.slurm_config.heterogeneous,
-            "run_as_group": self.slurm_config.run_as_group,
-            "monitor_group_job": self.slurm_config.run_as_group
-            and self.slurm_config.monitor_group_job,
-            "monitor_group_job_wait_time": self.slurm_config.monitor_group_job_wait_time,
+            "heterogeneous": self.executor.heterogeneous,
+            "run_as_group": self.executor.run_as_group,
+            "monitor_group_job": self.executor.run_as_group and self.executor.monitor_group_job,
+            "monitor_group_job_wait_time": self.executor.monitor_group_job_wait_time,
             "het_group_host_var": SlurmExecutor.HET_GROUP_HOST_VAR,
             "ft_enabled": self.launcher and isinstance(self.launcher, FaultTolerance),
         }
@@ -1060,7 +1055,7 @@ class SlurmBatchRequest:
         return sbatch_script
 
     def __repr__(self) -> str:
-        return f"""{" ".join(self.cmd + ["$SBATCH_SCRIPT"])}
+        return f"""{" ".join(self.launch_cmd + ["$SBATCH_SCRIPT"])}
 
 #----------------
 # SBATCH_SCRIPT
