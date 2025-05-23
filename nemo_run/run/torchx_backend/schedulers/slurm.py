@@ -50,12 +50,11 @@ from torchx.specs import (
 )
 from torchx.specs.api import is_terminal
 
-from nemo_run.config import RUNDIR_NAME, from_dict, get_nemorun_home
+from nemo_run.config import RUNDIR_NAME, USE_WITH_RAY_CLUSTER_KEY, from_dict, get_nemorun_home
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import SlurmBatchRequest, SlurmExecutor, SlurmJobDetails
 from nemo_run.core.tunnel.client import LocalTunnel, PackagingJob, SSHTunnel, Tunnel
 from nemo_run.run import experiment as run_experiment
-from nemo_run.run.ray.cluster import USE_WITH_RAY_CLUSTER_KEY
 from nemo_run.run.ray.slurm import SlurmRayRequest
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 

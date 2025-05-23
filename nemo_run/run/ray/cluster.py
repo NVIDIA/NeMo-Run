@@ -31,8 +31,6 @@ except ImportError:
     KubeRayCluster = None
     _KUBERAY_AVAILABLE = False
 
-USE_WITH_RAY_CLUSTER_KEY = "use_with_ray_cluster"
-
 
 @dataclass(kw_only=True)
 class RayCluster:
