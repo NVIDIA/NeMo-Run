@@ -725,7 +725,7 @@ class KubeRayJob:
             else:
                 logger.error(f"Failed to cancel RayJob '{self.name}': {e}")
 
-    def logs(self, follow: bool = False, lines: int = 100) -> None:
+    def logs(self, follow: bool = False, lines: int = 100, timeout: int | None = None) -> None:
         """Stream or show logs from the RayJob submitter pod.
 
         This simply shells out to ``kubectl logs -l job-name=<rayjob>`` which
