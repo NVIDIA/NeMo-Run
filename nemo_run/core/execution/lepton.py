@@ -99,9 +99,7 @@ class LeptonExecutor(Executor):
                 image="busybox:1.37.0",  # Use a very low resource container
                 command=cmd,
             ),
-            mounts=[
-                Mount(path=mount["path"], mount_path=mount["mount_path"]) for mount in self.mounts
-            ],
+            mounts=[Mount(**mount) for mount in self.mounts],
         )
         spec.resource_requirement = ResourceRequirement(
             resource_shape="cpu.small",
@@ -161,6 +159,15 @@ class LeptonExecutor(Executor):
 
         return valid_node_ids
 
+    def _validate_mounts(self):
+        """
+        Ensure the required arguments are specified for mounts.
+        """
+        for mount in self.mounts:
+            # Verify that 'path' and 'mount_path' are both present in the mounts list
+            if not all(key in mount for key in ["path", "mount_path"]):
+                raise RuntimeError("Must specify a 'path' and 'mount_path' for all mounts")
+
     def create_lepton_job(self, name: str):
         """
         Creates a distributed PyTorch job using the provided project/cluster IDs.
@@ -192,9 +199,7 @@ class LeptonExecutor(Executor):
             max_failure_retry=None,
             max_job_failure_retry=None,
             envs=envs,
-            mounts=[
-                Mount(path=mount["path"], mount_path=mount["mount_path"]) for mount in self.mounts
-            ],
+            mounts=[Mount(**mount) for mount in self.mounts],
             image_pull_secrets=[],
             ttl_seconds_after_finished=None,
             intra_job_communication=True,
@@ -211,6 +216,7 @@ class LeptonExecutor(Executor):
         return created_job
 
     def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
+        self._validate_mounts()
         name = name.replace("_", "-").replace(".", "-")  # to meet K8s requirements
         launch_script = f"""
 wget -O init.sh https://raw.githubusercontent.com/leptonai/scripts/main/lepton_env_to_pytorch.sh
