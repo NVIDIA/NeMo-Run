@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Set, Type
 
 from invoke.context import Context
-from leptonai.api.v1.client import APIClient
+from leptonai.api.v2.client import APIClient
 from leptonai.api.v1.types.affinity import LeptonResourceAffinity
 from leptonai.api.v1.types.common import LeptonVisibility, Metadata
 from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
