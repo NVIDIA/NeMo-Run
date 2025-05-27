@@ -37,7 +37,7 @@ def configure_logging(level: str):
     if _is_jupyter():
         handlers = None
     logging.basicConfig(
-        level=logging.getLevelName(level.upper()),
+        level=level.upper(),
         format="%(message)s",
         datefmt="[%X]",
         handlers=handlers,

@@ -361,13 +361,13 @@ class SlurmRayCluster:
             cluster_dir = os.path.join(self.executor.tunnel.job_dir, self.name)
             logs_dir = os.path.join(cluster_dir, "logs")
             logger.info(
-                f"""\n\n\033[1;34mRay cluster status (Slurm) at {self.executor.tunnel.key}:\033[0m
-        • \033[1mName\033[0m       : {self.name}
-        • \033[1mJob ID\033[0m     : {status_dict.get("job_id")}
-        • \033[1mState\033[0m      : {status_dict.get("state")}
-        • \033[1mRay ready\033[0m  : {status_dict.get("ray_ready")}
-        • \033[1mCluster dir\033[0m: {cluster_dir}
-        • \033[1mLogs dir\033[0m   : {logs_dir}
+                f"""\n\nRay cluster status (Slurm) at {self.executor.tunnel.key}:
+        • Name       : {self.name}
+        • Job ID     : {status_dict.get("job_id")}
+        • State      : {status_dict.get("state")}
+        • Ray ready  : {status_dict.get("ray_ready")}
+        • Cluster dir: {cluster_dir}
+        • Logs dir   : {logs_dir}
         (use `squeue -j {status_dict.get("job_id")}` to check status, `scancel {status_dict.get("job_id")}` to cancel)\n"""
             )
 
@@ -809,7 +809,7 @@ class SlurmRayCluster:
                     self._ssh_process = None  # Ensure it's cleared
 
             def stop_forwarding(self):
-                logger.debug("Stopping port forwarding")
+                logger.info("Stopping port forwarding")
                 self._stop_event.set()
 
         # Create and start the forwarding thread
@@ -836,7 +836,7 @@ class SlurmRayCluster:
                 original_sigterm_handler = signal.getsignal(signal.SIGTERM)
 
                 def signal_handler(sig, frame):
-                    logger.debug(f"Received signal {sig} to stop port forwarding")
+                    logger.info(f"Received signal {sig} to stop port forwarding")
                     stop_event.set()
 
                     # Restore original signal handlers
@@ -847,7 +847,7 @@ class SlurmRayCluster:
                 signal.signal(signal.SIGINT, signal_handler)
                 signal.signal(signal.SIGTERM, signal_handler)
 
-                logger.debug("Port forwarding is active. Press Ctrl+C to stop...")
+                logger.info("Port forwarding is active. Press Ctrl+C to stop...")
                 while not stop_event.is_set():
                     if not forward_thread.is_alive():
                         logger.error(
@@ -1036,13 +1036,13 @@ class SlurmRayJob:
         logs_dir = os.path.join(self.cluster_dir, "logs")
         if display:
             logger.info(
-                f"""\n\n\033[1;34mRay job status for Slurm cluster at {self.executor.tunnel.key}:\033[0m
-        • \033[1mJob ID\033[0m         : \033[32m{self.job_id}\033[0m
-        • \033[1mState\033[0m          : {status_info.get("state", "UNKNOWN")}
-        • \033[1mRay ready\033[0m      : {status_info.get("ray_ready", False)}
-        • \033[1mCluster dir\033[0m    : {self.cluster_dir}
-        • \033[1mLogs directory\033[0m : {logs_dir}
-        • \033[1mSBATCH script\033[0m  : {sbatch_script}
+                f"""\n\nRay job status for Slurm cluster at {self.executor.tunnel.key}:
+        • Job ID         : {self.job_id}
+        • State          : {status_info.get("state", "UNKNOWN")}
+        • Ray ready      : {status_info.get("ray_ready", False)}
+        • Cluster dir    : {self.cluster_dir}
+        • Logs directory : {logs_dir}
+        • SBATCH script  : {sbatch_script}
         (use `squeue -j {self.job_id}` to check status, `scancel {self.job_id}` to cancel,
         `tail -f {self._logs_path()}` to view logs)\n"""
             )

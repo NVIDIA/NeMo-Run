@@ -14,8 +14,10 @@
 # limitations under the License.
 # Based on https://github.com/ray-project/kuberay/blob/master/clients/python-client/python_client/kuberay_cluster_api.py
 
+import getpass
 import logging
 import os
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -64,6 +66,8 @@ class KubeRayCluster:
         # – separating CoreV1 for pods/services from CustomObjects for CRDs.
         self.api = client.CustomObjectsApi()
         self.core_v1_api = client.CoreV1Api()
+        self.user = get_user()
+        self.cluster_name = f"{self.user}-{self.name}-raycluster"
 
     def _get(
         self,
@@ -72,7 +76,7 @@ class KubeRayCluster:
     ) -> Any:
         # Return the RayCluster custom object, if present.
 
-        name = name or self.name
+        name = name or self.cluster_name
         namespace = k8s_namespace or self.executor.namespace or "default"
 
         logger.debug(f"Getting Ray cluster '{name}' in namespace '{namespace}'")
@@ -106,7 +110,7 @@ class KubeRayCluster:
         """
 
         namespace = self.executor.namespace or "default"
-        name = self.name
+        name = self.cluster_name
 
         logger.debug(
             f"Getting Ray cluster status for '{name}' in namespace '{namespace}', "
@@ -137,7 +141,7 @@ class KubeRayCluster:
             if resource.get("status"):
                 status_dict = resource["status"]
                 if display:
-                    self._display_banner(status_dict)
+                    self._display_banner(name, status_dict)
                 return status_dict
 
             logger.debug(f"Ray cluster '{name}' status not set yet, waiting...")
@@ -170,7 +174,7 @@ class KubeRayCluster:
         """
 
         namespace = self.executor.namespace or "default"
-        name = self.name
+        name = self.cluster_name
 
         logger.info(
             f"Waiting until Ray cluster '{name}' is running in namespace '{namespace}', "
@@ -244,7 +248,7 @@ class KubeRayCluster:
         """Create the RayCluster CR (idempotent)."""
 
         namespace = self.executor.namespace or "default"
-        name = self.name
+        name = self.cluster_name
 
         logger.info(f"Creating Ray cluster '{name}' in namespace '{namespace}'")
 
@@ -308,7 +312,7 @@ class KubeRayCluster:
             • *None*  – cluster already absent before the call.
         """
         namespace = self.executor.namespace or "default"
-        name = self.name
+        name = self.cluster_name
 
         logger.info(f"Deleting Ray cluster '{name}' in namespace '{namespace}'")
 
@@ -424,7 +428,7 @@ class KubeRayCluster:
             *True* on success, *False* if the API call raised an exception.
         """
         namespace = self.executor.namespace or "default"
-        name = self.name
+        name = self.cluster_name
         logger.info(f"Patching Ray cluster '{name}' in namespace '{namespace}'")
         try:
             # we patch the existing raycluster with the new config
@@ -472,7 +476,7 @@ class KubeRayCluster:
         import threading
         import time
 
-        name = self.name
+        name = self.cluster_name
         executor = self.executor
 
         # Get cluster details
@@ -671,14 +675,14 @@ class KubeRayCluster:
             logger.info("Port forwarding stopped")
 
     # Helper to print banner
-    def _display_banner(self, status_dict: Any) -> None:
+    def _display_banner(self, name: str, status_dict: Any) -> None:
         namespace = self.executor.namespace or "default"
         logger.info(
-            f"""\n\n\033[1;34mRay cluster status (KubeRay) in namespace {namespace}:\033[0m
-    • \033[1mName\033[0m       : {self.name}
-    • \033[1mState\033[0m      : {status_dict.get("state", "UNKNOWN") if isinstance(status_dict, dict) else "UNKNOWN"}
-    • \033[1mHead svc IP\033[0m: {status_dict.get("head", {}).get("serviceIP") if isinstance(status_dict, dict) else "N/A"}
-    (use `kubectl get rayclusters {self.name} -n {namespace}` to inspect, `kubectl delete rayclusters {self.name} -n {namespace}` to delete)\n"""
+            f"""\n\nRay cluster status (KubeRay) in namespace {namespace}:
+    • Name       : {name}
+    • State      : {status_dict.get("state", "UNKNOWN") if isinstance(status_dict, dict) else "UNKNOWN"}
+    • Head svc IP: {status_dict.get("head", {}).get("serviceIP") if isinstance(status_dict, dict) else "N/A"}
+    (use `kubectl get rayclusters {name} -n {namespace}` to inspect, `kubectl delete rayclusters {name} -n {namespace}` to delete)\n"""
         )
 
 
@@ -698,10 +702,14 @@ class KubeRayJob:
     executor: KubeRayExecutor
 
     def __post_init__(self):
+        config.load_kube_config()
+
         # Lazily create K8s API clients if not supplied
         self.api = client.CustomObjectsApi()
         self.core_v1_api = client.CoreV1Api()
         # Ensure backward-compat: if cluster is None we still work (stand-alone usage)
+        self.user = get_user()
+        self.job_name = f"{self.user}-{self.name}-rayjob"
 
     # ------------------------------------------------------------------
     # Public helpers mirroring SlurmRayJob API for downstream symmetry.
@@ -709,23 +717,25 @@ class KubeRayJob:
 
     def stop(self) -> None:
         """Delete the RayJob custom resource (equivalent to job cancellation)."""
-        logger.debug(f"Cancelling RayJob '{self.name}' in namespace '{self.executor.namespace}'")
+        logger.debug(
+            f"Cancelling RayJob '{self.job_name}' in namespace '{self.executor.namespace}'"
+        )
         try:
             self.api.delete_namespaced_custom_object(
                 group="ray.io",
                 version="v1",
                 plural="rayjobs",
-                name=self.name,
+                name=self.job_name,
                 namespace=self.executor.namespace,
             )
-            logger.debug(f"RayJob '{self.name}' cancellation requested (CR deleted)")
+            logger.debug(f"RayJob '{self.job_name}' cancellation requested (CR deleted)")
         except ApiException as e:
             if e.status == 404:
-                logger.warning(f"RayJob '{self.name}' not found – maybe already deleted")
+                logger.warning(f"RayJob '{self.job_name}' not found – maybe already deleted")
             else:
-                logger.error(f"Failed to cancel RayJob '{self.name}': {e}")
+                logger.error(f"Failed to cancel RayJob '{self.job_name}': {e}")
 
-    def logs(self, follow: bool = False, lines: int = 100) -> None:
+    def logs(self, follow: bool = False, lines: int = 100, timeout: int | None = None) -> None:
         """Stream or show logs from the RayJob submitter pod.
 
         This simply shells out to ``kubectl logs -l job-name=<rayjob>`` which
@@ -736,7 +746,7 @@ class KubeRayJob:
             "kubectl",
             "logs",
             "-l",
-            f"job-name={self.name}",
+            f"job-name={self.job_name}",
             "-n",
             self.executor.namespace,
         ]
@@ -752,14 +762,16 @@ class KubeRayJob:
 
         try:
             if follow:
-                subprocess.run(cmd, check=False)
+                subprocess.run(cmd, check=False, timeout=timeout)
             else:
-                output = subprocess.check_output(cmd, text=True)
+                output = subprocess.check_output(cmd, text=True, timeout=timeout)
                 print(output)
         except FileNotFoundError:
             logger.error("kubectl not found in PATH – cannot fetch logs")
         except subprocess.CalledProcessError as e:
             logger.error(f"kubectl logs returned non-zero exit status {e.returncode}")
+        except subprocess.TimeoutExpired:
+            logger.error(f"kubectl logs timed out after {timeout} seconds")
 
     def status(self, display: bool = True) -> Dict[str, Any]:
         """Return current RayJob status as a lightweight dict and pretty-print it."""
@@ -769,11 +781,11 @@ class KubeRayJob:
                 group="ray.io",
                 version="v1",
                 plural="rayjobs",
-                name=self.name,
+                name=self.job_name,
                 namespace=self.executor.namespace,
             )
         except ApiException as e:
-            logger.error(f"Failed to fetch status for RayJob '{self.name}': {e}")
+            logger.error(f"Failed to fetch status for RayJob '{self.job_name}': {e}")
             return {"jobStatus": "ERROR", "jobDeploymentStatus": "ERROR"}
 
         status = resource.get("status", {}) if isinstance(resource, dict) else {}
@@ -782,11 +794,11 @@ class KubeRayJob:
 
         if display:
             logger.info(
-                f"""\n\n\033[1;34mRay Job status for KubeRay cluster in namespace {self.executor.namespace}:\033[0m
-        • \033[1mName\033[0m       : {self.name}
-        • \033[1mJob status\033[0m : {job_status}
-        • \033[1mDeployment\033[0m : {deployment_status}
-        (use `kubectl logs -l job-name={self.name} -n {self.executor.namespace} -f` to view logs)\n"""
+                f"""\n\nRay Job status for KubeRay cluster in namespace {self.executor.namespace}:
+        • Name       : {self.job_name}
+        • Job status : {job_status}
+        • Deployment : {deployment_status}
+        (use `kubectl logs -l job-name={self.job_name} -n {self.executor.namespace} -f` to view logs)\n"""
             )
 
         return {"jobStatus": job_status, "jobDeploymentStatus": deployment_status}
@@ -818,7 +830,7 @@ class KubeRayJob:
         RUNNING_DEPLOY_STATUS = "Running"
 
         while True:
-            st = self.status(display=True)
+            st = self.status(display=False)
             if st.get("jobDeploymentStatus") == RUNNING_DEPLOY_STATUS:
                 break
 
@@ -899,7 +911,6 @@ class KubeRayJob:
         # ------------------------------------------------------------------
         from nemo_run.core.execution.kuberay import sync_workdir_via_pod
 
-        name = self.name
         executor = self.executor
         namespace = executor.namespace
 
@@ -913,26 +924,31 @@ class KubeRayJob:
                 "exec": {"command": ["/bin/sh", "-c", k8s_pre_cmds]}
             }
 
+        user_workspace_path = None
+
         if workdir:
             if not executor.volumes or not executor.volume_mounts:
                 raise ValueError(
                     "`workdir` specified but executor has no volumes/volume_mounts to mount it."
                 )
 
-            workspace_path = os.path.join(
-                executor.volume_mounts[0]["mountPath"], Path(workdir).name
+            user_workspace_path = os.path.join(
+                executor.volume_mounts[0]["mountPath"], self.user, "code", Path(workdir).name
             )
+            # Add user-based scoping to pod name and workspace path
+            pod_name = f"{self.job_name}-data-mover"
 
             if not dryrun:
                 sync_workdir_via_pod(
-                    name=name,
+                    pod_name=pod_name,
                     namespace=namespace,
+                    user_workspace_path=user_workspace_path,
                     workdir=workdir,
                     core_v1_api=self.core_v1_api,
                     volumes=executor.volumes,
                     volume_mounts=executor.volume_mounts,
-                    workspace_path=workspace_path,
                 )
+                logger.info(f"Synced workdir {workdir} to {user_workspace_path}")
 
         # In-place patch of executor.lifecycle_kwargs with *postStart* if needed
         if pre_ray_start_commands:
@@ -943,7 +959,7 @@ class KubeRayJob:
         # ------------------------------------------------------------------
         # 2.  Build RayCluster spec (via executor).
         # ------------------------------------------------------------------
-        cluster_name = f"{name}-raycluster"
+        cluster_name = f"{self.job_name}-raycluster"
         ray_cluster_body = executor.get_cluster_body(cluster_name)
         ray_cluster_spec = ray_cluster_body.get("spec", {})
 
@@ -979,7 +995,7 @@ class KubeRayJob:
             "apiVersion": "ray.io/v1",
             "kind": "RayJob",
             "metadata": {
-                "name": name,
+                "name": self.job_name,
                 "namespace": namespace,
             },
             "spec": {
@@ -1006,5 +1022,17 @@ class KubeRayJob:
             self.status()
         except ApiException as e:
             if e.status == 409:
-                raise RuntimeError(f"RayJob '{name}' already exists: {e.reason}")
-            raise RuntimeError(f"Error creating RayJob '{name}': {e}")
+                raise RuntimeError(f"RayJob '{self.job_name}' already exists: {e.reason}")
+            raise RuntimeError(f"Error creating RayJob '{self.job_name}': {e}")
+
+
+def get_user():
+    # Get user for scoping if not provided
+    try:
+        user = getpass.getuser()
+    except Exception:
+        # Fallback to environment variables if getpass fails
+        user = os.environ.get("USER") or os.environ.get("LOGNAME") or "unknown"
+    # Clean user name for use in pod name (k8s resource naming rules)
+    user = re.sub(r"[^a-z0-9\-]", "-", user.lower())
+    return user
