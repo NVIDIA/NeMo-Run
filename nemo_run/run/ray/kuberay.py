@@ -573,7 +573,7 @@ class KubeRayCluster:
                             if process.stderr:
                                 stderr_output = process.stderr.read() or ""
 
-                            logger.error(
+                            logger.debug(
                                 f"Port forwarding process exited with code {process.returncode}: {stderr_output}"
                             )
 
@@ -677,12 +677,42 @@ class KubeRayCluster:
     # Helper to print banner
     def _display_banner(self, name: str, status_dict: Any) -> None:
         namespace = self.executor.namespace or "default"
+
+        pvc_locations = ", ".join(
+            [vm.get("mountPath", "N/A") for vm in self.executor.volume_mounts]
+        )
+
         logger.info(
-            f"""\n\nRay cluster status (KubeRay) in namespace {namespace}:
-    • Name       : {name}
-    • State      : {status_dict.get("state", "UNKNOWN") if isinstance(status_dict, dict) else "UNKNOWN"}
-    • Head svc IP: {status_dict.get("head", {}).get("serviceIP") if isinstance(status_dict, dict) else "N/A"}
-    (use `kubectl get rayclusters {name} -n {namespace}` to inspect, `kubectl delete rayclusters {name} -n {namespace}` to delete)\n"""
+            f"""
+Ray Cluster Status (KubeRay)
+============================
+
+Namespace: {namespace}
+Name:      {name}
+State:     {status_dict.get("state", "UNKNOWN") if isinstance(status_dict, dict) else "UNKNOWN"}
+Head IP:   {status_dict.get("head", {}).get("serviceIP") if isinstance(status_dict, dict) else "N/A"}
+Persistent file paths: {pvc_locations}
+
+Useful Commands
+---------------
+
+• Inspect cluster:
+  kubectl get rayclusters {name} -n {namespace}
+
+• Delete cluster:
+  kubectl delete rayclusters {name} -n {namespace}
+
+• Exec into Ray head pod:
+  kubectl exec -it -n {namespace} $(kubectl get pods -n {namespace} \\
+    -l ray.io/cluster={name},ray.io/node-type=head \\
+    -o jsonpath='{{.items[0].metadata.name}}') -- /bin/bash
+
+• View Ray dashboard:
+  kubectl port-forward -n {namespace} service/{name}-head-svc 8265:8265
+
+• List all pods:
+  kubectl get pods -n {namespace} -l ray.io/cluster={name}
+"""
         )
 
 
@@ -793,12 +823,58 @@ class KubeRayJob:
         deployment_status = status.get("jobDeploymentStatus", "UNKNOWN")
 
         if display:
+            # Derive related resource names
+            data_mover_pod = f"{self.job_name}-data-mover"
+            ray_cluster_name = f"{self.job_name}-raycluster"
+            pvc_locations = ", ".join(
+                [vm.get("mountPath", "N/A") for vm in self.executor.volume_mounts]
+            )
+
+            # Construct workdir paths based on standard patterns
+            # Note: These are estimates based on the naming conventions in the code
+            user_workspace_base = f"{self.executor.volume_mounts[0]['mountPath']}/{self.user}/code"
+
             logger.info(
-                f"""\n\nRay Job status for KubeRay cluster in namespace {self.executor.namespace}:
-        • Name       : {self.job_name}
-        • Job status : {job_status}
-        • Deployment : {deployment_status}
-        (use `kubectl logs -l job-name={self.job_name} -n {self.executor.namespace} -f` to view logs)\n"""
+                f"""
+Ray Job Status (KubeRay)
+========================
+
+Namespace:         {self.executor.namespace}
+Job Name:          {self.job_name}
+Job Status:        {job_status}
+Deployment Status: {deployment_status}
+Persistent file paths: {pvc_locations}
+
+Related Resources
+-----------------
+
+• Ray Cluster:     {ray_cluster_name}
+• Data Mover Pod:  {data_mover_pod}
+  (syncs local workdir to PVC)
+
+Workdir Locations
+-----------------
+
+• Local code synced to: {user_workspace_base}/<workdir-name>
+• Container workdir:    {user_workspace_base}/<workdir-name>
+
+Useful Commands
+---------------
+
+• View logs:
+  kubectl logs -l job-name={self.job_name} -n {self.executor.namespace} -f
+
+• Exec into Ray head pod:
+  kubectl exec -it -n {self.executor.namespace} $(kubectl get pods -n {self.executor.namespace} \\
+    -l ray.io/cluster={ray_cluster_name},ray.io/node-type=head \\
+    -o jsonpath='{{.items[0].metadata.name}}') -- /bin/bash
+
+• Exec into data mover pod:
+  kubectl exec -it {data_mover_pod} -n {self.executor.namespace} -- /bin/bash
+
+• Check Ray cluster status:
+  kubectl get raycluster {ray_cluster_name} -n {self.executor.namespace}
+"""
             )
 
         return {"jobStatus": job_status, "jobDeploymentStatus": deployment_status}

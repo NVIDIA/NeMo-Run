@@ -361,14 +361,32 @@ class SlurmRayCluster:
             cluster_dir = os.path.join(self.executor.tunnel.job_dir, self.name)
             logs_dir = os.path.join(cluster_dir, "logs")
             logger.info(
-                f"""\n\nRay cluster status (Slurm) at {self.executor.tunnel.key}:
-        • Name       : {self.name}
-        • Job ID     : {status_dict.get("job_id")}
-        • State      : {status_dict.get("state")}
-        • Ray ready  : {status_dict.get("ray_ready")}
-        • Cluster dir: {cluster_dir}
-        • Logs dir   : {logs_dir}
-        (use `squeue -j {status_dict.get("job_id")}` to check status, `scancel {status_dict.get("job_id")}` to cancel)\n"""
+                f"""
+Ray Cluster Status (Slurm)
+==========================
+
+Host:        {self.executor.tunnel.key}
+Name:        {self.name}
+Job ID:      {status_dict.get("job_id")}
+State:       {status_dict.get("state")}
+Ray ready:   {status_dict.get("ray_ready")}
+Cluster dir: {cluster_dir}
+Logs dir:    {logs_dir}
+SBATCH script: {cluster_dir}/ray.sub
+
+Useful Commands
+---------------
+
+• Check status:
+  squeue -j {status_dict.get("job_id")}
+
+• Cancel job:
+  scancel {status_dict.get("job_id")}
+
+• View logs:
+  tail -f {logs_dir}/ray-*.log
+
+"""
             )
 
         return status_dict
@@ -1036,15 +1054,31 @@ class SlurmRayJob:
         logs_dir = os.path.join(self.cluster_dir, "logs")
         if display:
             logger.info(
-                f"""\n\nRay job status for Slurm cluster at {self.executor.tunnel.key}:
-        • Job ID         : {self.job_id}
-        • State          : {status_info.get("state", "UNKNOWN")}
-        • Ray ready      : {status_info.get("ray_ready", False)}
-        • Cluster dir    : {self.cluster_dir}
-        • Logs directory : {logs_dir}
-        • SBATCH script  : {sbatch_script}
-        (use `squeue -j {self.job_id}` to check status, `scancel {self.job_id}` to cancel,
-        `tail -f {self._logs_path()}` to view logs)\n"""
+                f"""
+Ray Job Status (Slurm)
+======================
+
+Host:            {self.executor.tunnel.key}
+Job ID:          {self.job_id}
+State:           {status_info.get("state", "UNKNOWN")}
+Ray ready:       {status_info.get("ray_ready", False)}
+Cluster dir:     {self.cluster_dir}
+Logs directory:  {logs_dir}
+SBATCH script:   {sbatch_script}
+
+Useful Commands (to be run on the login node of the Slurm cluster)
+------------------------------------------------------------------
+
+• Check status:
+  squeue -j {self.job_id}
+
+• Cancel job:
+  scancel {self.job_id}
+
+• View logs:
+  tail -f {self._logs_path()}
+
+"""
             )
         return status_info
 

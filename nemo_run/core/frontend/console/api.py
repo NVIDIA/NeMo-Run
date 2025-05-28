@@ -33,7 +33,14 @@ class CustomConfigRepr:
 
 
 def configure_logging(level: str):
-    handlers = [RichHandler(console=CONSOLE)]
+    handlers = [
+        RichHandler(
+            console=CONSOLE,
+            show_time=True,
+            show_level=True,
+            show_path=True,
+        )
+    ]
     if _is_jupyter():
         handlers = None
     logging.basicConfig(
