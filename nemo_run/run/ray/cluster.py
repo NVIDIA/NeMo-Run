@@ -18,6 +18,7 @@ from typing import Optional, Type
 
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import SlurmExecutor
+from nemo_run.core.frontend.console.api import configure_logging
 from nemo_run.run.ray.slurm import SlurmRayCluster
 
 # Import guard for Kubernetes dependencies
@@ -36,8 +37,10 @@ except ImportError:
 class RayCluster:
     name: str
     executor: Executor
+    log_level: str = "INFO"
 
     def __post_init__(self):
+        configure_logging(level=self.log_level)
         backend_map: dict[Type[Executor], Type] = {
             SlurmExecutor: SlurmRayCluster,
         }

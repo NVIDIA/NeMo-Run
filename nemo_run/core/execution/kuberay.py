@@ -80,7 +80,8 @@ class KubeRayExecutor(Executor):
     image: str = ""  # Will be set in __post_init__ if empty
     head_cpu: str = "1"
     head_memory: str = "2Gi"
-    ray_start_params: dict[str, Any] = field(default_factory=dict)
+    ray_head_start_params: dict[str, Any] = field(default_factory=dict)
+    ray_worker_start_params: dict[str, Any] = field(default_factory=dict)
     worker_groups: list[KubeRayWorkerGroup] = field(default_factory=list)
     labels: dict[str, Any] = field(default_factory=dict)
     service_type: str = "ClusterIP"
@@ -122,7 +123,7 @@ class KubeRayExecutor(Executor):
             memory_requests=self.head_memory,
             cpu_limits=self.head_cpu,
             memory_limits=self.head_memory,
-            ray_start_params=self.ray_start_params,
+            ray_start_params=self.ray_head_start_params,
             head_ports=self.head_ports,
             env_vars=self.env_vars,
             volumes=self.volumes,
@@ -144,7 +145,7 @@ class KubeRayExecutor(Executor):
                 replicas=worker_group.replicas,
                 min_replicas=worker_group.min_replicas or worker_group.replicas,
                 max_replicas=worker_group.max_replicas or worker_group.replicas,
-                ray_start_params=self.ray_start_params,
+                ray_start_params=self.ray_worker_start_params,
                 volume_mounts=worker_group.volume_mounts,
                 volumes=worker_group.volumes,
                 labels=worker_group.labels,
@@ -459,13 +460,13 @@ def is_valid_label(name: str) -> bool:
 
 def sync_workdir_via_pod(
     *,
-    name: str,
+    pod_name: str,
     namespace: str,
+    user_workspace_path: str,
     workdir: str,
     core_v1_api: CoreV1Api,
     volumes: list[dict[str, object]],
     volume_mounts: list[dict[str, object]],
-    workspace_path: str = "/workspace",
     image: str = "alpine:3.19",
     cleanup: bool = False,
     cleanup_timeout: int = 5,
@@ -477,9 +478,6 @@ def sync_workdir_via_pod(
     Requires that the *kubectl* binary is available in PATH and can access
     the same cluster context as the Kubernetes Python client.
     """
-
-    pod_name = f"{name}-dm"
-
     # Pod manifest
     pod_body = client.V1Pod(
         metadata=client.V1ObjectMeta(name=pod_name, namespace=namespace),
@@ -548,7 +546,7 @@ def sync_workdir_via_pod(
             "--",
             "mkdir",
             "-p",
-            workspace_path,
+            user_workspace_path,
         ]
     )
 
@@ -570,7 +568,7 @@ def sync_workdir_via_pod(
             f"kubectl exec -i -n {namespace} {pod_name}",
             "--",  # Marks end-of-options for rsync – mandatory when the dest starts with "--:"
             f"{os.path.abspath(workdir).rstrip(os.sep)}/",
-            f"--:{workspace_path.rstrip('/')}/",
+            f"--:{user_workspace_path.rstrip('/')}/",
         ]
     )
 
@@ -578,9 +576,9 @@ def sync_workdir_via_pod(
     logger.debug("Running rsync command: %s", " ".join(rsync_cmd))
 
     subprocess.check_call(rsync_cmd)
+    logger.info(f"Workdir synced to PVC at {user_workspace_path} via data-mover pod.")
 
     if cleanup:
-        logger.info("Workdir synced to PVC via data-mover pod. Cleaning up…")
         core_v1_api.delete_namespaced_pod(
             name=pod_name, namespace=namespace, body=client.V1DeleteOptions()
         )

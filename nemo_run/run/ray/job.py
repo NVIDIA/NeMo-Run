@@ -18,6 +18,7 @@ from typing import Any, Optional, Type
 
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.slurm import SlurmExecutor
+from nemo_run.core.frontend.console.api import configure_logging
 from nemo_run.run.ray.slurm import SlurmRayJob
 
 # Import guard for Kubernetes dependencies
@@ -39,8 +40,10 @@ class RayJob:
     name: str
     executor: Executor
     pre_ray_start_commands: Optional[list[str]] = None
+    log_level: str = "INFO"
 
     def __post_init__(self) -> None:  # noqa: D401 – simple implementation
+        configure_logging(level=self.log_level)
         backend_map: dict[Type[Executor], Type[Any]] = {
             SlurmExecutor: SlurmRayJob,
         }
