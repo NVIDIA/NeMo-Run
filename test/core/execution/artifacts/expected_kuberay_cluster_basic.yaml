@@ -1,0 +1,61 @@
+apiVersion: ray.io/v1alpha1
+kind: RayCluster
+metadata:
+  name: test-cluster
+  namespace: default
+  labels: {}
+spec:
+  rayVersion: 2.43.0
+  headGroupSpec:
+    serviceType: ClusterIP
+    rayStartParams:
+      dashboard-host: 0.0.0.0
+    template:
+      spec:
+        containers:
+        - image: rayproject/ray:2.43.0
+          name: ray-head
+          ports: []
+          env: []
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - ray stop
+          resources:
+            requests:
+              cpu: '1'
+              memory: 2Gi
+            limits:
+              cpu: '1'
+              memory: 2Gi
+          volumeMounts: []
+        volumes: []
+  workerGroupSpecs:
+  - groupName: workers
+    maxReplicas: 2
+    minReplicas: 2
+    rayStartParams: {}
+    replicas: 2
+    template:
+      spec:
+        containers:
+        - image: rayproject/ray:2.43.0
+          name: ray-worker
+          env: []
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - ray stop
+          resources:
+            requests:
+              cpu: '2'
+              memory: 4Gi
+            limits: {}
+          volumeMounts: []
+        volumes: []
