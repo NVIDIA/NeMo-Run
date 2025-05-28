@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -197,14 +197,14 @@ class TestKubeRayCluster:
         mock_api, _ = mock_k8s_clients
 
         # Create expected body from artifact
-        artifact_path = os.path.join(ARTIFACTS_DIR, "expected_kuberay_cluster_basic.yaml")
+        os.path.join(ARTIFACTS_DIR, "expected_kuberay_cluster_basic.yaml")
 
         # Mock the API response
         mock_api.create_namespaced_custom_object.return_value = {
             "metadata": {"name": "test-cluster"}
         }
 
-        result = cluster_with_basic_executor.create()
+        cluster_with_basic_executor.create()
 
         # Verify API was called
         assert mock_api.create_namespaced_custom_object.called
@@ -229,7 +229,7 @@ class TestKubeRayCluster:
 
         # Add pre-ray-start commands
         pre_commands = ["export PYTHONPATH=/app", "pip install -r requirements.txt"]
-        result = cluster_with_advanced_executor.create(pre_ray_start_commands=pre_commands)
+        cluster_with_advanced_executor.create(pre_ray_start_commands=pre_commands)
 
         # Verify API was called
         assert mock_api.create_namespaced_custom_object.called
@@ -495,7 +495,7 @@ class TestKubeRayJob:
         """Test starting a basic Ray job."""
         mock_api, _ = mock_k8s_clients
 
-        result = job_with_basic_executor.start(
+        job_with_basic_executor.start(
             command="python train.py",
             workdir=None,
         )
@@ -529,7 +529,7 @@ class TestKubeRayJob:
             with patch("nemo_run.core.execution.kuberay.subprocess.check_call") as mock_check_call:
                 mock_check_call.return_value = None
 
-                result = job_with_basic_executor.start(
+                job_with_basic_executor.start(
                     command="python train.py",
                     workdir="/local/path",
                 )
@@ -553,7 +553,7 @@ env_vars:
 """
 
         with patch("os.path.isfile", return_value=False):  # Treat as string, not file
-            result = job_with_basic_executor.start(
+            job_with_basic_executor.start(
                 command="python train.py",
                 runtime_env_yaml=runtime_env,
             )
@@ -871,7 +871,7 @@ class TestKubeRayExecutorUtilityFunctions:
         cluster = populate_meta({}, "test-cluster", "default", {}, "2.43.0")
         ray_start_params = {}
 
-        result = populate_ray_head(
+        populate_ray_head(
             cluster,
             ray_image="rayproject/ray:2.43.0",
             service_type="ClusterIP",
@@ -1114,7 +1114,7 @@ class TestKubeRayExecutorUtilityFunctions:
 
         worker_group = KubeRayWorkerGroup(group_name="workers")
 
-        executor = KubeRayExecutor(
+        KubeRayExecutor(
             volumes=volumes,
             volume_mounts=volume_mounts,
             worker_groups=[worker_group],
@@ -1693,7 +1693,7 @@ class TestKubeRayPortForwardingEdgeCases:
                             mock_event_class.return_value = mock_stop_event
 
                             with patch("time.sleep"):
-                                thread = cluster_with_basic_executor.port_forward(
+                                cluster_with_basic_executor.port_forward(
                                     port=8080, target_port=8265, wait=True
                                 )
 
@@ -2111,7 +2111,7 @@ class TestKubeRayExecutorLifecycleEdgeCases:
                 "metadata": {"name": "test-cluster"}
             }
 
-            result = cluster.create(pre_ray_start_commands=["echo test"])
+            cluster.create(pre_ray_start_commands=["echo test"])
 
             # Should create lifecycle_kwargs and succeed
             assert hasattr(executor, "lifecycle_kwargs")
