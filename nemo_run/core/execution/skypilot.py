@@ -35,7 +35,8 @@ _SKYPILOT_AVAILABLE: bool = False
 try:
     import sky
     import sky.task as skyt
-    from sky import backends, status_lib
+    from sky.utils import status_lib
+    from sky import backends
 
     _SKYPILOT_AVAILABLE = True
 except ImportError:
@@ -108,7 +109,7 @@ class SkypilotExecutor(Executor):
 
     def __post_init__(self):
         assert _SKYPILOT_AVAILABLE, (
-            "Skypilot is not installed. Please install it using `pip install nemo_run[skypilot]"
+            'Skypilot is not installed. Please install it using `pip install "nemo_run[skypilot]"`.'
         )
         assert isinstance(self.packager, GitArchivePackager), (
             "Only GitArchivePackager is currently supported for SkypilotExecutor."
@@ -195,7 +196,7 @@ class SkypilotExecutor(Executor):
     ) -> tuple[Optional["status_lib.ClusterStatus"], Optional[dict]]:
         import sky.core as sky_core
         import sky.exceptions as sky_exceptions
-        from sky import status_lib
+        from sky.utils import status_lib
 
         cluster, _, job_id = cls.parse_app(app_id)
         try:
@@ -386,11 +387,9 @@ cd /nemo_run/code
         task: "skyt.Task",
         cluster_name: Optional[str] = None,
         num_nodes: Optional[int] = None,
-        detach_run: bool = True,
         dryrun: bool = False,
     ) -> tuple[Optional[int], Optional["backends.ResourceHandle"]]:
-        from sky import backends
-        from sky.execution import launch
+        from sky import backends, launch, stream_and_get
         from sky.utils import common_utils
 
         task_yml = os.path.join(self.job_dir, "skypilot_task.yml")
@@ -402,19 +401,19 @@ cd /nemo_run/code
             task.num_nodes = num_nodes
 
         cluster_name = cluster_name or self.cluster_name or self.experiment_id
-        job_id, handle = launch(
-            task,
-            dryrun=dryrun,
-            stream_logs=False,
-            cluster_name=cluster_name,
-            detach_setup=False,
-            detach_run=detach_run,
-            backend=backend,
-            idle_minutes_to_autostop=self.idle_minutes_to_autostop,
-            down=self.autodown,
-            fast=True,
-            # retry_until_up=retry_until_up,
-            # clone_disk_from=clone_disk_from,
+
+        job_id, handle = stream_and_get(
+            launch(
+                task,
+                dryrun=dryrun,
+                cluster_name=cluster_name,
+                backend=backend,
+                idle_minutes_to_autostop=self.idle_minutes_to_autostop,
+                down=self.autodown,
+                fast=True,
+                # retry_until_up=retry_until_up,
+                # clone_disk_from=clone_disk_from,
+            )
         )
 
         return job_id, handle

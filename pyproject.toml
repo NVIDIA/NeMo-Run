@@ -51,10 +51,10 @@ lepton = "nemo_run.run.torchx_backend.schedulers.lepton:create_scheduler"
 
 [project.optional-dependencies]
 skypilot = [
-    "skypilot[kubernetes]>=0.8.0",
+    "skypilot[kubernetes]>=0.9.2",
 ]
 skypilot-all = [
-    "skypilot[all]>=0.8.0",
+    "skypilot[all]>=0.9.2",
 ]
 ray = [
     "kubernetes"
