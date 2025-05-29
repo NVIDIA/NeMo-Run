@@ -40,6 +40,7 @@ requires-python = ">= 3.10"
 [project.scripts]
 "nemorun" = "nemo_run.__main__:app"
 "nemo" = "nemo_run.__main__:app"
+"kuberay-rbac" = "nemo_run.tools.kuberay_rbac:main"
 
 [project.entry-points."torchx.schedulers"]
 slurm_tunnel = "nemo_run.run.torchx_backend.schedulers.slurm:create_scheduler"
