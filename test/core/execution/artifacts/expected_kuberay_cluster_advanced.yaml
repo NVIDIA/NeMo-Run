@@ -1,0 +1,80 @@
+apiVersion: ray.io/v1alpha1
+kind: RayCluster
+metadata:
+  name: ml-training-cluster
+  namespace: ml-team
+  labels:
+    team: ml
+    env: prod
+spec:
+  rayVersion: 2.43.0
+  headGroupSpec:
+    serviceType: ClusterIP
+    rayStartParams:
+      dashboard-host: 0.0.0.0
+      num-cpus: '4'
+    template:
+      spec:
+        containers:
+        - image: custom/ray:gpu
+          name: ray-head
+          ports: []
+          env:
+          - name: NCCL_DEBUG
+            value: INFO
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - ray stop
+          resources:
+            requests:
+              cpu: '4'
+              memory: 16Gi
+            limits:
+              cpu: '4'
+              memory: 16Gi
+          volumeMounts:
+          - name: data
+            mountPath: /data
+        volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc
+  workerGroupSpecs:
+  - groupName: gpu-workers
+    maxReplicas: 8
+    minReplicas: 2
+    rayStartParams: {}
+    replicas: 4
+    template:
+      spec:
+        containers:
+        - image: custom/ray:gpu
+          name: ray-worker
+          env:
+          - name: NCCL_DEBUG
+            value: INFO
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - /bin/sh
+                - -c
+                - ray stop
+          resources:
+            requests:
+              cpu: '8'
+              memory: 32Gi
+              nvidia.com/gpu: 2
+            limits:
+              nvidia.com/gpu: 2
+          volumeMounts:
+          - name: data
+            mountPath: /data
+        volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc

@@ -1,0 +1,10 @@
+apiVersion: ray.io/v1
+kind: RayJob
+metadata:
+  name: test-job
+  namespace: default
+spec:
+  entrypoint: python train.py
+  shutdownAfterJobFinishes: true
+  rayClusterSpec: {}
+  runtimeEnvYAML: null
