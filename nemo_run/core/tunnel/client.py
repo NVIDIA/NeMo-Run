@@ -311,28 +311,76 @@ class SSHConfigFile:
 
     def _get_default_config_path(self) -> str:
         config_path = os.path.expanduser("~/.ssh/config")
+        return config_path
+
+    def _get_host_config_path(self) -> Optional[str]:
+        """
+        Get the path to the ssh config file for the host if we are running in WSL.
+
+        Returns:
+            Optional[str]: Path to the host's SSH config file or None if not in WSL.
+
+        Raises:
+            RuntimeError: If running in WSL but unable to determine the Windows path
+                         due to missing utilities or other errors.
+        """
+        config_path = None
 
         # If running in WSL environment, update host's ssh config file instead
         if os.name == "posix" and "WSL" in os.uname().release:
-            user_profile = subprocess.run(
-                ["wslvar", "USERPROFILE"], capture_output=True, text=True, check=False
-            ).stdout.strip("\n")
-            home_dir = subprocess.run(
-                ["wslpath", user_profile], capture_output=True, text=True, check=False
-            ).stdout.strip("\n")
-            config_path = (Path(home_dir) / ".ssh/config").as_posix()
+            # Check if wslvar and wslpath are available
+            wslvar_exists = shutil.which("wslvar") is not None
+            wslpath_exists = shutil.which("wslpath") is not None
+
+            if wslvar_exists and wslpath_exists:
+                # Use WSL utilities to get the host ssh config path
+                user_profile = subprocess.run(
+                    ["wslvar", "USERPROFILE"], capture_output=True, text=True, check=False
+                ).stdout.strip("\n")
+
+                if not user_profile:
+                    raise RuntimeError("Failed to get USERPROFILE from wslvar")
+
+                home_dir = subprocess.run(
+                    ["wslpath", user_profile], capture_output=True, text=True, check=False
+                ).stdout.strip("\n")
+
+                if not home_dir:
+                    raise RuntimeError("Failed to convert USERPROFILE path with wslpath")
+
+                config_path = (Path(home_dir) / ".ssh/config").as_posix()
+                logger.debug(f"Using Windows SSH config at: {config_path}")
+            else:
+                # wslu package not installed, raise error
+                missing_cmds = []
+                if not wslvar_exists:
+                    missing_cmds.append("wslvar")
+                if not wslpath_exists:
+                    missing_cmds.append("wslpath")
+
+                raise RuntimeError(
+                    f"WSL detected but required utilities ({', '.join(missing_cmds)}) not found. "
+                    "These utilities are part of the wslu package. "
+                    "Example of installation: sudo apt install wslu"
+                )
 
         return config_path
 
     def add_entry(self, user: str, hostname: str, port: int, name: str):
+        host_config_path = self._get_host_config_path()
+        if host_config_path:
+            self._add_entry(user, hostname, port, name, host_config_path)
+        self._add_entry(user, hostname, port, name, self.config_path)
+
+    def _add_entry(self, user: str, hostname: str, port: int, name: str, config_path: str):
         host = f"tunnel.{name}"
         new_config_entry = f"""Host {host}
     User {user}
     HostName {hostname}
     Port {port}"""
 
-        if os.path.exists(self.config_path):
-            with open(self.config_path, "r") as file:
+        if os.path.exists(config_path):
+            with open(config_path, "r") as file:
                 lines = file.readlines()
 
             # Check if the host is already defined in the config
@@ -351,16 +399,22 @@ class SSHConfigFile:
             else:  # Add new entry
                 lines.append(new_config_entry + "\n")
 
-            with open(self.config_path, "w") as file:
+            with open(config_path, "w") as file:
                 file.writelines(lines)
         else:
-            with open(self.config_path, "w") as file:
+            with open(config_path, "w") as file:
                 file.write(new_config_entry + "\n")
 
     def remove_entry(self, name: str):
+        host_config_path = self._get_host_config_path()
+        if host_config_path:
+            self._remove_entry(name, host_config_path)
+        self._remove_entry(name, self.config_path)
+
+    def _remove_entry(self, name: str, config_path: str):
         host = f"tunnel.{name}"
-        if os.path.exists(self.config_path):
-            with open(self.config_path, "r") as file:
+        if os.path.exists(config_path):
+            with open(config_path, "r") as file:
                 lines = file.readlines()
 
             start_index = None
@@ -376,7 +430,7 @@ class SSHConfigFile:
 
                 del lines[start_index:end_index]
 
-                with open(self.config_path, "w") as file:
+                with open(config_path, "w") as file:
                     file.writelines(lines)
 
             print(f"Removed SSH config entry for {host}.")
