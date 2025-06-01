@@ -652,7 +652,10 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             return
 
         # Prepare experiment before running
-        self._prepare()
+
+        # in case of multi-node execution with LocalExecutor+torchrun+slurm, run only on first rank
+        if int(os.getenv("SLURM_PROCID", 0)) == 0:
+            self._prepare()
 
         if direct:
             self.console.log(
