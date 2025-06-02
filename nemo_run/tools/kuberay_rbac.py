@@ -487,10 +487,6 @@ subjects:
             print_error(f"Failed to apply RBAC manifest: {e}")
             return False
 
-        # Test key permissions
-        print_info(f"Testing key permissions for user '{username}'...")
-        self.test_user_permissions(username)
-
         return True
 
     def test_user_permissions(self, username: str):
