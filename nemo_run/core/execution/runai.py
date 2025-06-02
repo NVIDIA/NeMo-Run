@@ -21,7 +21,7 @@ from nemo_run.core.packaging.git import GitArchivePackager
 logger = logging.getLogger(__name__)
 
 
-class DGXCloudState(Enum):
+class RunAIState(Enum):
     CREATING = "Creating"
     INITIALIZING = "Initializing"
     RESUMING = "Resuming"
@@ -39,14 +39,14 @@ class DGXCloudState(Enum):
 
 
 @dataclass(kw_only=True)
-class DGXCloudExecutor(Executor):
+class RunAIExecutor(Executor):
     """
-    Dataclass to configure a DGX Executor.
+    Dataclass to configure a RunAI Executor.
 
-    This executor integrates with a DGX cloud endpoint for launching jobs
+    This executor integrates with a RunAI cloud endpoint for launching jobs
     via a REST API. It acquires an auth token, identifies the project/cluster,
     and launches jobs with a specified command. It can be adapted to meet user
-    authentication and job-submission requirements on DGX.
+    authentication and job-submission requirements on RunAI.
     """
 
     base_url: str
@@ -168,15 +168,15 @@ class DGXCloudExecutor(Executor):
 
         resp_json = resp.json()
         workload_id = resp_json["workloadId"]
-        status = DGXCloudState(resp_json["actualPhase"])
+        status = RunAIState(resp_json["actualPhase"])
 
-        logger.info(f"Successfully created data movement workload {workload_id} on DGXCloud")
+        logger.info(f"Successfully created data movement workload {workload_id} on RunAI")
 
         while status in [
-            DGXCloudState.PENDING,
-            DGXCloudState.CREATING,
-            DGXCloudState.INITIALIZING,
-            DGXCloudState.RUNNING,
+            RunAIState.PENDING,
+            RunAIState.CREATING,
+            RunAIState.INITIALIZING,
+            RunAIState.RUNNING,
         ]:
             time.sleep(sleep)
             status = self.status(workload_id)
@@ -184,13 +184,13 @@ class DGXCloudExecutor(Executor):
                 f"Polling data movement workload {workload_id}'s status. Current status is: {status}"
             )
 
-        if status is not DGXCloudState.COMPLETED:
+        if status is not RunAIState.COMPLETED:
             raise RuntimeError(f"Failed to move data to PVC. Workload status is {status}")
 
         resp = self.delete_workload(token, workload_id)
         if resp.status_code >= 200 and resp.status_code < 300:
             logger.info(
-                "Successfully deleted data movement workload %s on DGXCloud with response code %d",
+                "Successfully deleted data movement workload %s on RunAI with response code %d",
                 workload_id,
                 resp.status_code,
             )
@@ -286,7 +286,7 @@ cd /nemo_run/code
             return self.nprocs_per_node
         return 1
 
-    def status(self, job_id: str) -> Optional[DGXCloudState]:
+    def status(self, job_id: str) -> Optional[RunAIState]:
         url = f"{self.base_url}/workloads/{job_id}"
         token = self.get_auth_token()
         if not token:
@@ -296,10 +296,10 @@ cd /nemo_run/code
         headers = self._default_headers(token=token)
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            return DGXCloudState("Unknown")
+            return RunAIState("Unknown")
 
         r_json = response.json()
-        return DGXCloudState(r_json["phase"])
+        return RunAIState(r_json["phase"])
 
     def cancel(self, job_id: str):
         # Retrieve the authentication token for the REST calls
@@ -315,7 +315,7 @@ cd /nemo_run/code
         response = requests.get(url, headers=headers)
         if response.status_code >= 200 and response.status_code < 300:
             logger.info(
-                "Successfully cancelled job %s on DGX with response code %d",
+                "Successfully cancelled job %s on RunAI with response code %d",
                 job_id,
                 response.status_code,
             )
@@ -328,9 +328,9 @@ cd /nemo_run/code
             )
 
     @classmethod
-    def logs(cls: Type["DGXCloudExecutor"], app_id: str, fallback_path: Optional[str]):
+    def logs(cls: Type["RunAIExecutor"], app_id: str, fallback_path: Optional[str]):
         logger.warning(
-            "Logs not available for DGXCloudExecutor based jobs. Please visit the cluster UI to view the logs."
+            "Logs not available for RunAIExecutor based jobs. Please visit the cluster UI to view the logs."
         )
 
     def cleanup(self, handle: str): ...

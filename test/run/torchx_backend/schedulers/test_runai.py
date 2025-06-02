@@ -20,9 +20,9 @@ import pytest
 from torchx.schedulers.api import AppDryRunInfo
 from torchx.specs import AppDef, Role
 
-from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
-from nemo_run.run.torchx_backend.schedulers.dgxcloud import (
-    DGXCloudScheduler,
+from nemo_run.core.execution.runai import RunAIExecutor
+from nemo_run.run.torchx_backend.schedulers.runai import (
+    RunAICloudScheduler,
     create_scheduler,
 )
 
@@ -35,9 +35,9 @@ def mock_app_def():
 
 
 @pytest.fixture
-def dgx_cloud_executor():
-    return DGXCloudExecutor(
-        base_url="https://dgx.example.com",
+def runai_executor():
+    return RunAIExecutor(
+        base_url="https://runai.example.com",
         app_id="test_app_id",
         app_secret="test_secret",
         project_name="test_project",
@@ -48,92 +48,92 @@ def dgx_cloud_executor():
 
 
 @pytest.fixture
-def dgx_cloud_scheduler():
+def runai_scheduler():
     return create_scheduler(session_name="test_session")
 
 
 def test_create_scheduler():
     scheduler = create_scheduler(session_name="test_session")
-    assert isinstance(scheduler, DGXCloudScheduler)
+    assert isinstance(scheduler, RunAICloudScheduler)
     assert scheduler.session_name == "test_session"
 
 
-def test_submit_dryrun(dgx_cloud_scheduler, mock_app_def, dgx_cloud_executor):
+def test_submit_dryrun(runai_scheduler, mock_app_def, runai_executor):
     # Mock any external calls that might be made
-    with mock.patch.object(DGXCloudExecutor, "package") as mock_package:
+    with mock.patch.object(RunAIExecutor, "package") as mock_package:
         mock_package.return_value = None
 
-        dryrun_info = dgx_cloud_scheduler._submit_dryrun(mock_app_def, dgx_cloud_executor)
+        dryrun_info = runai_scheduler._submit_dryrun(mock_app_def, runai_executor)
         assert isinstance(dryrun_info, AppDryRunInfo)
         assert dryrun_info.request is not None
 
 
-def test_dgx_cloud_scheduler_methods(dgx_cloud_scheduler):
+def test_runai_scheduler_methods(runai_scheduler):
     # Test that basic methods exist
-    assert hasattr(dgx_cloud_scheduler, "_submit_dryrun")
-    assert hasattr(dgx_cloud_scheduler, "schedule")
-    assert hasattr(dgx_cloud_scheduler, "describe")
-    assert hasattr(dgx_cloud_scheduler, "_cancel_existing")
-    assert hasattr(dgx_cloud_scheduler, "_validate")
+    assert hasattr(runai_scheduler, "_submit_dryrun")
+    assert hasattr(runai_scheduler, "schedule")
+    assert hasattr(runai_scheduler, "describe")
+    assert hasattr(runai_scheduler, "_cancel_existing")
+    assert hasattr(runai_scheduler, "_validate")
 
 
-def test_schedule(dgx_cloud_scheduler, mock_app_def, dgx_cloud_executor):
+def test_schedule(runai_scheduler, mock_app_def, runai_executor):
     with (
-        mock.patch.object(DGXCloudExecutor, "package") as mock_package,
-        mock.patch.object(DGXCloudExecutor, "launch") as mock_launch,
+        mock.patch.object(RunAIExecutor, "package") as mock_package,
+        mock.patch.object(RunAIExecutor, "launch") as mock_launch,
     ):
         mock_package.return_value = None
         mock_launch.return_value = ("test_job_id", "RUNNING")
 
         # Set job_name and experiment_id on executor
-        dgx_cloud_executor.job_name = "test_job"
-        dgx_cloud_executor.experiment_id = "test_experiment"
+        runai_executor.job_name = "test_job"
+        runai_executor.experiment_id = "test_experiment"
 
-        dryrun_info = dgx_cloud_scheduler._submit_dryrun(mock_app_def, dgx_cloud_executor)
-        app_id = dgx_cloud_scheduler.schedule(dryrun_info)
+        dryrun_info = runai_scheduler._submit_dryrun(mock_app_def, runai_executor)
+        app_id = runai_scheduler.schedule(dryrun_info)
 
         assert app_id == "test_experiment___test_role___test_job_id"
         mock_package.assert_called_once()
         mock_launch.assert_called_once()
 
 
-def test_describe(dgx_cloud_scheduler, dgx_cloud_executor):
+def test_describe(runai_scheduler, runai_executor):
     with (
         mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+            "nemo_run.run.torchx_backend.schedulers.runai._get_job_dirs"
         ) as mock_get_job_dirs,
-        mock.patch.object(DGXCloudExecutor, "status") as mock_status,
+        mock.patch.object(RunAIExecutor, "status") as mock_status,
     ):
         mock_get_job_dirs.return_value = {
             "test_experiment___test_role___test_job_id": {
                 "job_status": "RUNNING",
-                "executor": dgx_cloud_executor,
+                "executor": runai_executor,
             }
         }
         mock_status.return_value = "RUNNING"
 
-        response = dgx_cloud_scheduler.describe("test_experiment___test_role___test_job_id")
+        response = runai_scheduler.describe("test_experiment___test_role___test_job_id")
         assert response is not None
         assert response.app_id == "test_experiment___test_role___test_job_id"
         assert len(response.roles) == 1
         assert response.roles[0].name == "test_role"
 
 
-def test_cancel_existing(dgx_cloud_scheduler, dgx_cloud_executor):
+def test_cancel_existing(runai_scheduler, runai_executor):
     with (
         mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
+            "nemo_run.run.torchx_backend.schedulers.runai._get_job_dirs"
         ) as mock_get_job_dirs,
-        mock.patch.object(DGXCloudExecutor, "cancel") as mock_cancel,
+        mock.patch.object(RunAIExecutor, "cancel") as mock_cancel,
     ):
         mock_get_job_dirs.return_value = {
             "test_experiment___test_role___test_job_id": {
                 "job_status": "RUNNING",
-                "executor": dgx_cloud_executor,
+                "executor": runai_executor,
             }
         }
 
-        dgx_cloud_scheduler._cancel_existing("test_experiment___test_role___test_job_id")
+        runai_scheduler._cancel_existing("test_experiment___test_role___test_job_id")
         mock_cancel.assert_called_once_with("test_job_id")
 
 
@@ -143,9 +143,9 @@ def test_save_and_get_job_dirs():
 
         set_nemorun_home(temp_dir)
 
-        from nemo_run.run.torchx_backend.schedulers.dgxcloud import _get_job_dirs, _save_job_dir
+        from nemo_run.run.torchx_backend.schedulers.runai import _get_job_dirs, _save_job_dir
 
-        executor = DGXCloudExecutor(
+        executor = RunAIExecutor(
             base_url="https://test.com",
             app_id="test_id",
             app_secret="test_secret",
@@ -159,4 +159,4 @@ def test_save_and_get_job_dirs():
         job_dirs = _get_job_dirs()
 
         assert "test_app_id" in job_dirs
-        assert isinstance(job_dirs["test_app_id"]["executor"], DGXCloudExecutor)
+        assert isinstance(job_dirs["test_app_id"]["executor"], RunAIExecutor)
