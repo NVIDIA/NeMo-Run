@@ -360,6 +360,7 @@ class TunnelLogIterator(LogIterator):
                         if self._ls_term
                         else os.path.join(self._remote_dir, f"log*{extension}")
                     )
+                    ls_term = ls_term.replace("%j", self._app_id)
                     ls_output = self._scheduler.tunnel.run(
                         f"ls -1 {ls_term} 2> /dev/null",
                         warn=True,
