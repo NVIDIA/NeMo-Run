@@ -664,7 +664,11 @@ Useful Commands
                         ]
                     )
 
-                    jump_arg_str = f"{executor.tunnel.user}@{executor.tunnel.host}"
+                    jump_arg_str = (
+                        f"{executor.tunnel.user}@{executor.tunnel.host}"
+                        if isinstance(executor.tunnel, SSHTunnel)
+                        else None
+                    )
                     raw_jump_identity = getattr(executor.tunnel, "identity", None)
                     jump_identity_path_for_proxy = None
                     if raw_jump_identity:
@@ -1135,6 +1139,8 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                             remote_workdir,
                         ],
                         check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                     )
         elif self.executor.packager is not None:
             # Use the packager to create an archive which we then extract on the
@@ -1190,6 +1196,8 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                             remote_workdir,
                         ],
                         check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                     )
 
         assert remote_workdir is not None, "workdir could not be determined"
