@@ -30,10 +30,10 @@ from nemo_run.core.execution.runai import RunAIExecutor, RunAIState
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
-# Local placeholder for storing RunAI job states
+# Local placeholder for storing NVIDIA Run:ai job states
 RUNAI_JOB_DIRS = os.path.join(get_nemorun_home(), ".runai_jobs.json")
 
-# Example mapping from some RunAI statuses to the TorchX AppState
+# Example mapping from some NVIDIA Run:ai statuses to the TorchX AppState
 RUNAI_STATES: dict[RunAIState, AppState] = {
     RunAIState.CREATING: AppState.PENDING,
     RunAIState.INITIALIZING: AppState.SUBMITTED,
@@ -57,7 +57,7 @@ log = logging.getLogger(__name__)
 @dataclass
 class RunAIRequest:
     """
-    Wrapper around the torchx AppDef and the RunAI executor.
+    Wrapper around the torchx AppDef and the NVIDIA Run:ai executor.
     This object is used to store job submission info for the scheduler.
     """
 
@@ -87,7 +87,7 @@ class RunAICloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: i
         cfg: Executor,
     ) -> AppDryRunInfo[RunAIRequest]:
         assert isinstance(cfg, RunAIExecutor), (
-            f"{cfg.__class__} not supported for RunAICloud scheduler."
+            f"{cfg.__class__} not supported for NVIDIA Run:ai Cloud scheduler."
         )
         executor = cfg
 
@@ -101,12 +101,12 @@ class RunAICloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: i
         return AppDryRunInfo(
             RunAIRequest(app=app, executor=executor, cmd=cmd, name=role.name),
             # Minimal function to show the config, if any
-            lambda req: f"RunAI job for app: {req.app.name}, cmd: {' '.join(cmd)}, executor: {executor}",
+            lambda req: f"NVIDIA Run:ai job for app: {req.app.name}, cmd: {' '.join(cmd)}, executor: {executor}",
         )
 
     def schedule(self, dryrun_info: AppDryRunInfo[RunAIRequest]) -> str:
         """
-        Launches a job on RunAI using the RunAIExecutor. Returns an app_id
+        Launches a job on NVIDIA Run:ai using the RunAIExecutor. Returns an app_id
         used by TorchX for subsequent queries/cancellations.
         """
         req = dryrun_info.request
@@ -119,7 +119,7 @@ class RunAICloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: i
         # We'll call it without additional parameters here.
         job_id, status = executor.launch(name=req.name, cmd=req.cmd)
         if not job_id:
-            raise RuntimeError("Failed scheduling run on RunAI: no job_id returned")
+            raise RuntimeError("Failed scheduling run on NVIDIA Run:ai: no job_id returned")
 
         # Example app_id format:
         # <experiment_id>___<role-name>___<job_id>
@@ -176,7 +176,7 @@ class RunAICloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: i
 
     def _cancel_existing(self, app_id: str) -> None:
         """
-        Cancels the job by calling the RunAIExecutor's cancel method.
+        Cancels the job by calling the NVIDIA Run:ai Executor's cancel method.
         """
         stored_data = _get_job_dirs()
         job_info = stored_data.get(app_id)

@@ -226,13 +226,13 @@ As demonstrated in the examples, defining executors in Python offers great flexi
 
 #### RunAIExecutor
 
-The `RunAIExecutor` integrates with the Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
+The `RunAIExecutor` integrates with the NVIDIA Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
 
 Here's an example configuration:
 
 ```python
 def your_runai_executor(nodes: int, gpus_per_node: int, container_image: str):
-    # Ensure these are set correctly for your RunAI environment
+    # Ensure these are set correctly for your NVIDIA Run:ai environment
     # You might fetch these from environment variables or a config file
     base_url = "YOUR_RUNAI_API_ENDPOINT" # e.g., https://<cluster-name>.<domain>/api/v1
     app_id = "YOUR_RUNAI_APP_ID"
@@ -263,7 +263,7 @@ def your_runai_executor(nodes: int, gpus_per_node: int, container_image: str):
 
 ```
 
-For a complete end-to-end example using RunAI with NeMo, refer to the [NVIDIA RunAI NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
+For a complete end-to-end example using NVIDIA Run:ai with NeMo, refer to the [NVIDIA Run:ai NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
 
 #### LeptonExecutor
 

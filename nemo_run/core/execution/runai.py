@@ -41,12 +41,12 @@ class RunAIState(Enum):
 @dataclass(kw_only=True)
 class RunAIExecutor(Executor):
     """
-    Dataclass to configure a RunAI Executor.
+    Dataclass to configure a NVIDIA Run:ai Executor.
 
-    This executor integrates with a RunAI cloud endpoint for launching jobs
+    This executor integrates with a NVIDIA Run:ai cloud endpoint for launching jobs
     via a REST API. It acquires an auth token, identifies the project/cluster,
     and launches jobs with a specified command. It can be adapted to meet user
-    authentication and job-submission requirements on RunAI.
+    authentication and job-submission requirements on NVIDIA Run:ai.
     """
 
     base_url: str
@@ -170,7 +170,7 @@ class RunAIExecutor(Executor):
         workload_id = resp_json["workloadId"]
         status = RunAIState(resp_json["actualPhase"])
 
-        logger.info(f"Successfully created data movement workload {workload_id} on RunAI")
+        logger.info(f"Successfully created data movement workload {workload_id} on NVIDIA Run:ai")
 
         while status in [
             RunAIState.PENDING,
@@ -190,7 +190,7 @@ class RunAIExecutor(Executor):
         resp = self.delete_workload(token, workload_id)
         if resp.status_code >= 200 and resp.status_code < 300:
             logger.info(
-                "Successfully deleted data movement workload %s on RunAI with response code %d",
+                "Successfully deleted data movement workload %s on NVIDIA Run:ai with response code %d",
                 workload_id,
                 resp.status_code,
             )
@@ -315,7 +315,7 @@ cd /nemo_run/code
         response = requests.get(url, headers=headers)
         if response.status_code >= 200 and response.status_code < 300:
             logger.info(
-                "Successfully cancelled job %s on RunAI with response code %d",
+                "Successfully cancelled job %s on NVIDIA Run:ai with response code %d",
                 job_id,
                 response.status_code,
             )
@@ -330,7 +330,7 @@ cd /nemo_run/code
     @classmethod
     def logs(cls: Type["RunAIExecutor"], app_id: str, fallback_path: Optional[str]):
         logger.warning(
-            "Logs not available for RunAIExecutor based jobs. Please visit the cluster UI to view the logs."
+            "Logs not available for NVIDIA Run:ai Executor based jobs. Please visit the cluster UI to view the logs."
         )
 
     def cleanup(self, handle: str): ...

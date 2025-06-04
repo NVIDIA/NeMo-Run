@@ -63,7 +63,7 @@ executor = KubeRayExecutor(
     ],
     # Optional tweaks ----------------------------------------------------
     reuse_volumes_in_worker_groups=True,          # mount PVCs on workers too
-    spec_kwargs={"schedulerName": "runai-scheduler"},  # e.g. Run:ai
+    spec_kwargs={"schedulerName": "runai-scheduler"},  # e.g. NVIDIA Run:ai
     volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
     volumes=[{
         "name": "workspace",
