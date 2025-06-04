@@ -24,6 +24,7 @@ class Launcher(ConfigurableMixin):
             "--cuda-event-trace=false",
         ]
     )
+    nsys_gpu_metrics: bool = False
 
     def get_nsys_prefix(self, profile_dir: str) -> Optional[list[str]]:
         """Make a command prefix for nsys profiling"""

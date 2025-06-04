@@ -225,8 +225,8 @@ def package(
         nsys_prefix = executor.get_launcher_prefix()
         if nsys_prefix:
             role.args = [role.entrypoint] + role.args
-            role.entrypoint = "nsys"
-            role.args = nsys_prefix + role.args
+            role.entrypoint, nsys_postfix = executor.get_nsys_entrypoint()
+            role.args = nsys_prefix + role.args + [nsys_postfix]
 
     if metadata:
         if USE_WITH_RAY_CLUSTER_KEY in metadata:
