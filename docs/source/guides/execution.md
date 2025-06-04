@@ -41,7 +41,7 @@ The packager support matrix is described below:
 | DockerExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | SlurmExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | SkypilotExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
-| DGXCloudExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
+| RunAIExecutor | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 | LeptonExecutor   | run.Packager, run.GitArchivePackager, run.PatternPackager, run.HybridPackager |
 
 `run.Packager` is a passthrough base packager.
@@ -224,19 +224,17 @@ executor = your_skypilot_cluster(nodes=8, devices=8, container_image="your-nemo-
 
 As demonstrated in the examples, defining executors in Python offers great flexibility. You can easily mix and match things like common environment variables, and the separation of tasks from executors enables you to run the same configured task on any supported executor.
 
-#### DGXCloudExecutor
+#### RunAIExecutor
 
-The `DGXCloudExecutor` integrates with a DGX Cloud cluster's Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
-
-> **_WARNING:_** Currently, the `DGXCloudExecutor` is only supported when launching experiments *from* a pod running on the DGX Cloud cluster itself. Furthermore, this launching pod must have access to a Persistent Volume Claim (PVC) where the experiment/job directories will be created, and this same PVC must also be configured to be mounted by the job being launched.
+The `RunAIExecutor` integrates with the NVIDIA Run:ai API to launch distributed jobs. It uses REST API calls to authenticate, identify the target project and cluster, and submit the job specification.
 
 Here's an example configuration:
 
 ```python
-def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
-    # Ensure these are set correctly for your DGX Cloud environment
+def your_runai_executor(nodes: int, gpus_per_node: int, container_image: str):
+    # Ensure these are set correctly for your NVIDIA Run:ai environment
     # You might fetch these from environment variables or a config file
-    base_url = "YOUR_DGX_CLOUD_API_ENDPOINT" # e.g., https://<cluster-name>.<domain>/api/v1
+    base_url = "YOUR_RUNAI_API_ENDPOINT" # e.g., https://<cluster-name>.<domain>/api/v1
     app_id = "YOUR_RUNAI_APP_ID"
     app_secret = "YOUR_RUNAI_APP_SECRET"
     project_name = "YOUR_RUNAI_PROJECT_NAME"
@@ -245,7 +243,7 @@ def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
     pvc_name = "your-pvc-k8s-name" # The Kubernetes name of the PVC
     pvc_mount_path = "/your_custom_path" # The path where the PVC will be mounted inside the container
 
-    executor = run.DGXCloudExecutor(
+    executor = run.RunAIExecutor(
         base_url=base_url,
         app_id=app_id,
         app_secret=app_secret,
@@ -261,11 +259,11 @@ def your_dgx_executor(nodes: int, gpus_per_node: int, container_image: str):
     return executor
 
 # Example usage:
-# executor = your_dgx_executor(nodes=4, gpus_per_node=8, container_image="your-nemo-image")
+# executor = your_runai_executor(nodes=4, gpus_per_node=8, container_image="your-nemo-image")
 
 ```
 
-For a complete end-to-end example using DGX Cloud with NeMo, refer to the [NVIDIA DGX Cloud NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
+For a complete end-to-end example using NVIDIA Run:ai with NeMo, refer to the [NVIDIA Run:ai NeMo End-to-End Workflow Example](https://docs.nvidia.com/dgx-cloud/run-ai/latest/nemo-e2e-example.html).
 
 #### LeptonExecutor
 

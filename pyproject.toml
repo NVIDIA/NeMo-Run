@@ -46,7 +46,7 @@ slurm_tunnel = "nemo_run.run.torchx_backend.schedulers.slurm:create_scheduler"
 skypilot = "nemo_run.run.torchx_backend.schedulers.skypilot:create_scheduler"
 local_persistent = "nemo_run.run.torchx_backend.schedulers.local:create_scheduler"
 docker_persistent = "nemo_run.run.torchx_backend.schedulers.docker:create_scheduler"
-dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
+runai = "nemo_run.run.torchx_backend.schedulers.runai:create_scheduler"
 lepton = "nemo_run.run.torchx_backend.schedulers.lepton:create_scheduler"
 
 [project.optional-dependencies]

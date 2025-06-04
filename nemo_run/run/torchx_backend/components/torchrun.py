@@ -60,7 +60,7 @@ def torchrun(
     rdzv_id: Optional[int] = None,
     mounts: Optional[list[str]] = None,
     debug: bool = False,
-    dgxc: bool = False,
+    runai: bool = False,
     lepton: bool = False,
     use_env: bool = False,
 ) -> specs.AppDef:
@@ -96,7 +96,7 @@ def torchrun(
         mounts: mounts to mount into the worker environment/container (ex. type=<bind/volume>,src=/host,dst=/job[,readonly]).
                 See scheduler documentation for more info.
         debug: whether to run with preset debug flags enabled
-        dgxc: whether to use a subset of settings for DGX Cloud
+        runai: whether to use a subset of settings for RunAI
         lepton: whether the experiment is running on Lepton AI
     """
     if (script is None) == (m is None):
@@ -140,7 +140,7 @@ def torchrun(
     if debug:
         env.update(_TORCH_DEBUG_FLAGS)
 
-    if dgxc:
+    if runai:
         cmd = ["--nnodes", nnodes_rep, "--nproc-per-node", nproc_per_node]
     elif lepton:
         cmd = [

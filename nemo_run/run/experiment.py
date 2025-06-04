@@ -35,9 +35,8 @@ from fiddle._src import daglish, diffing
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.progress import Task as RichTask
-from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState
 
@@ -51,10 +50,10 @@ from nemo_run.config import (
     get_type_namespace,
 )
 from nemo_run.core.execution.base import Executor
-from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
+from nemo_run.core.execution.runai import RunAIExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import CONSOLE, configure_logging, deconfigure_logging
@@ -203,13 +202,13 @@ nemo experiment cancel {exp_id} 0
         LocalExecutor,
         SkypilotExecutor,
         DockerExecutor,
-        DGXCloudExecutor,
+        RunAIExecutor,
         LeptonExecutor,
     )
     _DETACH_SUPPORTED_EXECUTORS = (
         SlurmExecutor,
         SkypilotExecutor,
-        DGXCloudExecutor,
+        RunAIExecutor,
         LeptonExecutor,
     )
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)

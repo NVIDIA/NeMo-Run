@@ -22,11 +22,11 @@ from nemo_run.api import autoconvert, dryrun_fn
 from nemo_run.cli.lazy import LazyEntrypoint, lazy_imports
 from nemo_run.config import Config, ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor, ExecutorMacros, import_executor
-from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
 from nemo_run.core.execution.launcher import FaultTolerance, SlurmRay, SlurmTemplate, Torchrun
 from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
+from nemo_run.core.execution.runai import RunAIExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.packaging import GitArchivePackager, HybridPackager, Packager, PatternPackager
@@ -48,7 +48,7 @@ __all__ = [
     "ConfigurableMixin",
     "DevSpace",
     "DockerExecutor",
-    "DGXCloudExecutor",
+    "RunAIExecutor",
     "dryrun_fn",
     "Executor",
     "import_executor",
