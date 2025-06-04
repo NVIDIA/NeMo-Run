@@ -165,6 +165,9 @@ class Executor(ConfigurableMixin):
             os.makedirs(os.path.join(self.job_dir, launcher.nsys_folder), exist_ok=True)
             return launcher.get_nsys_prefix(profile_dir=self.job_dir)
 
+    def get_nsys_entrypoint(self) -> str:
+        return ("nsys","")
+
     def supports_launcher_transform(self) -> bool:
         return False
 
