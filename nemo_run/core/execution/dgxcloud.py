@@ -163,7 +163,7 @@ class DGXCloudExecutor(Executor):
         resp = self.create_data_mover_workload(token, project_id, cluster_id)
         if resp.status_code not in [200, 202]:
             raise RuntimeError(
-                f"Failed to create data mover workload, status_code={resp.status_code}"
+                f"Failed to create data mover workload, status_code={resp.status_code}, response={resp.text}"
             )
 
         resp_json = resp.json()
@@ -240,7 +240,7 @@ class DGXCloudExecutor(Executor):
         return response
 
     def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
-        name = name.replace("_", "-").replace(".", "-")  # to meet K8s requirements
+        name = name.replace("_", "-").replace(".", "-").lower()  # to meet K8s requirements
         token = self.get_auth_token()
         if not token:
             raise RuntimeError("Failed to get auth token")
@@ -265,7 +265,9 @@ cd /nemo_run/code
         logger.info("Creating distributed workload")
         resp = self.create_distributed_job(token, project_id, cluster_id, name)
         if resp.status_code not in [200, 202]:
-            raise RuntimeError(f"Failed to create job, status_code={resp.status_code}")
+            raise RuntimeError(
+                f"Failed to create job, status_code={resp.status_code}, reason={resp.text}"
+            )
 
         r_json = resp.json()
         job_id = r_json["workloadId"]
