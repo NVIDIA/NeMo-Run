@@ -163,7 +163,7 @@ class DGXCloudExecutor(Executor):
         resp = self.create_data_mover_workload(token, project_id, cluster_id)
         if resp.status_code not in [200, 202]:
             raise RuntimeError(
-                f"Failed to create data mover workload, status_code={resp.status_code}, response={resp.text}"
+                f"Failed to create data mover workload, status_code={resp.status_code}, reason={resp.text}"
             )
 
         resp_json = resp.json()
