@@ -302,6 +302,7 @@ class SlurmRayCluster:
         result = executor.tunnel.run(cmd)
 
         job_id = result.stdout.strip()
+        job_id = job_id.split("\n")[-1]
 
         # If job not found in running jobs, check if it's in cluster_map
         if not job_id:
