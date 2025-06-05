@@ -302,6 +302,7 @@ class SlurmRayCluster:
         result = executor.tunnel.run(cmd)
 
         job_id = result.stdout.strip()
+        job_id = job_id.split("\n")[-1]
 
         # If job not found in running jobs, check if it's in cluster_map
         if not job_id:
@@ -664,7 +665,11 @@ Useful Commands
                         ]
                     )
 
-                    jump_arg_str = f"{executor.tunnel.user}@{executor.tunnel.host}"
+                    jump_arg_str = (
+                        f"{executor.tunnel.user}@{executor.tunnel.host}"
+                        if isinstance(executor.tunnel, SSHTunnel)
+                        else None
+                    )
                     raw_jump_identity = getattr(executor.tunnel, "identity", None)
                     jump_identity_path_for_proxy = None
                     if raw_jump_identity:
@@ -1106,13 +1111,14 @@ Useful Commands (to be run on the login node of the Slurm cluster)
         # ------------------------------------------------------------------
         # Ship *workdir* over to the remote side (or package via packager)
         # ------------------------------------------------------------------
+        cluster_dir = os.path.join(self.executor.tunnel.job_dir, self.name)
         remote_workdir: Optional[str] = None
 
         if workdir:
-            if isinstance(self.executor.tunnel, SSHTunnel):
-                # Rsync workdir honouring .gitignore
-                remote_workdir = os.path.join(self.executor.tunnel.job_dir, self.name, "code")
-                if not dryrun:
+            remote_workdir = os.path.join(cluster_dir, "code")
+            if not dryrun:
+                if isinstance(self.executor.tunnel, SSHTunnel):
+                    # Rsync workdir honouring .gitignore
                     self.executor.tunnel.connect()
                     assert self.executor.tunnel.session is not None, (
                         "Tunnel session is not connected"
@@ -1123,11 +1129,24 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                         remote_workdir,
                         rsync_opts="--filter=':- .gitignore'",
                     )
-            else:
-                remote_workdir = workdir
+                else:
+                    os.makedirs(remote_workdir, exist_ok=True)
+                    subprocess.run(
+                        [
+                            "rsync",
+                            "-pthrvz",
+                            "--filter=:- .gitignore",
+                            f"{os.path.join(workdir, '')}",
+                            remote_workdir,
+                        ],
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
         elif self.executor.packager is not None:
             # Use the packager to create an archive which we then extract on the
             # submission host and optionally rsync to the target.
+            remote_workdir = os.path.join(cluster_dir, "code")
             if not dryrun:
                 if isinstance(self.executor.tunnel, SSHTunnel):
                     package_dir = tempfile.mkdtemp(prefix="nemo_packager_")
@@ -1157,7 +1176,6 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                 )
 
                 if isinstance(self.executor.tunnel, SSHTunnel):
-                    remote_workdir = os.path.join(self.executor.tunnel.job_dir, self.name, "code")
                     self.executor.tunnel.connect()
                     assert self.executor.tunnel.session is not None, (
                         "Tunnel session is not connected"
@@ -1169,7 +1187,19 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                         rsync_opts="--filter=':- .gitignore'",
                     )
                 else:
-                    remote_workdir = local_code_extraction_path
+                    os.makedirs(remote_workdir, exist_ok=True)
+                    subprocess.run(
+                        [
+                            "rsync",
+                            "-pthrvz",
+                            "--filter=:- .gitignore",
+                            f"{os.path.join(local_code_extraction_path, '')}",
+                            remote_workdir,
+                        ],
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
 
         assert remote_workdir is not None, "workdir could not be determined"
 
