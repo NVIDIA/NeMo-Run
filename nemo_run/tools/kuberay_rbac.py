@@ -46,16 +46,23 @@ def get_default_namespace() -> str:
     """Get the default namespace from kubectl config."""
     try:
         result = subprocess.run(
-            ["kubectl", "config", "view", "--minify", "-o", "jsonpath={.contexts[0].context.namespace}"],
+            [
+                "kubectl",
+                "config",
+                "view",
+                "--minify",
+                "-o",
+                "jsonpath={.contexts[0].context.namespace}",
+            ],
             capture_output=True,
             text=True,
-            check=False
+            check=False,
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
     except Exception:
         pass
-    
+
     # Fallback to "default" if we can't get it from config
     return "default"
 
@@ -264,7 +271,9 @@ class KubeRayRBAC:
         permissions = self.get_required_permissions()
         total = len(permissions)
 
-        console.print(f"\nChecking {total} Kubernetes permissions for namespace '{self.namespace}'...\n")
+        console.print(
+            f"\nChecking {total} Kubernetes permissions for namespace '{self.namespace}'...\n"
+        )
         console.print("-" * 80)
 
         for i, perm in enumerate(permissions, 1):
@@ -326,7 +335,8 @@ class KubeRayRBAC:
             console.print("  3. Ensure the KubeRay CRDs are installed in the cluster")
         else:
             console.print(
-                "\nAll permission checks passed! You have the required permissions to use KubeRay.", style="green"
+                "\nAll permission checks passed! You have the required permissions to use KubeRay.",
+                style="green",
             )
 
     def generate_rbac_manifest(self) -> str:
@@ -531,8 +541,6 @@ subjects:
                 console.print(f"  ✗ Error testing {resource}: {e}", style="red")
 
 
-
-
 def show_help():
     """Display help message using rich console."""
     help_text = """
@@ -655,11 +663,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
     )
-    
+
     # Add custom help argument
-    parser.add_argument(
-        "-h", "--help", action="store_true", help="Show this help message and exit"
-    )
+    parser.add_argument("-h", "--help", action="store_true", help="Show this help message and exit")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
@@ -694,7 +700,7 @@ def main():
     )
 
     args = parser.parse_args()
-    
+
     # Handle custom help
     if args.help:
         show_help()
@@ -703,7 +709,7 @@ def main():
     if not args.command:
         show_help()
         sys.exit(1)
-    
+
     rbac_manager = KubeRayRBAC(namespace=args.namespace)
 
     if args.command == "test":
