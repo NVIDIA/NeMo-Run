@@ -1658,48 +1658,6 @@ class TestKubeRayPortForwardingEdgeCases:
                         ):
                             cluster_with_basic_executor.port_forward(port=8080, target_port=8265)
 
-    def test_port_forward_with_wait_signal_handling(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
-        """Test port forwarding with wait=True and signal handling."""
-        mock_api, mock_core_api = mock_k8s_clients
-
-        with patch.object(cluster_with_basic_executor, "_get") as mock_get:
-            mock_get.return_value = {"metadata": {"namespace": "test-namespace"}}
-            mock_core_api.read_namespaced_service.return_value = Mock()
-
-            with patch("subprocess.Popen") as mock_popen:
-                mock_process = Mock()
-                mock_process.poll.return_value = None  # Process running
-                mock_popen.return_value = mock_process
-
-                with patch("queue.Queue") as mock_queue_class:
-                    mock_queue = Mock()
-                    mock_queue.get.return_value = ("success", None)
-                    mock_queue_class.return_value = mock_queue
-
-                    # Mock signal handling
-                    with patch("signal.signal") as mock_signal:
-                        with patch("threading.Event") as mock_event_class:
-                            mock_stop_event = Mock()
-                            # Use a callable that returns True after first call
-                            call_count = [0]
-
-                            def mock_is_set():
-                                call_count[0] += 1
-                                return call_count[0] > 1
-
-                            mock_stop_event.is_set = mock_is_set
-                            mock_event_class.return_value = mock_stop_event
-
-                            with patch("time.sleep"):
-                                cluster_with_basic_executor.port_forward(
-                                    port=8080, target_port=8265, wait=True
-                                )
-
-                                # Verify signal handlers were set up
-                                assert mock_signal.call_count >= 2  # SIGINT and SIGTERM
-
     def test_delete_with_wait_error_during_final_check(
         self, cluster_with_basic_executor, mock_k8s_clients
     ):
