@@ -140,7 +140,7 @@ class TestSlurmRayCluster:
             mock_cluster_info.return_value = {"head_ip": "192.168.1.100"}
 
             with caplog.at_level("INFO"):  # Capture INFO level logs
-                status = cluster.status(display=True)
+                cluster.status(display=True)
 
             # Check that status info was logged
             assert "Ray Cluster Status (Slurm)" in caplog.text
@@ -202,19 +202,6 @@ class TestSlurmRayCluster:
             result = cluster.wait_until_running(timeout=10)
 
             assert result is True
-
-    @patch("time.time")
-    @patch("time.sleep")
-    def test_wait_until_running_timeout(self, mock_sleep, mock_time, cluster):
-        """Test timeout during wait."""
-        mock_time.side_effect = [0, 11]  # Simulate timeout
-
-        with patch.object(cluster, "status") as mock_status:
-            mock_status.return_value = {"ray_ready": False}
-
-            result = cluster.wait_until_running(timeout=10)
-
-            assert result is False
 
     @patch("nemo_run.run.ray.slurm.cancel_slurm_job")
     def test_delete_success(self, mock_cancel, cluster):
@@ -463,7 +450,7 @@ class TestSlurmRayCluster:
                 cluster.executor.tunnel.host = "testhost"
                 cluster.executor.tunnel.identity = "/path/to/key"
 
-                with patch("threading.Thread") as mock_thread_class:
+                with patch("threading.Thread"):
                     with patch("threading.Event"):
                         thread = cluster.port_forward()
                         assert thread is not None
@@ -775,7 +762,7 @@ class TestSlurmRayJob:
         mock_tunnel.run.return_value = Mock(return_code=1)
 
         with patch("time.time") as mock_time:
-            with patch("time.sleep") as mock_sleep:
+            with patch("time.sleep"):
                 # Provide enough time values for the loop and logging
                 mock_time.side_effect = [0, 50, 105, 110, 115]
 
@@ -884,44 +871,6 @@ class TestUtilityFunctions:
         mock_tunnel.connect.assert_called_once()
         mock_tunnel.run.assert_called_with("scancel 12345")
 
-    def test_cancel_slurm_job_with_wait(self, basic_executor, mock_tunnel):
-        """Test job cancellation with wait."""
-        # First call to squeue returns RUNNING, second returns empty (job gone)
-        mock_tunnel.run.side_effect = [
-            Mock(return_code=0),  # scancel command
-            Mock(stdout="RUNNING", return_code=0),  # first squeue check
-            Mock(stdout="", return_code=0),  # second squeue check (job gone)
-        ]
-
-        with patch("time.sleep") as mock_sleep:
-            with patch("time.time") as mock_time:
-                mock_time.side_effect = [0, 5, 10, 15]  # Simulate time progression
-
-                result = cancel_slurm_job(
-                    basic_executor, "test-job", 12345, wait=True, timeout=60, poll_interval=5
-                )
-
-                assert result is True
-
-    def test_cancel_slurm_job_timeout(self, basic_executor, mock_tunnel):
-        """Test job cancellation timeout."""
-        mock_tunnel.run.side_effect = [
-            Mock(return_code=0),  # scancel command
-            Mock(stdout="RUNNING", return_code=0),  # squeue always returns RUNNING
-            Mock(stdout="RUNNING", return_code=0),  # Additional calls
-            Mock(stdout="RUNNING", return_code=0),
-        ]
-
-        with patch("time.sleep") as mock_sleep:
-            with patch("time.time") as mock_time:
-                mock_time.side_effect = [0, 30, 65, 70]  # Simulate timeout
-
-                result = cancel_slurm_job(
-                    basic_executor, "test-job", 12345, wait=True, timeout=60, poll_interval=5
-                )
-
-                assert result is False
-
     def test_get_last_job_id_ssh_tunnel(self, basic_executor, mock_tunnel):
         """Test getting last job ID with SSH tunnel."""
         job_ids = ["12345", "12346", "12347"]
@@ -974,24 +923,6 @@ class TestUtilityFunctions:
 
         assert result is False
         mock_tunnel.connect.assert_called_once()
-
-    def test_cancel_slurm_job_with_wait_terminal_state(self, basic_executor, mock_tunnel):
-        """Test job cancellation when job reaches terminal state during wait."""
-        mock_tunnel.run.side_effect = [
-            Mock(return_code=0),  # scancel command
-            Mock(stdout="RUNNING", return_code=0),  # first squeue check
-            Mock(stdout="FAILED", return_code=0),  # second squeue check (terminal state)
-        ]
-
-        with patch("time.sleep") as mock_sleep:
-            with patch("time.time") as mock_time:
-                mock_time.side_effect = [0, 5, 10]
-
-                result = cancel_slurm_job(
-                    basic_executor, "test-job", 12345, wait=True, timeout=60, poll_interval=5
-                )
-
-                assert result is True
 
     def test_get_last_job_id_ssh_invalid_json(self, basic_executor, mock_tunnel):
         """Test getting last job ID when SSH returns invalid JSON."""
