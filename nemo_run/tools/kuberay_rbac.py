@@ -20,30 +20,44 @@ import tempfile
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
+from rich.console import Console
 
-# Color codes for output
-class Colors:
-    RED = "\033[0;31m"
-    GREEN = "\033[0;32m"
-    YELLOW = "\033[1;33m"
-    BLUE = "\033[0;34m"
-    NC = "\033[0m"  # No Color
+
+console = Console()
 
 
 def print_info(message: str):
-    print(f"{Colors.GREEN}[INFO]{Colors.NC} {message}")
+    console.print(f"[INFO] {message}", style="green")
 
 
 def print_error(message: str):
-    print(f"{Colors.RED}[ERROR]{Colors.NC} {message}")
+    console.print(f"[ERROR] {message}", style="red")
 
 
 def print_warning(message: str):
-    print(f"{Colors.YELLOW}[WARNING]{Colors.NC} {message}")
+    console.print(f"[WARNING] {message}", style="yellow")
 
 
 def print_debug(message: str):
-    print(f"{Colors.BLUE}[DEBUG]{Colors.NC} {message}")
+    console.print(f"[DEBUG] {message}", style="blue")
+
+
+def get_default_namespace() -> str:
+    """Get the default namespace from kubectl config."""
+    try:
+        result = subprocess.run(
+            ["kubectl", "config", "view", "--minify", "-o", "jsonpath={.contexts[0].context.namespace}"],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+    except Exception:
+        pass
+    
+    # Fallback to "default" if we can't get it from config
+    return "default"
 
 
 @dataclass
@@ -224,12 +238,12 @@ class KubeRayRBAC:
                     ["kubectl", "get", "crd", crd], capture_output=True, check=False
                 )
                 if result.returncode == 0:
-                    print(f"  {Colors.GREEN}✓{Colors.NC} {crd} is installed")
+                    console.print(f"  ✓ {crd} is installed", style="green")
                 else:
-                    print(f"  {Colors.RED}✗{Colors.NC} {crd} is NOT installed")
+                    console.print(f"  ✗ {crd} is NOT installed", style="red")
                     all_installed = False
             except Exception as e:
-                print(f"  {Colors.RED}✗{Colors.NC} Error checking {crd}: {e}")
+                console.print(f"  ✗ Error checking {crd}: {e}", style="red")
                 all_installed = False
 
         if not all_installed:
@@ -250,8 +264,8 @@ class KubeRayRBAC:
         permissions = self.get_required_permissions()
         total = len(permissions)
 
-        print(f"\nChecking {total} Kubernetes permissions for namespace '{self.namespace}'...\n")
-        print("-" * 80)
+        console.print(f"\nChecking {total} Kubernetes permissions for namespace '{self.namespace}'...\n")
+        console.print("-" * 80)
 
         for i, perm in enumerate(permissions, 1):
             resource_str = f"{perm.api_group}/{perm.resource}" if perm.api_group else perm.resource
@@ -261,21 +275,17 @@ class KubeRayRBAC:
 
             if has_permission:
                 self.passed_checks.append(perm)
-                status = "✓ PASS"
-                status_color = Colors.GREEN
+                status = "[green]✓ PASS[/green]"
             else:
                 self.failed_checks.append(perm)
-                status = "✗ FAIL"
-                status_color = Colors.RED
+                status = "[red]✗ FAIL[/red]"
 
-            print(
-                f"{status_color}{status}{Colors.NC} [{i:3d}/{total}] {check_str:50s} | {perm.description}"
-            )
+            console.print(f"{status} [{i:3d}/{total}] {check_str:35s} | {perm.description}")
 
             if not has_permission and perm.required_for:
-                print(f"            Required for: {perm.required_for}")
+                console.print(f"            Required for: {perm.required_for}")
 
-        print("-" * 80)
+        console.print("-" * 80)
         self.print_summary()
 
         return len(self.passed_checks), len(self.failed_checks)
@@ -286,13 +296,13 @@ class KubeRayRBAC:
         passed = len(self.passed_checks)
         failed = len(self.failed_checks)
 
-        print("\nSummary:")
-        print(f"  Total checks: {total}")
-        print(f"  {Colors.GREEN}Passed: {passed}{Colors.NC}")
-        print(f"  {Colors.RED}Failed: {failed}{Colors.NC}")
+        console.print("\nSummary:")
+        console.print(f"  Total checks: {total}")
+        console.print(f"  Passed: {passed}", style="green")
+        console.print(f"  Failed: {failed}", style="red")
 
         if self.failed_checks:
-            print(f"\n{Colors.RED}Missing Permissions:{Colors.NC}")
+            console.print("\nMissing Permissions:", style="red")
 
             # Group by required_for
             grouped: Dict[str, List[PermissionCheck]] = {}
@@ -303,20 +313,20 @@ class KubeRayRBAC:
                 grouped[key].append(perm)
 
             for feature, perms in grouped.items():
-                print(f"\n  {feature}:")
+                console.print(f"\n  {feature}:")
                 for perm in perms:
                     resource_str = (
                         f"{perm.api_group}/{perm.resource}" if perm.api_group else perm.resource
                     )
-                    print(f"    - {perm.verb} {resource_str}")
+                    console.print(f"    - {perm.verb} {resource_str}")
 
-            print(f"\n{Colors.YELLOW}To grant these permissions:{Colors.NC}")
-            print("  1. Use 'kuberay_rbac.py apply' to create RBAC resources")
-            print("  2. Contact your Kubernetes administrator")
-            print("  3. Ensure the KubeRay CRDs are installed in the cluster")
+            console.print("\nTo grant these permissions:", style="yellow")
+            console.print("  1. Use 'kuberay_rbac.py apply' to create RBAC resources")
+            console.print("  2. Contact your Kubernetes administrator")
+            console.print("  3. Ensure the KubeRay CRDs are installed in the cluster")
         else:
-            print(
-                f"\n{Colors.GREEN}All permission checks passed! You have the required permissions to use KubeRay.{Colors.NC}"
+            console.print(
+                "\nAll permission checks passed! You have the required permissions to use KubeRay.", style="green"
             )
 
     def generate_rbac_manifest(self) -> str:
@@ -463,10 +473,10 @@ subjects:
         manifest_content = manifest_content.replace("USERNAME", username)
 
         if dry_run:
-            print("\nGenerated RBAC manifest:")
-            print("-" * 40)
-            print(manifest_content)
-            print("-" * 40)
+            console.print("\nGenerated RBAC manifest:")
+            console.print("-" * 40)
+            console.print(manifest_content)
+            console.print("-" * 40)
             return True
 
         # Apply the manifest
@@ -514,37 +524,48 @@ subjects:
                     check=False,
                 )
                 if result.returncode == 0:
-                    print(f"  {Colors.GREEN}✓{Colors.NC} {description}")
+                    console.print(f"  ✓ {description}", style="green")
                 else:
-                    print(f"  {Colors.RED}✗{Colors.NC} {description}")
+                    console.print(f"  ✗ {description}", style="red")
             except Exception as e:
-                print(f"  {Colors.RED}✗{Colors.NC} Error testing {resource}: {e}")
+                console.print(f"  ✗ Error testing {resource}: {e}", style="red")
 
 
-def main():
-    """Main entry point with argparse subcommands."""
-    parser = argparse.ArgumentParser(
-        description="Unified script for NeMo-Run KubeRay RBAC management",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
-{Colors.GREEN}FEATURES:{Colors.NC}
+
+
+def show_help():
+    """Display help message using rich console."""
+    help_text = """
+[bold]usage:[/bold] kuberay_rbac.py [-h] {test,apply} ...
+
+Unified script for NeMo-Run KubeRay RBAC management
+
+[bold]positional arguments:[/bold]
+  {test,apply}  Available commands
+    test        Test Kubernetes permissions
+    apply       Apply RBAC manifest
+
+[bold]options:[/bold]
+  -h, --help    show this help message and exit
+
+[green]FEATURES:[/green]
   • Test permissions: Verify current user has all required Kubernetes permissions
   • Apply RBAC: Create and apply RBAC manifests for users
   • CRD verification: Check if KubeRay Custom Resource Definitions are installed
   • Color-coded output: Easy-to-read status indicators
   • Dry-run support: Generate manifests without applying them
 
-{Colors.GREEN}PERMISSIONS MANAGED:{Colors.NC}
-  The script manages {Colors.YELLOW}27 Kubernetes permissions{Colors.NC} across:
+[green]PERMISSIONS MANAGED:[/green]
+  The script manages [yellow]27 Kubernetes permissions[/yellow] across:
 
-  {Colors.BLUE}RayCluster CRD Operations:{Colors.NC}
+  [blue]RayCluster CRD Operations:[/blue]
     • Create, read, update, patch, delete RayCluster resources
     • Get RayCluster status
 
-  {Colors.BLUE}RayJob CRD Operations:{Colors.NC}
+  [blue]RayJob CRD Operations:[/blue]
     • Create, read, list, watch, delete RayJob resources
 
-  {Colors.BLUE}Core Kubernetes Resources:{Colors.NC}
+  [blue]Core Kubernetes Resources:[/blue]
     • Pods: create, get, list, watch, delete
     • Pod exec: execute commands in pods (for debugging/data sync)
     • Pod logs: read pod logs (for job monitoring)
@@ -552,89 +573,106 @@ def main():
     • Services: get, list, watch (for service discovery)
     • PersistentVolumeClaims: get, list (for volume discovery)
 
-{Colors.GREEN}EXAMPLES:{Colors.NC}
-  {Colors.YELLOW}# Test permissions in default namespace{Colors.NC}
+[green]EXAMPLES:[/green]
+  [yellow]# Test permissions in default namespace[/yellow]
   python kuberay_rbac.py test
 
-  {Colors.YELLOW}# Test permissions in specific namespace with CRD check{Colors.NC}
+  [yellow]# Test permissions in specific namespace with CRD check[/yellow]
   python kuberay_rbac.py test -n my-namespace --check-crd
 
-  {Colors.YELLOW}# Apply RBAC for a user in default namespace{Colors.NC}
+  [yellow]# Apply RBAC for a user in default namespace[/yellow]
   python kuberay_rbac.py apply -u myusername
 
-  {Colors.YELLOW}# Apply RBAC in specific namespace{Colors.NC}
+  [yellow]# Apply RBAC in specific namespace[/yellow]
   python kuberay_rbac.py apply -n my-namespace -u myusername
 
-  {Colors.YELLOW}# Generate RBAC manifest without applying (dry-run){Colors.NC}
+  [yellow]# Generate RBAC manifest without applying (dry-run)[/yellow]
   python kuberay_rbac.py apply -n my-namespace -u myusername --dry-run
 
-{Colors.GREEN}SAMPLE OUTPUT (test command):{Colors.NC}
-  {Colors.GREEN}[INFO]{Colors.NC} Checking if KubeRay CRDs are installed...
-    {Colors.GREEN}✓{Colors.NC} rayclusters.ray.io is installed
-    {Colors.GREEN}✓{Colors.NC} rayjobs.ray.io is installed
+[green]SAMPLE OUTPUT (test command):[/green]
+  [green][INFO][/green] Checking if KubeRay CRDs are installed...
+    [green]✓[/green] rayclusters.ray.io is installed
+    [green]✓[/green] rayjobs.ray.io is installed
 
   Checking 27 Kubernetes permissions for namespace 'my-namespace'...
   --------------------------------------------------------------------------------
-  {Colors.GREEN}✓ PASS{Colors.NC} [  1/27] create ray.io/rayclusters        | Create RayCluster custom resources
-  {Colors.GREEN}✓ PASS{Colors.NC} [  2/27] get ray.io/rayclusters           | Get RayCluster custom resources
-  {Colors.RED}✗ FAIL{Colors.NC} [  3/27] list ray.io/rayclusters          | List RayCluster custom resources
+  [green]✓ PASS[/green] [  1/27] create ray.io/rayclusters   | Create RayCluster custom resources
+  [green]✓ PASS[/green] [  2/27] get ray.io/rayclusters      | Get RayCluster custom resources
+  [red]✗ FAIL[/red] [  3/27] list ray.io/rayclusters     | List RayCluster custom resources
               Required for: KubeRayCluster lifecycle management
   ...
 
   Summary:
     Total checks: 27
-    {Colors.GREEN}Passed: 23{Colors.NC}
-    {Colors.RED}Failed: 4{Colors.NC}
+    [green]Passed: 23[/green]
+    [red]Failed: 4[/red]
 
-{Colors.GREEN}SAMPLE OUTPUT (apply command):{Colors.NC}
-  {Colors.GREEN}[INFO]{Colors.NC} Applying KubeRay RBAC permissions...
-  {Colors.GREEN}[INFO]{Colors.NC} Namespace: my-namespace
-  {Colors.GREEN}[INFO]{Colors.NC} Username: myuser
-  {Colors.GREEN}[INFO]{Colors.NC} Applying RBAC manifest...
+[green]SAMPLE OUTPUT (apply command):[/green]
+  [green][INFO][/green] Applying KubeRay RBAC permissions...
+  [green][INFO][/green] Namespace: my-namespace
+  [green][INFO][/green] Username: myuser
+  [green][INFO][/green] Applying RBAC manifest...
   role.rbac.authorization.k8s.io/nemo-run-kuberay-role created
   rolebinding.rbac.authorization.k8s.io/nemo-run-kuberay-rolebinding created
-  {Colors.GREEN}[INFO]{Colors.NC} RBAC permissions successfully applied!
-  {Colors.GREEN}[INFO]{Colors.NC} Testing key permissions for user 'myuser'...
-    {Colors.GREEN}✓{Colors.NC} Can create RayCluster resources
-    {Colors.GREEN}✓{Colors.NC} Can create RayJob resources
-    {Colors.GREEN}✓{Colors.NC} Can execute commands in pods
+  [green][INFO][/green] RBAC permissions successfully applied!
+  [green][INFO][/green] Testing key permissions for user 'myuser'...
+    [green]✓[/green] Can create RayCluster resources
+    [green]✓[/green] Can create RayJob resources
+    [green]✓[/green] Can execute commands in pods
 
-{Colors.GREEN}RBAC RESOURCES CREATED:{Colors.NC}
-  1. {Colors.BLUE}Role:{Colors.NC} 'nemo-run-kuberay-role' - Contains all required permissions
-  2. {Colors.BLUE}RoleBinding:{Colors.NC} 'nemo-run-kuberay-rolebinding' - Binds the role to the specified user
+[green]RBAC RESOURCES CREATED:[/green]
+  1. [blue]Role:[/blue] 'nemo-run-kuberay-role' - Contains all required permissions
+  2. [blue]RoleBinding:[/blue] 'nemo-run-kuberay-rolebinding' - Binds the role to the specified user
 
-{Colors.GREEN}TROUBLESHOOTING:{Colors.NC}
-  {Colors.BLUE}kubectl not found:{Colors.NC}
-    {Colors.RED}[ERROR]{Colors.NC} kubectl is not installed or not in PATH
+[green]TROUBLESHOOTING:[/green]
+  [blue]kubectl not found:[/blue]
+    [red][ERROR][/red] kubectl is not installed or not in PATH
     → Install kubectl and ensure it's in your PATH
 
-  {Colors.BLUE}Cannot connect to cluster:{Colors.NC}
-    {Colors.RED}[ERROR]{Colors.NC} Cannot connect to Kubernetes cluster. Please check your kubeconfig.
-    → Verify your kubeconfig with {Colors.YELLOW}'kubectl get pods'{Colors.NC}
+  [blue]Cannot connect to cluster:[/blue]
+    [red][ERROR][/red] Cannot connect to Kubernetes cluster. Please check your kubeconfig.
+    → Verify your kubeconfig with [yellow]'kubectl get pods'[/yellow]
 
-  {Colors.BLUE}CRDs not installed:{Colors.NC}
-    {Colors.YELLOW}[WARNING]{Colors.NC} Install KubeRay operator: https://docs.ray.io/en/latest/cluster/kubernetes/getting-started.html
+  [blue]CRDs not installed:[/blue]
+    [yellow][WARNING][/yellow] Install KubeRay operator: https://docs.ray.io/en/latest/cluster/kubernetes/getting-started.html
     → Install the KubeRay operator before using NeMo-Run
 
-  {Colors.BLUE}Permission denied when applying RBAC:{Colors.NC}
+  [blue]Permission denied when applying RBAC:[/blue]
     → You need cluster-admin or sufficient permissions to create Roles and RoleBindings
 
-{Colors.GREEN}REQUIREMENTS:{Colors.NC}
+[green]REQUIREMENTS:[/green]
   • Python 3.10+
   • kubectl installed and configured
   • Active connection to a Kubernetes cluster
-        """,
+    """
+    console.print(help_text)
+
+
+def main():
+    """Main entry point with argparse subcommands."""
+    parser = argparse.ArgumentParser(
+        description="Unified script for NeMo-Run KubeRay RBAC management",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
+    )
+    
+    # Add custom help argument
+    parser.add_argument(
+        "-h", "--help", action="store_true", help="Show this help message and exit"
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Get default namespace for help text
+    default_ns = get_default_namespace()
 
     # Test subcommand
     test_parser = subparsers.add_parser("test", help="Test Kubernetes permissions")
     test_parser.add_argument(
         "-n",
         "--namespace",
-        default="default",
-        help="Kubernetes namespace to check permissions for (default: default)",
+        default=default_ns,
+        help=f"Kubernetes namespace to check permissions for (default: {default_ns})",
     )
     test_parser.add_argument(
         "--check-crd", action="store_true", help="Also check if KubeRay CRDs are installed"
@@ -645,8 +683,8 @@ def main():
     apply_parser.add_argument(
         "-n",
         "--namespace",
-        default="default",
-        help="Kubernetes namespace to apply RBAC in (default: default)",
+        default=default_ns,
+        help=f"Kubernetes namespace to apply RBAC in (default: {default_ns})",
     )
     apply_parser.add_argument(
         "-u", "--username", required=True, help="Username to grant permissions to"
@@ -656,11 +694,16 @@ def main():
     )
 
     args = parser.parse_args()
+    
+    # Handle custom help
+    if args.help:
+        show_help()
+        sys.exit(0)
 
     if not args.command:
-        parser.print_help()
+        show_help()
         sys.exit(1)
-
+    
     rbac_manager = KubeRayRBAC(namespace=args.namespace)
 
     if args.command == "test":
@@ -671,7 +714,7 @@ def main():
         success = rbac_manager.apply_rbac(username=args.username, dry_run=args.dry_run)
         if success and not args.dry_run:
             print_info("\nTo verify the permissions, run:")
-            print(f"  python kuberay_rbac.py test -n {args.namespace}")
+            console.print(f"  python kuberay_rbac.py test -n {args.namespace}")
         sys.exit(0 if success else 1)
 
 
