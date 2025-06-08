@@ -102,8 +102,17 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
 
         executor.package(packager=executor.packager, job_name=Path(job_dir).name)
 
+        values = executor.macro_values()
+
         if app.metadata and app.metadata.get(USE_WITH_RAY_CLUSTER_KEY, False):
-            assert len(app.roles) == 1, "Only one command is supported for Ray jobs."
+            srun_cmds: list[list[str]] = []
+
+            for role in app.roles:
+                if values:
+                    role = values.apply(role)
+                srun_cmd = [role.entrypoint] + role.args
+                srun_cmds.append([" ".join(srun_cmd)])
+
             command = [app.roles[0].entrypoint] + app.roles[0].args
             req = SlurmRayRequest(
                 name=app.roles[0].name,
@@ -114,12 +123,12 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
                 executor=executor,
                 workdir=f"/{RUNDIR_NAME}/code",
                 nemo_run_dir=os.path.join(executor.tunnel.job_dir, Path(job_dir).name),
+                command_groups=srun_cmds,
             )
         else:
             srun_cmds: list[list[str]] = []
             jobs = []
             envs = {}
-            values = executor.macro_values()
 
             if values:
                 executor.env_vars = {

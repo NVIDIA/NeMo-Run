@@ -117,6 +117,7 @@ class SlurmRayRequest:
     command: Optional[str] = None
     workdir: Optional[str] = None
     nemo_run_dir: Optional[str] = None
+    command_groups: Optional[list[list[str]]] = None
     launch_cmd: list[str]
 
     @staticmethod
@@ -233,6 +234,60 @@ class SlurmRayRequest:
             "command_workdir": self.workdir,
             "gres_specification": get_gres_specification(),
         }
+
+        if self.command_groups:
+            srun_commands: list[str] = []
+            group_env_vars: list[list[str]] = []
+
+            for idx, group in enumerate(self.command_groups):
+                if idx == 0:
+                    continue
+
+                if self.executor.run_as_group and len(self.executor.resource_group) == len(
+                    self.command_groups
+                ):
+                    req = self.executor.resource_group[idx]
+                    env_list = [f"export {k.upper()}={v}" for k, v in req.env_vars.items()]
+                    group_env_vars.append(env_list)
+                    container_flags = get_srun_flags(req.container_mounts, req.container_image)
+                    srun_args = ["--wait=60", "--kill-on-bad-exit=1", "--overlap"]
+                    srun_args.extend(req.srun_args or [])
+                else:
+                    container_flags = get_srun_flags(
+                        self.executor.container_mounts, self.executor.container_image
+                    )
+                    srun_args = ["--wait=60", "--kill-on-bad-exit=1", "--overlap"]
+                    srun_args.extend(self.executor.srun_args or [])
+                    group_env_vars.append([])
+
+                stdout_path = os.path.join(self.cluster_dir, "logs", f"ray-overlap-{idx}.out")
+                stderr_flags = []
+                if not self.executor.stderr_to_stdout:
+                    stderr_flags = [
+                        "--error",
+                        os.path.join(self.cluster_dir, "logs", f"ray-overlap-{idx}.err"),
+                    ]
+
+                srun_cmd = " ".join(
+                    list(
+                        map(
+                            lambda arg: arg if isinstance(arg, noquote) else shlex.quote(arg),
+                            [
+                                "srun",
+                                "--output",
+                                noquote(stdout_path),
+                                *stderr_flags,
+                                container_flags,
+                                *srun_args,
+                            ],
+                        )
+                    )
+                )
+                command = " ".join(group)
+                srun_commands.append(f"{srun_cmd} {command} &")
+
+            vars_to_fill["srun_commands"] = srun_commands
+            vars_to_fill["group_env_vars"] = group_env_vars
 
         if self.pre_ray_start_commands:
             vars_to_fill["pre_ray_start_commands"] = "\n".join(self.pre_ray_start_commands)
@@ -398,6 +453,7 @@ Useful Commands
         dryrun: bool = False,
         command: Optional[str] = None,
         workdir: Optional[str] = None,
+        command_groups: Optional[list[list[str]]] = None,
     ) -> Any:
         """Create (or reuse) a Slurm-backed Ray cluster and return its job-id.
 
@@ -416,6 +472,9 @@ Useful Commands
             Optional command executed after the Ray head node is ready (e.g. ``ray job submit``).
         workdir : str | None
             Remote working directory that becomes the CWD inside the container.
+        command_groups : list[list[str]] | None
+            Additional commands (one per group) executed via ``srun`` with ``--overlap``
+            after the cluster is started.
 
         Returns
         -------
@@ -433,6 +492,7 @@ Useful Commands
             pre_ray_start_commands=pre_ray_start_commands,
             command=command,
             workdir=workdir,
+            command_groups=command_groups,
             launch_cmd=["sbatch", "--requeue", "--parsable", "--dependency=singleton"],
         ).materialize()
 
@@ -1094,6 +1154,7 @@ Useful Commands (to be run on the login node of the Slurm cluster)
         runtime_env_yaml: Optional[str] | None = None,
         pre_ray_start_commands: Optional[list[str]] = None,
         dryrun: bool = False,
+        command_groups: Optional[list[list[str]]] = None,
     ):
         """Submit a Ray job via Slurm and return a *live* SlurmRayJob helper.
 
@@ -1106,6 +1167,7 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                 executor=my_slurm_executor,
                 command="python train.py",
                 workdir="./src",
+                command_groups=[["echo", "hello"]],
             )
         """
         # ------------------------------------------------------------------
@@ -1212,6 +1274,7 @@ Useful Commands (to be run on the login node of the Slurm cluster)
             dryrun=dryrun,
             command=command,
             workdir=remote_workdir,
+            command_groups=command_groups,
         )
 
         self.job_id = job_id

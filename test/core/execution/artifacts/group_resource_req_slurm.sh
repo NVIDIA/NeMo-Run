@@ -30,6 +30,7 @@ nodes_array=($nodes)
 head_node=${nodes_array[0]}
 head_node_ip=$(srun --nodes=1 --ntasks=1 -w "$head_node" hostname --ip-address)
 
+export CUSTOM_ENV_1=some_value_1
 export ENV_VAR=value
 
 
