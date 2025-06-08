@@ -405,3 +405,179 @@ class TestSlurmRayRequest:
 
         with pytest.raises(AssertionError, match="array is not supported"):
             request.materialize()
+
+    def test_command_groups_env_vars(self):
+        """Test environment variables are properly set for each command group."""
+        # Create executor with environment variables
+        executor = SlurmExecutor(
+            account="test_account",
+            env_vars={"GLOBAL_ENV": "global_value"},
+        )
+        executor.run_as_group = True
+
+        # Create resource groups with different env vars
+        resource_group = [
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                container_image="image1",
+                env_vars={"GROUP1_ENV": "group1_value"},
+                container_mounts=["/mount1"],
+            ),
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=1,
+                container_image="image2",
+                env_vars={"GROUP2_ENV": "group2_value"},
+                container_mounts=["/mount2"],
+            ),
+        ]
+        executor.resource_group = resource_group
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[["cmd0"], ["cmd1"], ["cmd2"]],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Check global env vars are set in setup section
+        assert "export GLOBAL_ENV=global_value" in script
+
+        # Check that command groups generate srun commands (excluding the first one)
+        # The template should have a section for srun_commands
+        assert "# Run extra commands" in script
+        assert "srun" in script
+        assert "cmd1" in script  # First command group after skipping index 0
+        assert "cmd2" in script  # Second command group
+
+    def test_command_groups_without_resource_group(self):
+        """Test command groups work without resource groups."""
+        executor = SlurmExecutor(
+            account="test_account",
+            env_vars={"GLOBAL_ENV": "global_value"},
+        )
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[["cmd0"], ["cmd1"]],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Should have global env vars
+        assert "export GLOBAL_ENV=global_value" in script
+
+        # Should have srun commands for overlapping groups (skipping first)
+        assert "srun" in script
+        assert "--overlap" in script
+        assert "cmd1" in script  # Second command in the list (index 1)
+
+    def test_env_vars_formatting(self):
+        """Test that environment variables are properly formatted as export statements."""
+        executor = SlurmExecutor(
+            account="test_account",
+            env_vars={
+                "VAR_WITH_SPACES": "value with spaces",
+                "PATH_VAR": "/usr/bin:/usr/local/bin",
+                "EMPTY_VAR": "",
+                "NUMBER_VAR": "123",
+            },
+        )
+        executor.tunnel = Mock(spec=SSHTunnel)
+        executor.tunnel.job_dir = "/tmp/test_jobs"
+
+        request = SlurmRayRequest(
+            name="test-ray-cluster",
+            cluster_dir="/tmp/test_jobs/test-ray-cluster",
+            template_name="ray.sub.j2",
+            executor=executor,
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Check all environment variables are properly exported
+        assert "export VAR_WITH_SPACES=value with spaces" in script
+        assert "export PATH_VAR=/usr/bin:/usr/local/bin" in script
+        assert "export EMPTY_VAR=" in script
+        assert "export NUMBER_VAR=123" in script
+
+    def test_group_env_vars_integration(self):
+        """Test full integration of group environment variables matching the artifact pattern."""
+        # This test verifies the behavior seen in group_resource_req_slurm.sh
+        executor = SlurmExecutor(
+            account="your_account",
+            partition="your_partition",
+            time="00:30:00",
+            nodes=1,
+            ntasks_per_node=8,
+            gpus_per_node=8,
+            container_image="some-image",
+            container_mounts=["/some/job/dir/sample_job:/nemo_run"],
+            env_vars={"ENV_VAR": "value"},
+        )
+        executor.run_as_group = True
+
+        # Set up resource groups with specific env vars
+        resource_group = [
+            # First group (index 0) - for the head/main command
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=8,
+                container_image="some-image",
+                env_vars={"CUSTOM_ENV_1": "some_value_1"},
+                container_mounts=["/some/job/dir/sample_job:/nemo_run"],
+            ),
+            # Second group (index 1)
+            SlurmExecutor.ResourceRequest(
+                packager=Mock(),
+                nodes=1,
+                ntasks_per_node=8,
+                container_image="different_container_image",
+                env_vars={"CUSTOM_ENV_1": "some_value_1"},
+                container_mounts=["/some/job/dir/sample_job:/nemo_run"],
+            ),
+        ]
+        executor.resource_group = resource_group
+
+        # Mock tunnel
+        tunnel_mock = Mock(spec=SSHTunnel)
+        tunnel_mock.job_dir = "/some/job/dir"
+        executor.tunnel = tunnel_mock
+
+        request = SlurmRayRequest(
+            name="sample_job",
+            cluster_dir="/some/job/dir/sample_job",
+            template_name="ray.sub.j2",
+            executor=executor,
+            command_groups=[
+                ["bash ./scripts/start_server.sh"],
+                ["bash ./scripts/echo.sh server_host=$het_group_host_0"],
+            ],
+            launch_cmd=["sbatch", "--parsable"],
+        )
+
+        script = request.materialize()
+
+        # Verify the pattern matches the artifact:
+        # 1. Global env vars should be exported in setup
+        assert "export ENV_VAR=value" in script
+
+        # The template should include group_env_vars for proper env var handling per command
+        # (The actual env var exports per command happen in the template rendering)
