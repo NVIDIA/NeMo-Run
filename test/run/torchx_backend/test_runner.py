@@ -17,9 +17,11 @@ import logging
 from typing import Any, Optional
 
 import pytest
+from torchx.specs import AppDef, AppDryRunInfo, Role
+
 from nemo_run.core.execution.base import Executor
 from nemo_run.run.torchx_backend.runner import Runner, get_runner
-from torchx.specs import AppDef, AppDryRunInfo, Role
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 

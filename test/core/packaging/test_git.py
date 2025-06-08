@@ -63,9 +63,7 @@ def test_package(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(temp_repo, os.path.join(job_dir, "extracted_output"))
         assert cmp.left_list == cmp.right_list
@@ -86,13 +84,9 @@ def test_package_with_subpath(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
-        cmp = filecmp.dircmp(
-            os.path.join(temp_repo, "subdir"), os.path.join(job_dir, "extracted_output")
-        )
+        cmp = filecmp.dircmp(os.path.join(temp_repo, "subdir"), os.path.join(job_dir, "extracted_output"))
         assert cmp.left_list == cmp.right_list
         assert not cmp.diff_files
 
@@ -106,17 +100,13 @@ def test_package_with_subpath_with_basepath(packager, temp_repo):
     subprocess.check_call(["git", "add", "."])
     subprocess.check_call(["git", "commit", "-m", "Add subdir"])
 
-    packager = GitArchivePackager(
-        basepath=os.path.join(temp_repo, "subdir"), subpath="subdir/subdir2", ref="HEAD"
-    )
+    packager = GitArchivePackager(basepath=os.path.join(temp_repo, "subdir"), subpath="subdir/subdir2", ref="HEAD")
     with tempfile.TemporaryDirectory() as job_dir:
         output_file = packager.package(Path(temp_repo), job_dir, "test_package")
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "subdir", "subdir2"),
@@ -158,9 +148,7 @@ def test_package_with_include_pattern(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "extra"),
@@ -186,9 +174,7 @@ def test_package_with_include_pattern_and_subpath(packager, temp_repo):
         f.write("Extra file 1")
     with open(temp_repo / "extra2" / "extra2_file2.txt", "w") as f:
         f.write("Extra file 2")
-    subprocess.check_call(
-        [f"cd {temp_repo} && git add extra2 && git commit -m 'Extra2 commit'"], shell=True
-    )
+    subprocess.check_call([f"cd {temp_repo} && git add extra2 && git commit -m 'Extra2 commit'"], shell=True)
 
     packager = GitArchivePackager(ref="HEAD", include_pattern="extra", subpath="extra2")
     with tempfile.TemporaryDirectory() as job_dir:
@@ -196,9 +182,7 @@ def test_package_with_include_pattern_and_subpath(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "extra"),
@@ -238,9 +222,7 @@ def test_package_with_include_pattern_multiple_directories(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(
             os.path.join(temp_repo, "extra"),
@@ -267,17 +249,13 @@ def test_package_with_include_pattern_rel_path(packager, temp_repo, tmpdir):
     with open(tmpdir / "extra" / "extra_file2.txt", "w") as f:
         f.write("Extra file 2")
 
-    packager = GitArchivePackager(
-        include_pattern=str(tmpdir / "extra/*"), include_pattern_relative_path=str(tmpdir)
-    )
+    packager = GitArchivePackager(include_pattern=str(tmpdir / "extra/*"), include_pattern_relative_path=str(tmpdir))
     with tempfile.TemporaryDirectory() as job_dir:
         output_file = packager.package(Path(temp_repo), job_dir, "test_package")
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(
             os.path.join(tmpdir, "extra"),
@@ -300,17 +278,13 @@ def test_package_with_multi_include_pattern_rel_path(packager, temp_repo, tmpdir
     include_pattern = [str(tmpdir / "extra/extra_file1.txt"), str(tmpdir / "extra/extra_file2.txt")]
     relative_path = [str(tmpdir), str(tmpdir)]
 
-    packager = GitArchivePackager(
-        include_pattern=include_pattern, include_pattern_relative_path=relative_path
-    )
+    packager = GitArchivePackager(include_pattern=include_pattern, include_pattern_relative_path=relative_path)
     with tempfile.TemporaryDirectory() as job_dir:
         output_file = packager.package(Path(temp_repo), job_dir, "test_package")
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(
             os.path.join(tmpdir, "extra"),
@@ -371,9 +345,7 @@ def test_package_with_include_submodules(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         # Check first submodule
         cmp = filecmp.dircmp(
@@ -413,8 +385,6 @@ def test_package_without_include_submodules(packager, temp_repo):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         assert len(os.listdir(os.path.join(job_dir, "extracted_output", "submodule"))) == 0

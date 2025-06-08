@@ -15,7 +15,6 @@
 
 from dataclasses import dataclass, field
 
-
 from nemo_run.config import ConfigurableMixin, Partial, Script
 from nemo_run.core.execution.base import Executor
 

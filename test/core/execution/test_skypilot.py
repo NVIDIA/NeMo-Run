@@ -24,6 +24,7 @@ from nemo_run.core.execution.launcher import Torchrun
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.packaging.git import GitArchivePackager
 
+
 # Mock the skypilot imports
 skypilot_mock = MagicMock()
 sky_mock = MagicMock()
@@ -361,9 +362,7 @@ class TestSkypilotExecutor:
     @patch("nemo_run.core.execution.skypilot.subprocess.run")
     @patch("nemo_run.core.packaging.git.GitArchivePackager.package")
     @patch("nemo_run.core.execution.skypilot.Context")
-    def test_package_full(
-        self, mock_context_class, mock_packager, mock_run, mock_join, mock_path, executor
-    ):
+    def test_package_full(self, mock_context_class, mock_packager, mock_run, mock_join, mock_path, executor):
         # Skip testing the full package method due to threading issues
         # Just verify that our mocks are set up correctly
         assert mock_context_class is not None
@@ -406,9 +405,7 @@ class TestSkypilotExecutor:
     @patch("os.path.exists")
     def test_package_configs(self, mock_exists, executor):
         mock_exists.return_value = True
-        configs = executor.package_configs(
-            ("config1.yaml", "content1"), ("config2.yaml", "content2")
-        )
+        configs = executor.package_configs(("config1.yaml", "content1"), ("config2.yaml", "content2"))
 
         assert len(configs) == 2
         assert configs[0].endswith("config1.yaml")
@@ -474,10 +471,7 @@ class TestSkypilotExecutor:
 
             # Since we patched the base method, we need to call the specific behavior we're testing
             # This part comes from the override in SkypilotExecutor._setup_launcher
-            if (
-                isinstance(executor.launcher, (Torchrun, MagicMock))
-                and executor.cloud == "kubernetes"
-            ):
+            if isinstance(executor.launcher, (Torchrun, MagicMock)) and executor.cloud == "kubernetes":
                 executor.launcher.rdzv_backend = "static"
                 executor.launcher.rdzv_port = 49500
 

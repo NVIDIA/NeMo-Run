@@ -31,12 +31,13 @@ from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
+
 _SKYPILOT_AVAILABLE: bool = False
 try:
     import sky
     import sky.task as skyt
-    from sky.utils import status_lib
     from sky import backends
+    from sky.utils import status_lib
 
     _SKYPILOT_AVAILABLE = True
 except ImportError:
@@ -303,14 +304,10 @@ class SkypilotExecutor(Executor):
         ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
-            remote_nsys_extraction_path = os.path.join(
-                self.job_dir, self.get_launcher().nsys_folder
-            )
+            remote_nsys_extraction_path = os.path.join(self.job_dir, self.get_launcher().nsys_folder)
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
         if local_pkg:
-            ctx.run(
-                f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
-            )
+            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True)
 
     def nnodes(self) -> int:
         return self.num_nodes
@@ -334,11 +331,7 @@ class SkypilotExecutor(Executor):
         super()._setup_launcher()
         launcher = self.launcher
         # Dynamic rendezvous has an error in Skypilot Kubernetes currently
-        if (
-            launcher
-            and isinstance(launcher, (Torchrun, FaultTolerance))
-            and self.cloud == "kubernetes"
-        ):
+        if launcher and isinstance(launcher, (Torchrun, FaultTolerance)) and self.cloud == "kubernetes":
             launcher.rdzv_backend = "static"
             launcher.rdzv_port = 49500
 

@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any, List, Optional, Set, Type
 
 from invoke.context import Context
-from leptonai.api.v2.client import APIClient
 from leptonai.api.v1.types.affinity import LeptonResourceAffinity
 from leptonai.api.v1.types.common import LeptonVisibility, Metadata
 from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
@@ -25,11 +24,13 @@ from leptonai.api.v1.types.deployment import (
 )
 from leptonai.api.v1.types.job import LeptonJob, LeptonJobState, LeptonJobUserSpec
 from leptonai.api.v1.types.replica import Replica
+from leptonai.api.v2.client import APIClient
 
 from nemo_run.config import get_nemorun_home
 from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
+
 
 logger = logging.getLogger(__name__)
 
@@ -132,9 +133,7 @@ class LeptonExecutor(Executor):
         """
         node_groups = client.nodegroup.list_all()
         if len(node_groups) < 1:
-            raise RuntimeError(
-                "No node groups found in cluster. Ensure Lepton workspace has at least one node group."
-            )
+            raise RuntimeError("No node groups found in cluster. Ensure Lepton workspace has at least one node group.")
         node_group_map = {ng.metadata.name: ng for ng in node_groups}
         try:
             node_group_id = node_group_map[self.node_group]
@@ -402,14 +401,10 @@ cd /nemo_run/code
         ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
-            remote_nsys_extraction_path = os.path.join(
-                self.job_dir, self.get_launcher().nsys_folder
-            )
+            remote_nsys_extraction_path = os.path.join(self.job_dir, self.get_launcher().nsys_folder)
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
         if local_pkg:
-            ctx.run(
-                f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
-            )
+            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True)
 
     def macro_values(self) -> Optional[ExecutorMacros]:
         return None

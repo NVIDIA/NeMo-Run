@@ -17,35 +17,38 @@ import os
 import sys
 from configparser import ConfigParser
 from dataclasses import dataclass, field
-from typing import Annotated, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, List, Optional, Union
 from unittest.mock import Mock, patch
 
 import fiddle as fdl
 import pytest
 import typer
 from importlib_metadata import EntryPoint, EntryPoints
-from typer.testing import CliRunner
 from rich.console import Console
+from typer.testing import CliRunner
 
 import nemo_run as run
+import nemo_run.cli.cli_parser  # Import the module to mock its function
 from nemo_run import cli, config
 from nemo_run.cli import api as cli_api
-from nemo_run.config import Config
-from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.cli.api import (
     Entrypoint,
-    RunContext,
     EntrypointCommand,
+    RunContext,
+    _load_workspace,
+    _load_workspace_file,
+    _search_workspace_file,
     add_global_options,
     create_cli,
-    _search_workspace_file,
-    _load_workspace_file,
-    _load_workspace,
-    main as cli_main,
     extract_constituent_types,
 )
+from nemo_run.cli.api import (
+    main as cli_main,
+)
+from nemo_run.cli.lazy import LazyEntrypoint
+from nemo_run.config import Config
 from test.dummy_factory import DummyModel, dummy_entrypoint
-import nemo_run.cli.cli_parser  # Import the module to mock its function
+
 
 if TYPE_CHECKING:
     from test.dummy_type import RealType
@@ -60,11 +63,7 @@ dummy = test.dummy_factory
 # Helper methods taken from https://github.com/pytorch/torchx/blob/main/torchx/util/test/entrypoints_test.py
 def EntryPoint_from_config(config: ConfigParser) -> list[EntryPoint]:
     # from stdlib, Copyright (c) Python Authors
-    return [
-        EntryPoint(name, value, group)
-        for group in config.sections()
-        for name, value in config.items(group)
-    ]
+    return [EntryPoint(name, value, group) for group in config.sections() for name, value in config.items(group)]
 
 
 def EntryPoint_from_text(text: str) -> list[EntryPoint]:
@@ -130,9 +129,7 @@ class TestRunContext:
 
     def test_run_context_parse_args(self):
         ctx = RunContext(name="test_run")
-        ctx.parse_args(
-            ["executor=local_executor", "executor.ntasks_per_node=2", "plugins=dummy_plugin"]
-        )
+        ctx.parse_args(["executor=local_executor", "executor.ntasks_per_node=2", "plugins=dummy_plugin"])
         assert isinstance(ctx.executor, run.LocalExecutor)
         assert ctx.executor.ntasks_per_node == 2
         assert ctx.plugins[0].some_arg == 20
@@ -316,15 +313,11 @@ class TestRunContext:
             ctx_dry.execute_lazy(lazy_entry, [], "lazy_test")
         # REPL
         ctx_repl = RunContext(name="lazy_test", repl=True)
-        with pytest.raises(
-            ValueError, match="Interactive mode is not supported for lazy execution"
-        ):
+        with pytest.raises(ValueError, match="Interactive mode is not supported for lazy execution"):
             ctx_repl.execute_lazy(lazy_entry, [], "lazy_test")
         # Direct
         ctx_direct = RunContext(name="lazy_test", direct=True)
-        with pytest.raises(
-            ValueError, match="Direct execution is not supported for lazy execution"
-        ):
+        with pytest.raises(ValueError, match="Direct execution is not supported for lazy execution"):
             ctx_direct.execute_lazy(lazy_entry, [], "lazy_test")
 
     @patch("nemo_run.cli.api._serialize_configuration")
@@ -376,9 +369,7 @@ class TestRunContext:
             # but we can check if the options passed to _configure_global_options reflect defaults
             with patch("nemo_run.cli.api._configure_global_options") as mock_configure:
                 runner.invoke(app, ["testcmd"])
-                mock_configure.assert_called_with(
-                    app, False, True, True, None, True
-                )  # verbose=True expected
+                mock_configure.assert_called_with(app, False, True, True, None, True)  # verbose=True expected
 
 
 @dataclass
@@ -456,9 +447,7 @@ class TestFactoryAndResolve:
         class TestObject:
             pass
 
-        with pytest.raises(
-            ValueError, match="`target_arg` cannot be used without specifying a `target`."
-        ):
+        with pytest.raises(ValueError, match="`target_arg` cannot be used without specifying a `target`."):
 
             @cli.factory(target_arg="test")
             def test_function() -> TestObject:
@@ -643,9 +632,7 @@ def my_optimizer(
     learning_rate: float = 0.001, weight_decay: float = 1e-5, betas: List[float] = [0.9, 0.999]
 ) -> run.Config[Optimizer]:
     """Create an optimizer configuration."""
-    return run.Config(
-        Optimizer, learning_rate=learning_rate, weight_decay=weight_decay, betas=betas
-    )
+    return run.Config(Optimizer, learning_rate=learning_rate, weight_decay=weight_decay, betas=betas)
 
 
 def defaults() -> run.Partial["train_model"]:
@@ -776,10 +763,7 @@ class TestEntrypointRunner:
         output = result.stdout
         assert "Training model with the following configuration:" in output
         assert "Model: Model(hidden_size=1024, num_layers=3, activation='relu')" in output
-        assert (
-            "Optimizer: Optimizer(learning_rate=0.005, weight_decay=1e-05, betas=[0.9, 0.999])"
-            in output
-        )
+        assert "Optimizer: Optimizer(learning_rate=0.005, weight_decay=1e-05, betas=[0.9, 0.999])" in output
         assert "Epochs: 30" in output
         assert "Batch size: 1024" in output
         assert "Training completed!" in output
@@ -825,12 +809,8 @@ class TestEntrypointRunner:
         @run.cli.entrypoint(namespace="llm", type="experiment")
         def my_experiment(
             ctx: run.cli.RunContext,
-            pretrain: run.Partial[dummy_pretrain] = run.Partial(
-                dummy_pretrain, log_dir="/pretrain"
-            ),
-            finetune: run.Partial[dummy_finetune] = run.Partial(
-                dummy_finetune, log_dir="/finetune"
-            ),
+            pretrain: run.Partial[dummy_pretrain] = run.Partial(dummy_pretrain, log_dir="/pretrain"),
+            finetune: run.Partial[dummy_finetune] = run.Partial(dummy_finetune, log_dir="/finetune"),
         ):
             pretrain.log_dir = f"/{ctx.experiment.name}/checkpoints"
             finetune.log_dir = f"/{ctx.experiment.name}/checkpoints"
@@ -1078,9 +1058,7 @@ class TestRunContextLaunch:
 
         ctx.launch(mock_experiment)
 
-        mock_experiment.run.assert_called_once_with(
-            sequential=False, detach=False, direct=True, tail_logs=True
-        )
+        mock_experiment.run.assert_called_once_with(sequential=False, detach=False, direct=True, tail_logs=True)
 
     def test_launch_with_executor(self):
         """Test launch with executor specified."""
@@ -1090,9 +1068,7 @@ class TestRunContextLaunch:
 
         ctx.launch(mock_experiment)
 
-        mock_experiment.run.assert_called_once_with(
-            sequential=False, detach=False, direct=False, tail_logs=False
-        )
+        mock_experiment.run.assert_called_once_with(sequential=False, detach=False, direct=False, tail_logs=False)
 
     def test_launch_sequential(self):
         """Test launch with sequential=True."""
@@ -1103,9 +1079,7 @@ class TestRunContextLaunch:
 
         ctx.launch(mock_experiment, sequential=True)
 
-        mock_experiment.run.assert_called_once_with(
-            sequential=True, detach=False, direct=True, tail_logs=False
-        )
+        mock_experiment.run.assert_called_once_with(sequential=True, detach=False, direct=True, tail_logs=False)
 
 
 class TestParsePrefixedArgs:
@@ -1248,9 +1222,7 @@ class TestConfigExport:
         from nemo_run.cli.api import _serialize_configuration
 
         with patch("rich.console.Console") as mock_console:
-            _serialize_configuration(
-                lazy_config, to_yaml=str(yaml_path), is_lazy=True, console=mock_console
-            )
+            _serialize_configuration(lazy_config, to_yaml=str(yaml_path), is_lazy=True, console=mock_console)
 
         # Verify the YAML file was created with lazy configuration format
         assert yaml_path.exists()
@@ -1391,13 +1363,9 @@ class TestConfigExport:
 
         # Check that console print was called multiple times for verbose output
         assert mock_console.print.call_count > 2
-        mock_console.print.assert_any_call(
-            f"[bold green]Configuration exported to YAML:[/bold green] {yaml_path}"
-        )
+        mock_console.print.assert_any_call(f"[bold green]Configuration exported to YAML:[/bold green] {yaml_path}")
         mock_console.print.assert_any_call("[bold cyan]File contents:[/bold cyan]")
-        mock_console.print.assert_any_call(
-            f"[bold green]Configuration exported to JSON:[/bold green] {json_path}"
-        )
+        mock_console.print.assert_any_call(f"[bold green]Configuration exported to JSON:[/bold green] {json_path}")
 
     def test_export_error_handling(self, temp_dir):
         config = Config(Model, hidden_size=100)
@@ -1416,9 +1384,7 @@ class TestConfigExport:
             )
 
         # Check that error message was printed
-        expected_error_msg = str(
-            FileNotFoundError(f"[Errno 2] No such file or directory: '{str(non_existent_path)}'")
-        )
+        expected_error_msg = str(FileNotFoundError(f"[Errno 2] No such file or directory: '{str(non_existent_path)}'"))
         mock_console.print.assert_called_with(
             f"[bold red]Failed to export configuration to YAML:[/bold red] {expected_error_msg}"
         )
@@ -1653,9 +1619,7 @@ class TestMainFunction:
         assert decorated_func.cli_entrypoint.default_plugins == original_plugins
         mock_entrypoint_main.assert_called_once()  # Ensure it was called
 
-    def test_main_lazy_cli_enabled_normal_func(
-        self, decorated_func, mock_entrypoint_main, monkeypatch
-    ):
+    def test_main_lazy_cli_enabled_normal_func(self, decorated_func, mock_entrypoint_main, monkeypatch):
         """Test lazy mode with a normal entrypoint."""
         monkeypatch.setenv("LAZY_CLI", "true")
         cli_main(decorated_func)
@@ -1665,9 +1629,7 @@ class TestMainFunction:
     @patch("typer.Typer")
     @patch("nemo_run.cli.api.RunContext.cli_command")
     @patch("sys.argv", ["script.py", "lazy_cmd", "arg1=val1"])
-    @patch(
-        "nemo_run.cli.lazy.LazyTarget.__post_init__", lambda self: None
-    )  # Prevent script path check
+    @patch("nemo_run.cli.lazy.LazyTarget.__post_init__", lambda self: None)  # Prevent script path check
     def test_main_lazy_cli_disabled_lazy_func(
         self, mock_cli_command, mock_typer_cls, mock_entrypoint_main, monkeypatch
     ):

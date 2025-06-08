@@ -17,8 +17,9 @@ import logging
 from unittest.mock import Mock, patch
 
 import pytest
-from nemo_run.core.frontend.console.api import configure_logging
 from rich.logging import RichHandler
+
+from nemo_run.core.frontend.console.api import configure_logging
 
 
 @pytest.fixture

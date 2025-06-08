@@ -40,9 +40,7 @@ def test_package_with_include_pattern_rel_path(tmpdir):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(
             os.path.join(tmpdir, "extra"),
@@ -70,9 +68,7 @@ def test_package_with_multi_include_pattern_rel_path(tmpdir):
         assert os.path.exists(output_file)
         subprocess.check_call(shlex.split(f"mkdir -p {os.path.join(job_dir, 'extracted_output')}"))
         subprocess.check_call(
-            shlex.split(
-                f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"
-            ),
+            shlex.split(f"tar -xvzf {output_file} -C {os.path.join(job_dir, 'extracted_output')} --ignore-zeros"),
         )
         cmp = filecmp.dircmp(
             os.path.join(tmpdir, "extra"),

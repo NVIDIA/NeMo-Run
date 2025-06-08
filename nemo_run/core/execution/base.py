@@ -186,9 +186,7 @@ class Executor(ConfigurableMixin):
     def cleanup(self, handle: str): ...
 
 
-def import_executor(
-    name: str, file_path: Optional[str] = None, call: bool = True, **kwargs
-) -> Executor:
+def import_executor(name: str, file_path: Optional[str] = None, call: bool = True, **kwargs) -> Executor:
     """
     Retrieves an executor instance by name from a specified or default Python file.
     The file must contain either a function or executor instance by the provided name.

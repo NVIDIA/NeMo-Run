@@ -1,39 +1,39 @@
+import builtins  # Import builtins
+import importlib  # Make sure importlib is imported
+import math
+import os  # Import os for environ mocking
+import pickle
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
-import math
-import pickle
-import sys
 
 import fiddle as fdl
 import pytest
 from omegaconf import OmegaConf
 
 import nemo_run as run
+import nemo_run.cli.api as api  # Import the api module
 from nemo_run.cli.cli_parser import ParseError
+from nemo_run.cli.lazy import (
+    DictConfig,
+    LazyEntrypoint,
+    LazyModule,
+    LazyTarget,
+    _args_to_dictconfig,
+    _flatten_lazy_entrypoint,
+    _flatten_lazy_target,
+    _is_config_file_path,
+    _load_entrypoint_from_script,
+    _unflatten_lazy_entrypoint,
+    _unflatten_lazy_target,
+    dictconfig_to_dot_list,
+    import_module,
+    load_config_from_path,
+)
 from nemo_run.config import Partial
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
-from nemo_run.cli.lazy import (
-    LazyEntrypoint,
-    LazyTarget,
-    LazyModule,
-    DictConfig,
-    dictconfig_to_dot_list,
-    load_config_from_path,
-    _args_to_dictconfig,
-    _flatten_lazy_target,
-    _unflatten_lazy_target,
-    _flatten_lazy_entrypoint,
-    _unflatten_lazy_entrypoint,
-    _is_config_file_path,
-    import_module,
-    _load_entrypoint_from_script,
-)
 from test.dummy_factory import DummyModel  # noqa: F401
-import nemo_run.cli.api as api  # Import the api module
-import os  # Import os for environ mocking
-import importlib  # Make sure importlib is imported
-import builtins  # Import builtins
 
 
 @dataclass
@@ -542,15 +542,9 @@ class TestOmegaConfIntegration:
         ]
         # Filter out structure args for robust comparison
         result_filtered = [item for item in result if not item[2] == "Config[TransformerEncoder]"]
-        result_filtered = [
-            item for item in result_filtered if not item[2] == "Config[TransformerDecoder]"
-        ]
-        expected_filtered = [
-            item for item in expected if not item[2] == "Config[TransformerEncoder]"
-        ]
-        expected_filtered = [
-            item for item in expected_filtered if not item[2] == "Config[TransformerDecoder]"
-        ]
+        result_filtered = [item for item in result_filtered if not item[2] == "Config[TransformerDecoder]"]
+        expected_filtered = [item for item in expected if not item[2] == "Config[TransformerEncoder]"]
+        expected_filtered = [item for item in expected_filtered if not item[2] == "Config[TransformerDecoder]"]
         assert result_filtered == expected_filtered
 
     def test_dictconfig_with_target_and_factory(self):
@@ -689,9 +683,7 @@ class TestLazyImports:
             # Use __import__ again without fromlist to get the cached LazyModule
             lazy_os = builtins.__import__("os", globals(), locals(), [], 0)
             assert isinstance(lazy_os, LazyModule)
-            assert hasattr(
-                lazy_os, "path"
-            )  # Check if intermediate LazyModule was created internally
+            assert hasattr(lazy_os, "path")  # Check if intermediate LazyModule was created internally
             # Check that accessing 'path' still yields a LazyTarget due to __getattr__
             path_attr = getattr(lazy_os, "path")
             assert isinstance(path_attr, LazyTarget)
@@ -711,9 +703,7 @@ class TestLazyImports:
                 builtins.__import__("os", globals(), locals(), ["environ", "path.join"], 0)
 
             # Check state after the failing import
-            lazy_os = builtins.__import__(
-                "os", globals(), locals(), [], 0
-            )  # Get the lazy os module
+            lazy_os = builtins.__import__("os", globals(), locals(), [], 0)  # Get the lazy os module
             assert isinstance(lazy_os, LazyModule)
 
             # Check 'environ': Internal LazyModule created, access gives LazyTarget

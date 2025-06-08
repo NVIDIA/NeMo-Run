@@ -124,9 +124,7 @@ class TestDGXCloudExecutor:
     @patch("requests.get")
     def test_get_project_and_cluster_id_not_found(self, mock_get):
         mock_response = MagicMock()
-        mock_response.text = (
-            '{"projects": [{"name": "other_project", "id": "proj1", "clusterId": "clust1"}]}'
-        )
+        mock_response.text = '{"projects": [{"name": "other_project", "id": "proj1", "clusterId": "clust1"}]}'
         mock_get.return_value = mock_response
 
         executor = DGXCloudExecutor(
@@ -163,9 +161,7 @@ class TestDGXCloudExecutor:
         mock_subprocess.assert_called_once()
         mock_file.call_count == 1
 
-        assert (
-            "rm -rf /mock/destination/path && mkdir -p /mock/destination/path && echo" in response
-        )
+        assert "rm -rf /mock/destination/path && mkdir -p /mock/destination/path && echo" in response
         assert (
             "base64 -d > /mock/destination/path/archive.tar.gz && tar -xzf /mock/destination/path/archive.tar.gz -C /mock/destination/path && rm /mock/destination/path/archive.tar.gz"
             in response
@@ -376,10 +372,7 @@ class TestDGXCloudExecutor:
         assert kwargs["json"]["projectId"] == "proj_id"
         assert kwargs["json"]["clusterId"] == "cluster_id"
         assert kwargs["json"]["spec"]["image"] == "nvcr.io/nvidia/test:latest"
-        assert (
-            kwargs["json"]["spec"]["command"]
-            == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
-        )
+        assert kwargs["json"]["spec"]["command"] == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
         assert kwargs["json"]["spec"]["compute"]["gpuDevicesRequest"] == 8
 
         # Verify distributed-specific fields are NOT present
@@ -434,10 +427,7 @@ class TestDGXCloudExecutor:
         assert kwargs["json"]["projectId"] == "proj_id"
         assert kwargs["json"]["clusterId"] == "cluster_id"
         assert kwargs["json"]["spec"]["image"] == "nvcr.io/nvidia/test:latest"
-        assert (
-            kwargs["json"]["spec"]["command"]
-            == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
-        )
+        assert kwargs["json"]["spec"]["command"] == "/bin/bash /workspace/nemo_run/job_dir/launch_script.sh"
         assert kwargs["json"]["spec"]["compute"]["gpuDevicesRequest"] == 8
 
         # Verify distributed-specific fields
@@ -452,9 +442,7 @@ class TestDGXCloudExecutor:
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
     @patch.object(DGXCloudExecutor, "move_data")
     @patch.object(DGXCloudExecutor, "create_training_job")
-    def test_launch_single_node(
-        self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token
-    ):
+    def test_launch_single_node(self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token):
         """Test that launch correctly handles single-node job submission."""
         mock_get_token.return_value = "test_token"
         mock_get_ids.return_value = ("proj_id", "cluster_id")
@@ -492,9 +480,7 @@ class TestDGXCloudExecutor:
             mock_get_token.assert_called_once()
             mock_get_ids.assert_called_once_with("test_token")
             mock_move_data.assert_called_once_with("test_token", "proj_id", "cluster_id")
-            mock_create_job.assert_called_once_with(
-                "test_token", "proj_id", "cluster_id", "test-job"
-            )
+            mock_create_job.assert_called_once_with("test_token", "proj_id", "cluster_id", "test-job")
 
     @patch.object(DGXCloudExecutor, "get_auth_token")
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
@@ -525,9 +511,7 @@ class TestDGXCloudExecutor:
             )
             executor.job_dir = tmp_dir
 
-            job_id, status = executor.launch(
-                "test_multi_job", ["python", "-m", "torch.distributed.run", "train.py"]
-            )
+            job_id, status = executor.launch("test_multi_job", ["python", "-m", "torch.distributed.run", "train.py"])
 
             assert job_id == "job456"
             assert status == "Pending"
@@ -541,9 +525,7 @@ class TestDGXCloudExecutor:
             mock_get_token.assert_called_once()
             mock_get_ids.assert_called_once_with("test_token")
             mock_move_data.assert_called_once_with("test_token", "proj_id", "cluster_id")
-            mock_create_job.assert_called_once_with(
-                "test_token", "proj_id", "cluster_id", "test-multi-job"
-            )
+            mock_create_job.assert_called_once_with("test_token", "proj_id", "cluster_id", "test-multi-job")
 
     @patch.object(DGXCloudExecutor, "get_auth_token")
     def test_launch_no_token(self, mock_get_token):
@@ -583,9 +565,7 @@ class TestDGXCloudExecutor:
     @patch.object(DGXCloudExecutor, "get_project_and_cluster_id")
     @patch.object(DGXCloudExecutor, "move_data")
     @patch.object(DGXCloudExecutor, "create_training_job")
-    def test_launch_job_creation_failed(
-        self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token
-    ):
+    def test_launch_job_creation_failed(self, mock_create_job, mock_move_data, mock_get_ids, mock_get_token):
         mock_get_token.return_value = "test_token"
         mock_get_ids.return_value = ("proj_id", "cluster_id")
 
@@ -793,9 +773,7 @@ class TestDGXCloudExecutor:
         assert executor.job_name == "test_task"
         assert executor.experiment_dir == exp_dir
         assert executor.job_dir == os.path.join(exp_dir, task_dir)
-        assert executor.pvc_job_dir == os.path.join(
-            "/workspace/nemo_run/experiments/experiment", task_dir
-        )
+        assert executor.pvc_job_dir == os.path.join("/workspace/nemo_run/experiments/experiment", task_dir)
         assert executor.experiment_id == "test_exp"
 
     def test_assign_no_pvc(self):

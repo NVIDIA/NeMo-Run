@@ -1,5 +1,6 @@
 import nemo_run as run
 
+
 if __name__ == "__main__":
     inline_script = run.Script(
         inline="""

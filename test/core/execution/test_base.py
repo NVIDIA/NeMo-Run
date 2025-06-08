@@ -62,10 +62,7 @@ class TestExecutorMacros:
         macros = SlurmExecutor(account="a").macro_values()
         assert macros
         assert ExecutorMacros.group_host(1) == "$$${het_group_host_var}_1"
-        assert (
-            macros.substitute(f"server_host={ExecutorMacros.group_host(0)}")
-            == "server_host=$het_group_host_0"
-        )
+        assert macros.substitute(f"server_host={ExecutorMacros.group_host(0)}") == "server_host=$het_group_host_0"
 
 
 class TestExecutor:
@@ -75,9 +72,7 @@ class TestExecutor:
         assert isinstance(config, Config)
         assert fdl.build(config) == executor
 
-    @pytest.mark.parametrize(
-        "launcher, expected_cls", [("torchrun", Torchrun), ("ft", FaultTolerance)]
-    )
+    @pytest.mark.parametrize("launcher, expected_cls", [("torchrun", Torchrun), ("ft", FaultTolerance)])
     def test_launcher_str(self, launcher, expected_cls):
         executor = Executor(launcher=launcher)
         config = executor.to_config()

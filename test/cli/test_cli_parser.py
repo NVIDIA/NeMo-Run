@@ -18,12 +18,12 @@ from pathlib import Path
 from typing import (
     Any,
     Dict,
+    ForwardRef,
     List,
     Literal,
     Optional,
     Type,
     Union,
-    ForwardRef,
 )
 
 import pytest
@@ -288,9 +288,7 @@ class TestFactoryLoading:
         def func(model: DummyModel):
             pass
 
-        result = parse_cli_args(
-            func, ["model=test_function_with_args(hidden=10, activation='relu')"]
-        )
+        result = parse_cli_args(func, ["model=test_function_with_args(hidden=10, activation='relu')"])
         assert isinstance(result.model, Config)
         assert result.model.hidden == 10
         assert result.model.activation == "relu"
@@ -310,9 +308,7 @@ class TestOperations:
         def func(a: int, b: List[int], c: Dict[str, int]):
             pass
 
-        result = parse_cli_args(
-            func, ["a=5", "a+=3", "b=[1, 2]", "b+=[3, 4]", "c={'x': 1}", "c|={'y': 2}"]
-        )
+        result = parse_cli_args(func, ["a=5", "a+=3", "b=[1, 2]", "b+=[3, 4]", "c={'x': 1}", "c|={'y': 2}"])
         assert result.a == 8
         assert result.b == [1, 2, 3, 4]
         assert result.c == {"x": 1, "y": 2}
@@ -489,9 +485,7 @@ class TestParseValue:
         assert parse_value("[]", List[Any]) == []
         with pytest.raises(ParseError, match="Failed to parse 'not_a_list' as typing.List"):
             parse_value("not_a_list", List[int])
-        with pytest.raises(
-            ParseError, match="Failed to parse '\\[1, 2, 'three'\\]' as typing.List"
-        ):
+        with pytest.raises(ParseError, match="Failed to parse '\\[1, 2, 'three'\\]' as typing.List"):
             parse_value("[1, 2, 'three']", List[int])
 
     def test_parse_dict(self):

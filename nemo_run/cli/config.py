@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict
 import json
-import toml
 from pathlib import Path
+from typing import Any, Dict
+
+import toml
 import yaml
 from fiddle._src import config as config_lib
 
@@ -302,9 +303,7 @@ class ConfigSerializer:
                 f"Unsupported file extension: {extension}. Supported extensions are: .yaml, .yml, .json, .toml"
             )
 
-    def dump_dict(
-        self, data: dict, output_path: str | Path, format: str = None, section: str = None
-    ) -> None:
+    def dump_dict(self, data: dict, output_path: str | Path, format: str = None, section: str = None) -> None:
         """Write a dictionary to a configuration file in the specified format.
 
         Args:
@@ -353,8 +352,7 @@ class ConfigSerializer:
                 file_format = "toml"
             else:
                 raise ValueError(
-                    f"Unsupported file extension: {extension}. "
-                    f"Supported extensions are: .yaml, .yml, .json, .toml"
+                    f"Unsupported file extension: {extension}. Supported extensions are: .yaml, .yml, .json, .toml"
                 )
 
         # Write to the file using the appropriate format
@@ -368,9 +366,7 @@ class ConfigSerializer:
 
                 f.write(toml.dumps(data))
             else:
-                raise ValueError(
-                    f"Unsupported format: {file_format}. Supported formats are: yaml, json, toml"
-                )
+                raise ValueError(f"Unsupported format: {file_format}. Supported formats are: yaml, json, toml")
 
 
 def yaml_to_dict(yaml_str: str) -> Dict[str, Any]:

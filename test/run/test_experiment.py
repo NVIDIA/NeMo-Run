@@ -66,9 +66,7 @@ class TestValidateTask:
         )
         experiment._validate_task("valid_partial", valid_partial)
 
-        invalid_partial = run.Partial(
-            dummy_train, dummy_model=DummyModel(), dummy_trainer=DummyTrainer()
-        )
+        invalid_partial = run.Partial(dummy_train, dummy_model=DummyModel(), dummy_trainer=DummyTrainer())
         with pytest.raises(UnserializableValueError):
             experiment._validate_task("invalid_partial", invalid_partial)
 
@@ -95,9 +93,7 @@ def test_experiment_with_base_dir():
     try:
         exp = Experiment("test-exp", base_dir=temp_base_dir)
         assert exp._exp_dir.startswith(temp_base_dir)
-        assert os.path.dirname(exp._exp_dir) == os.path.join(
-            temp_base_dir, "experiments", "test-exp"
-        )
+        assert os.path.dirname(exp._exp_dir) == os.path.join(temp_base_dir, "experiments", "test-exp")
     finally:
         shutil.rmtree(temp_base_dir)
 
@@ -155,9 +151,7 @@ def test_add_job_with_script(temp_dir):
 
 def test_add_job_group(temp_dir):
     """Test adding a job group to an experiment."""
-    with patch(
-        "nemo_run.run.job.JobGroup.SUPPORTED_EXECUTORS", new_callable=PropertyMock
-    ) as mock_supported:
+    with patch("nemo_run.run.job.JobGroup.SUPPORTED_EXECUTORS", new_callable=PropertyMock) as mock_supported:
         # Mock the SUPPORTED_EXECUTORS property to include LocalExecutor
         mock_supported.return_value = {LocalExecutor}
 
@@ -221,9 +215,7 @@ def test_add_job_with_plugin(temp_dir):
 
 def test_add_job_group_with_plugin(temp_dir):
     """Test adding a job group with a plugin."""
-    with patch(
-        "nemo_run.run.job.JobGroup.SUPPORTED_EXECUTORS", new_callable=PropertyMock
-    ) as mock_supported:
+    with patch("nemo_run.run.job.JobGroup.SUPPORTED_EXECUTORS", new_callable=PropertyMock) as mock_supported:
         # Mock the SUPPORTED_EXECUTORS property to include LocalExecutor
         mock_supported.return_value = {LocalExecutor}
 
@@ -339,9 +331,7 @@ def test_reset_not_run_experiment(temp_dir):
             reset_exp = exp.reset()
 
             # Should log a message and return the same experiment
-            mock_log.assert_any_call(
-                f"[bold magenta]Experiment {exp._id} has not run yet, skipping reset..."
-            )
+            mock_log.assert_any_call(f"[bold magenta]Experiment {exp._id} has not run yet, skipping reset...")
             assert reset_exp is exp  # The implementation returns self now
 
 
@@ -735,9 +725,7 @@ def test_experiment_logs_direct_run(mock_get_runner, temp_dir):
 
             # Verify the correct messages were logged
             mock_log.assert_any_call("This job was run with direct=True.")
-            mock_log.assert_any_call(
-                "Logs may be present in task directory at:\n[bold]/path/to/job/dir."
-            )
+            mock_log.assert_any_call("Logs may be present in task directory at:\n[bold]/path/to/job/dir.")
 
             # Verify logs method was not called
             mock_job.logs.assert_not_called()
@@ -1298,9 +1286,7 @@ def test_tasks_property_with_job_group(mock_serializer, mock_get_runner, temp_di
     task = run.Partial(dummy_function, x=1, y=2)
     serializer_instance.deserialize.return_value = task
 
-    with patch(
-        "nemo_run.run.job.JobGroup.SUPPORTED_EXECUTORS", new_callable=PropertyMock
-    ) as mock_supported:
+    with patch("nemo_run.run.job.JobGroup.SUPPORTED_EXECUTORS", new_callable=PropertyMock) as mock_supported:
         # Mock SUPPORTED_EXECUTORS to include LocalExecutor
         mock_supported.return_value = {LocalExecutor}
 
@@ -1381,9 +1367,7 @@ def test_tasks_property_correct_deserialization(mock_serializer, mock_get_runner
             with patch.object(
                 exp.__class__,
                 "tasks",
-                new=property(
-                    lambda self: [serializer_instance.deserialize("serialized_task_data")]
-                ),
+                new=property(lambda self: [serializer_instance.deserialize("serialized_task_data")]),
             ):
                 tasks = exp.tasks
 

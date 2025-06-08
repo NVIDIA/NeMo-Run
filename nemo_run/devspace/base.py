@@ -21,6 +21,7 @@ import fiddle as fdl
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.core.tunnel.client import Callback
 
+
 if TYPE_CHECKING:
     from nemo_run.core.execution.base import Executor
 

@@ -114,9 +114,7 @@ class TestRsync(unittest.TestCase):
 
     def test_rsync_with_multiple_ssh_keys(self):
         """Test rsync with multiple SSH key files."""
-        self.mock_connection.connect_kwargs = {
-            "key_filename": ["/path/to/key1.pem", "/path/to/key2.pem"]
-        }
+        self.mock_connection.connect_kwargs = {"key_filename": ["/path/to/key1.pem", "/path/to/key2.pem"]}
         rsync(self.mock_connection, self.source, self.target)
 
         cmd = self.mock_connection.local.call_args[0][0]

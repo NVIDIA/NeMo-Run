@@ -30,6 +30,7 @@ from kubernetes.client.rest import ApiException
 
 from nemo_run.core.execution.kuberay import GROUP, PLURAL, VERSION, KubeRayExecutor
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -129,13 +130,9 @@ class KubeRayCluster:
                 )
             except ApiException as e:
                 if e.status == 404:
-                    logger.debug(
-                        f"Ray cluster '{name}' status fetch failed: resource not found: {e}"
-                    )
+                    logger.debug(f"Ray cluster '{name}' status fetch failed: resource not found: {e}")
                     return None
-                logger.error(
-                    f"Error fetching status for Ray cluster '{name}' in namespace '{namespace}': {e}"
-                )
+                logger.error(f"Error fetching status for Ray cluster '{name}' in namespace '{namespace}': {e}")
                 return None
 
             if resource.get("status"):
@@ -231,9 +228,7 @@ class KubeRayCluster:
                 logger.info(f"Ray cluster '{name}' is running and head pod is ready")
                 return True
 
-            logger.debug(
-                f"Ray cluster '{name}' not ready yet – svc_ip_ready={svc_ip_ready}, pod_ready={pod_ready}"
-            )
+            logger.debug(f"Ray cluster '{name}' not ready yet – svc_ip_ready={svc_ip_ready}, pod_ready={pod_ready}")
 
             remaining -= poll_window
 
@@ -363,11 +358,7 @@ class KubeRayCluster:
                         active_pods = [pod.metadata.name for pod in pods.items]
                         logger.debug(
                             f"Waiting for {len(active_pods)} pods to terminate: {', '.join(active_pods[:3])}"
-                            + (
-                                f"... and {len(active_pods) - 3} more"
-                                if len(active_pods) > 3
-                                else ""
-                            )
+                            + (f"... and {len(active_pods) - 3} more" if len(active_pods) > 3 else "")
                         )
 
                     except ApiException as e:
@@ -377,9 +368,7 @@ class KubeRayCluster:
                 time.sleep(poll_interval)
 
             # If we reach here, we've timed out
-            logger.warning(
-                f"Timed out waiting for Ray cluster '{name}' to be fully deleted after {timeout} seconds"
-            )
+            logger.warning(f"Timed out waiting for Ray cluster '{name}' to be fully deleted after {timeout} seconds")
 
             # Check final state
             try:
@@ -392,9 +381,7 @@ class KubeRayCluster:
                 )
                 if pods.items:
                     pod_names = [pod.metadata.name for pod in pods.items]
-                    logger.warning(
-                        f"Ray cluster '{name}' still has {len(pod_names)} pods: {', '.join(pod_names[:5])}"
-                    )
+                    logger.warning(f"Ray cluster '{name}' still has {len(pod_names)} pods: {', '.join(pod_names[:5])}")
             except Exception as e:
                 logger.error(f"Error checking final state of Ray cluster '{name}': {e}")
 
@@ -494,9 +481,7 @@ class KubeRayCluster:
             self.core_v1_api.read_namespaced_service(name=service_name, namespace=namespace)
         except ApiException as e:
             if e.status == 404:
-                raise RuntimeError(
-                    f"Could not find Ray head service {service_name} in namespace {namespace}"
-                )
+                raise RuntimeError(f"Could not find Ray head service {service_name} in namespace {namespace}")
             else:
                 raise RuntimeError(f"Error getting Ray head service: {e}")
 
@@ -578,9 +563,7 @@ class KubeRayCluster:
                             )
 
                         # If we get here, the connection was closed unexpectedly
-                        logger.debug(
-                            "Port forwarding connection closed, reconnecting in 5 seconds..."
-                        )
+                        logger.debug("Port forwarding connection closed, reconnecting in 5 seconds...")
                         time.sleep(5)
                         retry_count = 0  # Reset retry count for reconnection attempts
 
@@ -678,9 +661,7 @@ class KubeRayCluster:
     def _display_banner(self, name: str, status_dict: Any) -> None:
         namespace = self.executor.namespace or "default"
 
-        pvc_locations = ", ".join(
-            [vm.get("mountPath", "N/A") for vm in self.executor.volume_mounts]
-        )
+        pvc_locations = ", ".join([vm.get("mountPath", "N/A") for vm in self.executor.volume_mounts])
 
         logger.info(
             f"""
@@ -747,9 +728,7 @@ class KubeRayJob:
 
     def stop(self) -> None:
         """Delete the RayJob custom resource (equivalent to job cancellation)."""
-        logger.debug(
-            f"Cancelling RayJob '{self.job_name}' in namespace '{self.executor.namespace}'"
-        )
+        logger.debug(f"Cancelling RayJob '{self.job_name}' in namespace '{self.executor.namespace}'")
         try:
             self.api.delete_namespaced_custom_object(
                 group="ray.io",
@@ -786,9 +765,7 @@ class KubeRayJob:
         else:
             cmd.extend(["--tail", str(lines)])
 
-        logger.info(
-            f"Running: {' '.join(cmd)} (streaming={'yes' if follow else 'no'}, tail={lines})"
-        )
+        logger.info(f"Running: {' '.join(cmd)} (streaming={'yes' if follow else 'no'}, tail={lines})")
 
         try:
             if follow:
@@ -826,9 +803,7 @@ class KubeRayJob:
             # Derive related resource names
             data_mover_pod = f"{self.job_name}-data-mover"
             ray_cluster_name = f"{self.job_name}-raycluster"
-            pvc_locations = ", ".join(
-                [vm.get("mountPath", "N/A") for vm in self.executor.volume_mounts]
-            )
+            pvc_locations = ", ".join([vm.get("mountPath", "N/A") for vm in self.executor.volume_mounts])
 
             # Construct workdir paths based on standard patterns
             # Note: These are estimates based on the naming conventions in the code
@@ -996,17 +971,13 @@ Useful Commands
 
         if pre_ray_start_commands:
             k8s_pre_cmds = "\n".join(pre_ray_start_commands)
-            executor.lifecycle_kwargs["postStart"] = {
-                "exec": {"command": ["/bin/sh", "-c", k8s_pre_cmds]}
-            }
+            executor.lifecycle_kwargs["postStart"] = {"exec": {"command": ["/bin/sh", "-c", k8s_pre_cmds]}}
 
         user_workspace_path = None
 
         if workdir:
             if not executor.volumes or not executor.volume_mounts:
-                raise ValueError(
-                    "`workdir` specified but executor has no volumes/volume_mounts to mount it."
-                )
+                raise ValueError("`workdir` specified but executor has no volumes/volume_mounts to mount it.")
 
             user_workspace_path = os.path.join(
                 executor.volume_mounts[0]["mountPath"], self.user, "code", Path(workdir).name
@@ -1043,9 +1014,7 @@ Useful Commands
         # paths in `ray job submit` resolve as expected.
         container_workdir = "/workspace"
         if workdir:
-            container_workdir = os.path.join(
-                executor.volume_mounts[0]["mountPath"], Path(workdir).name
-            )
+            container_workdir = os.path.join(executor.volume_mounts[0]["mountPath"], Path(workdir).name)
 
         def _apply_workdir(pod_template: dict):
             try:

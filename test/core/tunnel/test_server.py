@@ -41,9 +41,7 @@ def test_launch(mock_socket, tmpdir):
     with patch("nemo_run.core.tunnel.server.Context", return_value=mock_context):
         server.launch(path, workspace_name, hostname=hostname)
 
-    mock_context.run.assert_any_call(
-        'echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config.d/custom.conf'
-    )
+    mock_context.run.assert_any_call('echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config.d/custom.conf')
     mock_context.run.assert_any_call("/usr/sbin/sshd -D -p 1234", pty=True, hide=True)
 
     metadata = server.TunnelMetadata.restore(path)

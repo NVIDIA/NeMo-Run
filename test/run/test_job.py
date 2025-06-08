@@ -323,9 +323,7 @@ def test_job_group_init_multiple_executors(simple_task):
 
     # Mock the merge process
     with patch.object(DockerExecutor, "merge") as mock_merge:
-        mock_merge.return_value = DockerExecutor(
-            container_image="merged:latest", job_dir="/tmp/merged"
-        )
+        mock_merge.return_value = DockerExecutor(container_image="merged:latest", job_dir="/tmp/merged")
         job_group = JobGroup(
             id="test-group",
             tasks=[simple_task, simple_task],

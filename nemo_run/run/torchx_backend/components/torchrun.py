@@ -24,6 +24,7 @@ from torchx.components import dist as torchx_dist
 
 from nemo_run.core.execution.base import ExecutorMacros
 
+
 _TORCH_DEBUG_FLAGS: dict[str, str] = {
     "CUDA_LAUNCH_BLOCKING": "1",
     "NCCL_DESYNC_DEBUG": "1",
@@ -192,9 +193,7 @@ def torchrun(
                 resource=specs.resource(cpu=cpu, gpu=gpu, memMB=memMB, h=h),
                 args=list(
                     map(
-                        lambda arg: arg
-                        if isinstance(arg, torchx_dist._noquote)
-                        else shlex.quote(arg),
+                        lambda arg: arg if isinstance(arg, torchx_dist._noquote) else shlex.quote(arg),
                         cmd,
                     )
                 ),

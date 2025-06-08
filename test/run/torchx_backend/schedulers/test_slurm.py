@@ -122,9 +122,7 @@ def test_submit_dryrun(mock_fill_template, slurm_scheduler, mock_app_def, slurm_
             mock_dryrun_info = mock.MagicMock(spec=AppDryRunInfo)
             mock_dryrun_info.request = mock.MagicMock(spec=SlurmBatchRequest)
 
-            with mock.patch.object(
-                SlurmTunnelScheduler, "_submit_dryrun", return_value=mock_dryrun_info
-            ):
+            with mock.patch.object(SlurmTunnelScheduler, "_submit_dryrun", return_value=mock_dryrun_info):
                 dryrun_info = slurm_scheduler._submit_dryrun(mock_app_def, slurm_executor)
                 assert dryrun_info.request is not None
 
@@ -166,9 +164,7 @@ def test_cancel_existing(slurm_scheduler):
     # Test with existing app_id
     job_dirs = {"existing_id": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
     with (
-        mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs
-        ),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs),
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
     ):
         slurm_scheduler.tunnel = mock.MagicMock()
@@ -185,9 +181,7 @@ def test_describe(slurm_scheduler):
     # Test with existing app_id but no output
     job_dirs = {"existing_id": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
     with (
-        mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs
-        ),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs),
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
     ):
         slurm_scheduler.tunnel = mock.MagicMock()
@@ -199,9 +193,7 @@ def test_describe(slurm_scheduler):
     # Test with proper output
     sacct_output = "JobID|State|JobName\nexisting_id|COMPLETED|test.test_app.test_role"
     with (
-        mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs
-        ),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs),
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
         mock.patch.object(csv, "DictReader") as mock_reader,
     ):
@@ -240,13 +232,9 @@ def test_log_iter(slurm_scheduler):
     # Test with existing app_id
     job_dirs = {"existing_id": ("/path/to/job", LocalTunnel(job_dir="/path/to/tunnel"), "log*")}
     with (
-        mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs
-        ),
+        mock.patch("nemo_run.run.torchx_backend.schedulers.slurm._get_job_dirs", return_value=job_dirs),
         mock.patch.object(SlurmTunnelScheduler, "_initialize_tunnel"),
-        mock.patch.object(
-            TunnelLogIterator, "__iter__", return_value=iter(["log line 1", "log line 2"])
-        ),
+        mock.patch.object(TunnelLogIterator, "__iter__", return_value=iter(["log line 1", "log line 2"])),
     ):
         slurm_scheduler.tunnel = mock.MagicMock()
 
@@ -302,22 +290,16 @@ def test_get_job_dirs():
     with tempfile.TemporaryDirectory() as temp_dir:
         job_dirs_file = os.path.join(temp_dir, "job_dirs")
 
-        with mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.slurm.SLURM_JOB_DIRS", job_dirs_file
-        ):
+        with mock.patch("nemo_run.run.torchx_backend.schedulers.slurm.SLURM_JOB_DIRS", job_dirs_file):
             # Test with no file
             assert _get_job_dirs() == {}
 
             # Test with valid content
             with open(job_dirs_file, "w") as f:
-                f.write(
-                    '12345 = log*,/path/to/job,LocalTunnel,{"job_dir": "/path/to/tunnel", "packaging_jobs": {}}\n'
-                )
+                f.write('12345 = log*,/path/to/job,LocalTunnel,{"job_dir": "/path/to/tunnel", "packaging_jobs": {}}\n')
 
             # Mock json.loads only once
-            with mock.patch(
-                "json.loads", return_value={"job_dir": "/path/to/tunnel", "packaging_jobs": {}}
-            ):
+            with mock.patch("json.loads", return_value={"job_dir": "/path/to/tunnel", "packaging_jobs": {}}):
                 result = _get_job_dirs()
                 assert "12345" in result
                 assert result["12345"][0] == "/path/to/job"

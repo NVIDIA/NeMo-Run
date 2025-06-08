@@ -1,4 +1,4 @@
-name: Ruff lint
+name: Ruff lint and format
 
 on:
   workflow_dispatch:
@@ -8,16 +8,17 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  lint-check:
+    name: Lint check
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          version: "latest"
+          submodules: 'recursive'
 
-      - name: Ruff lint
-        run: uv run --group lint -- ruff check
+      - name: Check lint
+        run: |
+          pip install pre-commit==3.6.0
+          pre-commit install
+          pre-commit run --all-files --show-diff-on-failure --color=always

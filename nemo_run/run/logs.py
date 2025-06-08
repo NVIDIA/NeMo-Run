@@ -34,6 +34,7 @@ from nemo_run.run.torchx_backend.schedulers.api import (
     REVERSE_EXECUTOR_MAPPING,
 )
 
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -118,10 +119,7 @@ def get_logs(
 
     if not replica_ids:
         valid_ids = "\n".join(
-            [
-                f"  {idx}: {scheduler_backend}://{app_id}/{role.name}"
-                for idx, role in enumerate(app.roles)
-            ]
+            [f"  {idx}: {scheduler_backend}://{app_id}/{role.name}" for idx, role in enumerate(app.roles)]
         )
 
         CONSOLE.log(

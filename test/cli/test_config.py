@@ -1,11 +1,13 @@
-import pytest
 import json
-import toml
-import yaml
 from typing import Any, Dict
 
-from nemo_run.config import Config, Partial
+import pytest
+import toml
+import yaml
+
 from nemo_run.cli.config import ConfigSerializer
+from nemo_run.config import Config, Partial
+
 
 # --- Test Fixtures and Helper Data ---
 
@@ -231,9 +233,7 @@ class TestConfigSerializer:
             ("toml", "load_toml", "dump_toml", "sample_partial"),
         ],
     )
-    def test_load_dump_extensions(
-        self, request, serializer, tmp_path, ext, loader, dumper, cfg_fixture
-    ):
+    def test_load_dump_extensions(self, request, serializer, tmp_path, ext, loader, dumper, cfg_fixture):
         cfg = request.getfixturevalue(cfg_fixture)  # Get the fixture value by name
         file_path = tmp_path / f"{cfg_fixture}.{ext}"
 

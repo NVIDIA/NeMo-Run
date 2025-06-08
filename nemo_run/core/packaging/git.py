@@ -25,6 +25,7 @@ from invoke.context import Context
 
 from nemo_run.core.packaging.base import Packager
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,9 +118,7 @@ class GitArchivePackager(Packager):
         # then we add submodule files into that archive
         # then we add an extra files from pattern to that archive
         # finally we compress it (cannot compress right away, since adding files is not possible)
-        git_archive_cmd = (
-            f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
-        )
+        git_archive_cmd = f"git archive --format=tar --output={output_file}.tmp {self.ref}:{git_sub_path}"
         if os.uname().sysname == "Linux":
             tar_submodule_cmd = f"tar Af {output_file}.tmp $sha1.tmp && rm $sha1.tmp"
         else:
@@ -139,9 +138,7 @@ class GitArchivePackager(Packager):
             self.include_pattern_relative_path = [self.include_pattern_relative_path]
 
         if len(self.include_pattern) != len(self.include_pattern_relative_path):
-            raise ValueError(
-                "include_pattern and include_pattern_relative_path should have the same length"
-            )
+            raise ValueError("include_pattern and include_pattern_relative_path should have the same length")
 
         for include_pattern, include_pattern_relative_path in zip(
             self.include_pattern, self.include_pattern_relative_path
@@ -151,16 +148,10 @@ class GitArchivePackager(Packager):
 
             if include_pattern == "":
                 continue
-            include_pattern_relative_path = include_pattern_relative_path or shlex.quote(
-                str(git_base_path)
-            )
-            relative_include_pattern = os.path.relpath(
-                include_pattern, include_pattern_relative_path
-            )
+            include_pattern_relative_path = include_pattern_relative_path or shlex.quote(str(git_base_path))
+            relative_include_pattern = os.path.relpath(include_pattern, include_pattern_relative_path)
             pattern_tar_file_name = os.path.join(git_base_path, pattern_tar_file_name)
-            include_pattern_cmd = (
-                f"find {relative_include_pattern} -type f | tar -cf {pattern_tar_file_name} -T -"
-            )
+            include_pattern_cmd = f"find {relative_include_pattern} -type f | tar -cf {pattern_tar_file_name} -T -"
 
             with ctx.cd(include_pattern_relative_path):
                 ctx.run(include_pattern_cmd)

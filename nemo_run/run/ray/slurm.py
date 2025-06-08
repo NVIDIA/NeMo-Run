@@ -36,6 +36,7 @@ from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.tunnel.client import SSHTunnel
 from nemo_run.core.tunnel.rsync import rsync
 
+
 noquote: TypeAlias = str
 
 logger = logging.getLogger(__name__)
@@ -130,9 +131,7 @@ class SlurmRayRequest:
 
     def materialize(self) -> str:
         args = asdict(self.executor)  # noqa: F821
-        parameters = {
-            k: v for k, v in args.items() if v is not None and k in SlurmExecutor.SBATCH_FLAGS
-        }
+        parameters = {k: v for k, v in args.items() if v is not None and k in SlurmExecutor.SBATCH_FLAGS}
 
         # rename and reformat parameters
 
@@ -173,9 +172,7 @@ class SlurmRayRequest:
         if self.executor.dependencies:
             slurm_deps = self.executor.parse_deps()
             sbatch_flags.append(
-                _as_sbatch_flag(
-                    "dependency", f"{self.executor.dependency_type}:{':'.join(slurm_deps)}"
-                )
+                _as_sbatch_flag("dependency", f"{self.executor.dependency_type}:{':'.join(slurm_deps)}")
             )
 
         env_vars = []
@@ -226,9 +223,7 @@ class SlurmRayRequest:
             "num_retries": max(1, self.executor.retries),
             "env_vars": env_vars,
             "setup_lines": self.executor.setup_lines,
-            "common_srun_args": get_srun_flags(
-                self.executor.container_mounts, self.executor.container_image
-            ),
+            "common_srun_args": get_srun_flags(self.executor.container_mounts, self.executor.container_image),
             "command": self.command,
             "command_workdir": self.workdir,
             "gres_specification": get_gres_specification(),
@@ -240,8 +235,7 @@ class SlurmRayRequest:
         sbatch_script = fill_template(
             self.template_name,
             vars_to_fill,
-            template_dir=self.template_dir
-            or os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates"),
+            template_dir=self.template_dir or os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates"),
         )
         return sbatch_script
 
@@ -710,29 +704,23 @@ Useful Commands
                         target_spec = f"{str(target_user)}@{head_ip}"
                     else:
                         target_spec = head_ip
-                        logger.warning(
-                            f"No explicit user for target {head_ip}, SSH will use default."
-                        )
+                        logger.warning(f"No explicit user for target {head_ip}, SSH will use default.")
                     ssh_cmd_list.append(target_spec)
 
-                    ssh_cmd_list = [
-                        p for p in ssh_cmd_list if isinstance(p, str) and p.strip() != ""
-                    ]
+                    ssh_cmd_list = [p for p in ssh_cmd_list if isinstance(p, str) and p.strip() != ""]
 
                     if not ssh_cmd_list or "ssh" not in ssh_cmd_list[0]:
-                        err_msg_empty_cmd = "SSH command list is invalid or empty before Popen. Cannot start forwarding."
+                        err_msg_empty_cmd = (
+                            "SSH command list is invalid or empty before Popen. Cannot start forwarding."
+                        )
                         logger.error(err_msg_empty_cmd)
                         status_queue.put(("error", err_msg_empty_cmd))
                         return
 
                     ssh_cmd_list_for_error_reporting = list(ssh_cmd_list)
-                    logger.debug(
-                        f"Constructed SSH command: {' '.join(shlex.quote(p) for p in ssh_cmd_list)}"
-                    )
+                    logger.debug(f"Constructed SSH command: {' '.join(shlex.quote(p) for p in ssh_cmd_list)}")
 
-                    self._ssh_process = subprocess.Popen(
-                        ssh_cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                    )
+                    self._ssh_process = subprocess.Popen(ssh_cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
                     status_queue.put(("success", None))
                     pid_info = str(self._ssh_process.pid) if self._ssh_process else "unknown"
@@ -759,21 +747,19 @@ Useful Commands
                         time.sleep(0.5)
 
                 except Exception as e:
-                    logger.error(
-                        f"Exception in port forwarding thread run method: {str(e)}", exc_info=True
-                    )
+                    logger.error(f"Exception in port forwarding thread run method: {str(e)}", exc_info=True)
                     cmd_for_report = (
                         " ".join(shlex.quote(p) for p in ssh_cmd_list_for_error_reporting)
                         if ssh_cmd_list_for_error_reporting
                         else "[command construction failed]"
                     )
-                    error_detail = f"Error starting or managing SSH tunnel: {str(e)}. Command (if available): {cmd_for_report}"
+                    error_detail = (
+                        f"Error starting or managing SSH tunnel: {str(e)}. Command (if available): {cmd_for_report}"
+                    )
                     try:
                         status_queue.put_nowait(("error", error_detail))
                     except queue.Full:
-                        logger.warning(
-                            "Status queue was full when trying to report SSH setup/Popen error."
-                        )
+                        logger.warning("Status queue was full when trying to report SSH setup/Popen error.")
                     except Exception as q_e:
                         logger.error(f"Failed to put error on status_queue: {q_e}")
 
@@ -815,9 +801,7 @@ Useful Commands
                                 )
                         except Exception as e:
                             # Catch other exceptions during wait, e.g., if process died between poll() and wait()
-                            logger.error(
-                                f"Exception while waiting for SSH process (PID: {pid_info}) termination: {e}"
-                            )
+                            logger.error(f"Exception while waiting for SSH process (PID: {pid_info}) termination: {e}")
                             if process.poll() is not None:
                                 logger.debug(
                                     f"SSH tunnel process (PID: {pid_info}) had already exited with code: {process.returncode} during exception handling."
@@ -873,9 +857,7 @@ Useful Commands
                 logger.info("Port forwarding is active. Press Ctrl+C to stop...")
                 while not stop_event.is_set():
                     if not forward_thread.is_alive():
-                        logger.error(
-                            "Port forwarding thread died unexpectedly after successful start."
-                        )
+                        logger.error("Port forwarding thread died unexpectedly after successful start.")
                         break
                     time.sleep(1)
             except KeyboardInterrupt:
@@ -885,19 +867,13 @@ Useful Commands
                 stop_event.set()
                 forward_thread.join(timeout=10)
                 if forward_thread.is_alive():
-                    logger.warning(
-                        "Port forwarding thread did not terminate in time after stop signal."
-                    )
+                    logger.warning("Port forwarding thread did not terminate in time after stop signal.")
                     if (
                         hasattr(forward_thread, "_ssh_process")
                         and forward_thread._ssh_process
                         and forward_thread._ssh_process.poll() is None
                     ):
-                        pid_info = (
-                            str(forward_thread._ssh_process.pid)
-                            if forward_thread._ssh_process
-                            else "unknown"
-                        )
+                        pid_info = str(forward_thread._ssh_process.pid) if forward_thread._ssh_process else "unknown"
                         logger.warning(
                             f"SSH process (PID: {pid_info}) appears to be still running. Attempting to kill."
                         )
@@ -1120,9 +1096,7 @@ Useful Commands (to be run on the login node of the Slurm cluster)
                 if isinstance(self.executor.tunnel, SSHTunnel):
                     # Rsync workdir honouring .gitignore
                     self.executor.tunnel.connect()
-                    assert self.executor.tunnel.session is not None, (
-                        "Tunnel session is not connected"
-                    )
+                    assert self.executor.tunnel.session is not None, "Tunnel session is not connected"
                     rsync(
                         self.executor.tunnel.session,
                         workdir,
@@ -1177,9 +1151,7 @@ Useful Commands (to be run on the login node of the Slurm cluster)
 
                 if isinstance(self.executor.tunnel, SSHTunnel):
                     self.executor.tunnel.connect()
-                    assert self.executor.tunnel.session is not None, (
-                        "Tunnel session is not connected"
-                    )
+                    assert self.executor.tunnel.session is not None, "Tunnel session is not connected"
                     rsync(
                         self.executor.tunnel.session,
                         os.path.join(local_code_extraction_path, ""),

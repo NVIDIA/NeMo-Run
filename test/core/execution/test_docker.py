@@ -19,6 +19,7 @@ import fiddle as fdl
 import pytest
 from docker.errors import APIError
 
+
 # Import fcntl if available (similar to docker.py)
 try:
     import fcntl
@@ -100,9 +101,7 @@ class TestEnsureNetwork:
 
         ensure_network(client=mock_docker_client)
 
-        mock_docker_client.networks.create.assert_called_once_with(
-            name=NETWORK, driver="bridge", check_duplicate=True
-        )
+        mock_docker_client.networks.create.assert_called_once_with(name=NETWORK, driver="bridge", check_duplicate=True)
         mock_lock.__enter__.assert_called_once()
         mock_lock.__exit__.assert_called_once()
 
@@ -398,9 +397,7 @@ class TestDockerJobRequest:
             extra_env={},
         )
 
-        job_request = DockerJobRequest(
-            id="job123", executor=docker_executor, containers=[container]
-        )
+        job_request = DockerJobRequest(id="job123", executor=docker_executor, containers=[container])
 
         assert job_request.id == "job123"
         assert job_request.executor == docker_executor
@@ -415,9 +412,7 @@ class TestDockerJobRequest:
             extra_env={},
         )
 
-        job_request = DockerJobRequest(
-            id="job123", executor=docker_executor, containers=[container]
-        )
+        job_request = DockerJobRequest(id="job123", executor=docker_executor, containers=[container])
 
         config = job_request.to_config()
 
@@ -435,9 +430,7 @@ class TestDockerJobRequest:
         container1.run.return_value = mock_docker_container1
         container2.run.return_value = mock_docker_container2
 
-        job_request = DockerJobRequest(
-            id="job123", executor=docker_executor, containers=[container1, container2]
-        )
+        job_request = DockerJobRequest(id="job123", executor=docker_executor, containers=[container1, container2])
 
         result = job_request.run(mock_docker_client)
 
@@ -451,16 +444,12 @@ class TestDockerJobRequest:
         mock_container2 = MagicMock()
         mock_docker_client.containers.list.return_value = [mock_container1, mock_container2]
 
-        job_request = DockerJobRequest(
-            id="job123", executor=docker_executor, containers=[MagicMock()]
-        )
+        job_request = DockerJobRequest(id="job123", executor=docker_executor, containers=[MagicMock()])
 
         result = job_request.get_containers(mock_docker_client)
 
         assert result == [mock_container1, mock_container2]
-        mock_docker_client.containers.list.assert_called_once_with(
-            all=True, filters={"label": f"{LABEL_ID}=job123"}
-        )
+        mock_docker_client.containers.list.assert_called_once_with(all=True, filters={"label": f"{LABEL_ID}=job123"})
 
     @patch("builtins.open", new_callable=mock_open, read_data="{}")
     @patch("nemo_run.core.execution.docker.Path.touch")
@@ -489,9 +478,7 @@ class TestDockerJobRequest:
         mock_serializer.return_value = mock_serializer_instance
         mock_serializer_instance.serialize.return_value = "serialized_data"
 
-        job_request = DockerJobRequest(
-            id="job123", executor=docker_executor, containers=[MagicMock()]
-        )
+        job_request = DockerJobRequest(id="job123", executor=docker_executor, containers=[MagicMock()])
 
         if FCNTL_AVAILABLE:
             with patch("nemo_run.core.execution.docker.fcntl.flock"):

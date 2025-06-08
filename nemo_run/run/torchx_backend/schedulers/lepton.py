@@ -19,6 +19,7 @@ from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
+
 # Local placeholder for storing Lepton job states
 LEPTON_JOB_DIRS = os.path.join(get_nemorun_home(), ".lepton_jobs.json")
 
@@ -61,8 +62,7 @@ class LeptonScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ignor
         opts.add(
             "job_dir",
             type_=str,
-            help="The directory to place the job code and outputs."
-            " The directory must not exist and will be created.",
+            help="The directory to place the job code and outputs. The directory must not exist and will be created.",
         )
         return opts
 
@@ -71,9 +71,7 @@ class LeptonScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ignor
         app: AppDef,
         cfg: Executor,
     ) -> AppDryRunInfo[LeptonRequest]:
-        assert isinstance(cfg, LeptonExecutor), (
-            f"{cfg.__class__} not supported for Lepton scheduler."
-        )
+        assert isinstance(cfg, LeptonExecutor), f"{cfg.__class__} not supported for Lepton scheduler."
         executor = cfg
 
         assert len(app.roles) == 1, "Only single-role apps are supported."
@@ -133,9 +131,7 @@ class LeptonScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ignor
         roles_statuses = [
             RoleStatus(
                 role_name,
-                replicas=[
-                    ReplicaStatus(id=0, role=role_name, state=AppState.SUBMITTED, hostname="")
-                ],
+                replicas=[ReplicaStatus(id=0, role=role_name, state=AppState.SUBMITTED, hostname="")],
             )
         ]
 
@@ -199,9 +195,7 @@ def _save_job_dir(app_id: str, job_status: str, executor: LeptonExecutor) -> Non
 
         app = {
             "job_status": job_status,
-            "executor": serializer.serialize(
-                fdl_dc.convert_dataclasses_to_configs(executor, allow_post_init=True)
-            ),
+            "executor": serializer.serialize(fdl_dc.convert_dataclasses_to_configs(executor, allow_post_init=True)),
         }
         original_apps[app_id] = app
 

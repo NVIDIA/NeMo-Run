@@ -26,9 +26,8 @@ from kubernetes.client.rest import ApiException
 from nemo_run.core.execution.kuberay import KubeRayExecutor, KubeRayWorkerGroup
 from nemo_run.run.ray.kuberay import KubeRayCluster, KubeRayJob, get_user
 
-ARTIFACTS_DIR = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "..", "core", "execution", "artifacts"
-)
+
+ARTIFACTS_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "core", "execution", "artifacts")
 
 
 class TestKubeRayCluster:
@@ -97,9 +96,7 @@ class TestKubeRayCluster:
             ],
             labels={"team": "ml", "project": "training"},
             env_vars={"CUDA_VISIBLE_DEVICES": "0,1", "NCCL_DEBUG": "INFO"},
-            lifecycle_kwargs={
-                "postStart": {"exec": {"command": ["/bin/sh", "-c", "echo 'Starting Ray'"]}}
-            },
+            lifecycle_kwargs={"postStart": {"exec": {"command": ["/bin/sh", "-c", "echo 'Starting Ray'"]}}},
         )
 
     @pytest.fixture
@@ -187,9 +184,7 @@ class TestKubeRayCluster:
             mock_status.return_value = {"head": {}}  # No serviceIP
 
             with patch("time.sleep"):
-                result = cluster_with_basic_executor.wait_until_running(
-                    timeout=1, delay_between_attempts=0.5
-                )
+                result = cluster_with_basic_executor.wait_until_running(timeout=1, delay_between_attempts=0.5)
             assert result is False
 
     def test_create_basic_cluster(self, cluster_with_basic_executor, mock_k8s_clients):
@@ -200,9 +195,7 @@ class TestKubeRayCluster:
         os.path.join(ARTIFACTS_DIR, "expected_kuberay_cluster_basic.yaml")
 
         # Mock the API response
-        mock_api.create_namespaced_custom_object.return_value = {
-            "metadata": {"name": "test-cluster"}
-        }
+        mock_api.create_namespaced_custom_object.return_value = {"metadata": {"name": "test-cluster"}}
 
         cluster_with_basic_executor.create()
 
@@ -223,9 +216,7 @@ class TestKubeRayCluster:
         mock_api, _ = mock_k8s_clients
 
         # Mock the API response
-        mock_api.create_namespaced_custom_object.return_value = {
-            "metadata": {"name": "advanced-cluster"}
-        }
+        mock_api.create_namespaced_custom_object.return_value = {"metadata": {"name": "advanced-cluster"}}
 
         # Add pre-ray-start commands
         pre_commands = ["export PYTHONPATH=/app", "pip install -r requirements.txt"]
@@ -252,9 +243,7 @@ class TestKubeRayCluster:
 
         # Check lifecycle hooks
         assert "postStart" in head_container["lifecycle"]
-        assert head_container["lifecycle"]["postStart"]["exec"]["command"][2] == "\n".join(
-            pre_commands
-        )
+        assert head_container["lifecycle"]["postStart"]["exec"]["command"][2] == "\n".join(pre_commands)
 
         # Check volumes
         assert len(head_spec["template"]["spec"]["volumes"]) == 2
@@ -270,19 +259,12 @@ class TestKubeRayCluster:
         assert gpu_workers["replicas"] == 4
         assert gpu_workers["minReplicas"] == 2
         assert gpu_workers["maxReplicas"] == 8
-        assert (
-            gpu_workers["template"]["spec"]["containers"][0]["resources"]["requests"][
-                "nvidia.com/gpu"
-            ]
-            == 2
-        )
+        assert gpu_workers["template"]["spec"]["containers"][0]["resources"]["requests"]["nvidia.com/gpu"] == 2
 
     def test_create_cluster_already_exists(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test creating a cluster that already exists."""
         mock_api, _ = mock_k8s_clients
-        mock_api.create_namespaced_custom_object.side_effect = ApiException(
-            status=409, reason="AlreadyExists"
-        )
+        mock_api.create_namespaced_custom_object.side_effect = ApiException(status=409, reason="AlreadyExists")
 
         result = cluster_with_basic_executor.create()
         assert result is None
@@ -412,9 +394,7 @@ class TestKubeRayJob:
         """Create a basic KubeRayExecutor."""
         return KubeRayExecutor(
             namespace="test-namespace",
-            volumes=[
-                {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
-            ],
+            volumes=[{"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
         )
 
@@ -1331,9 +1311,7 @@ class TestKubeRayJobAdditionalPaths:
         """Create a basic KubeRayExecutor."""
         return KubeRayExecutor(
             namespace="test-namespace",
-            volumes=[
-                {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
-            ],
+            volumes=[{"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
         )
 
@@ -1350,9 +1328,7 @@ class TestKubeRayJobAdditionalPaths:
 
     def test_logs_kubectl_error(self, job_with_basic_executor):
         """Test logs when kubectl returns error."""
-        with patch(
-            "subprocess.check_output", side_effect=subprocess.CalledProcessError(1, "kubectl")
-        ):
+        with patch("subprocess.check_output", side_effect=subprocess.CalledProcessError(1, "kubectl")):
             job_with_basic_executor.logs(follow=False)  # Should not raise
 
     def test_logs_timeout(self, job_with_basic_executor):
@@ -1372,9 +1348,7 @@ class TestKubeRayJobAdditionalPaths:
     def test_start_job_already_exists(self, job_with_basic_executor, mock_k8s_clients):
         """Test starting job that already exists."""
         mock_api, _ = mock_k8s_clients
-        mock_api.create_namespaced_custom_object.side_effect = ApiException(
-            status=409, reason="AlreadyExists"
-        )
+        mock_api.create_namespaced_custom_object.side_effect = ApiException(status=409, reason="AlreadyExists")
 
         with pytest.raises(RuntimeError, match="already exists"):
             job_with_basic_executor.start(command="python train.py")
@@ -1397,9 +1371,7 @@ class TestKubeRayJobAdditionalPaths:
                     with patch("nemo_run.run.ray.kuberay.client.CoreV1Api"):
                         job = KubeRayJob(name="test-job", executor=executor)
 
-                        with pytest.raises(
-                            ValueError, match="workdir.*specified but executor has no volumes"
-                        ):
+                        with pytest.raises(ValueError, match="workdir.*specified but executor has no volumes"):
                             job.start(command="python train.py", workdir="/local/path")
 
     def test_start_job_with_runtime_env_file(self, job_with_basic_executor, mock_k8s_clients):
@@ -1487,9 +1459,7 @@ class TestKubeRayClusterAdditionalPaths:
         status = cluster_with_basic_executor.status(timeout=1)
         assert status is None
 
-    def test_wait_until_running_head_pod_not_ready(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_wait_until_running_head_pod_not_ready(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test wait_until_running when head pod is not ready."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1508,9 +1478,7 @@ class TestKubeRayClusterAdditionalPaths:
             mock_core_api.list_namespaced_pod.return_value = mock_pods
 
             with patch("time.sleep"):
-                result = cluster_with_basic_executor.wait_until_running(
-                    timeout=1, delay_between_attempts=0.5
-                )
+                result = cluster_with_basic_executor.wait_until_running(timeout=1, delay_between_attempts=0.5)
             assert result is False
 
     def test_wait_until_running_api_error(self, cluster_with_basic_executor, mock_k8s_clients):
@@ -1522,14 +1490,10 @@ class TestKubeRayClusterAdditionalPaths:
             mock_core_api.list_namespaced_pod.side_effect = ApiException(status=500)
 
             with patch("time.sleep"):
-                result = cluster_with_basic_executor.wait_until_running(
-                    timeout=1, delay_between_attempts=0.5
-                )
+                result = cluster_with_basic_executor.wait_until_running(timeout=1, delay_between_attempts=0.5)
             assert result is False
 
-    def test_wait_until_running_head_pod_heuristic(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_wait_until_running_head_pod_heuristic(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test wait_until_running with head pod identified by name heuristic."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1582,9 +1546,7 @@ class TestKubeRayClusterAdditionalPaths:
             with pytest.raises(RuntimeError, match="Error getting Ray head service"):
                 cluster_with_basic_executor.port_forward(port=8080, target_port=8265)
 
-    def test_port_forward_timeout_establishment(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_port_forward_timeout_establishment(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test port forwarding timeout during establishment."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1630,9 +1592,7 @@ class TestKubeRayPortForwardingEdgeCases:
         with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
             return KubeRayCluster(name="test-cluster", executor=basic_executor)
 
-    def test_port_forward_process_failure_retry(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_port_forward_process_failure_retry(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test port forwarding with process failure and retry logic."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1653,14 +1613,10 @@ class TestKubeRayPortForwardingEdgeCases:
                     mock_queue_class.return_value = mock_queue
 
                     with patch("time.sleep"):  # Speed up retries
-                        with pytest.raises(
-                            TimeoutError, match="Timed out waiting for port forwarding"
-                        ):
+                        with pytest.raises(TimeoutError, match="Timed out waiting for port forwarding"):
                             cluster_with_basic_executor.port_forward(port=8080, target_port=8265)
 
-    def test_delete_with_wait_error_during_final_check(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_delete_with_wait_error_during_final_check(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test delete with wait=True that has error during final state check."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1685,15 +1641,11 @@ class TestKubeRayPortForwardingEdgeCases:
                     # Mock empty pods
                     mock_core_api.list_namespaced_pod.return_value = Mock(items=[])
 
-                    result = cluster_with_basic_executor.delete(
-                        wait=True, timeout=5, poll_interval=1
-                    )
+                    result = cluster_with_basic_executor.delete(wait=True, timeout=5, poll_interval=1)
 
                     assert result is False  # Should timeout
 
-    def test_delete_with_wait_api_exception_during_wait(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_delete_with_wait_api_exception_during_wait(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test delete with wait=True that has API exception during wait loop."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1717,9 +1669,7 @@ class TestKubeRayPortForwardingEdgeCases:
                     # Mock empty pods for final check
                     mock_core_api.list_namespaced_pod.return_value = Mock(items=[])
 
-                    result = cluster_with_basic_executor.delete(
-                        wait=True, timeout=5, poll_interval=1
-                    )
+                    result = cluster_with_basic_executor.delete(wait=True, timeout=5, poll_interval=1)
 
                     assert result is False  # Should timeout
 
@@ -1746,9 +1696,7 @@ class TestKubeRayClusterDeleteEdgeCases:
         with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
             return KubeRayCluster(name="test-cluster", executor=basic_executor)
 
-    def test_delete_with_wait_timeout_and_final_check(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_delete_with_wait_timeout_and_final_check(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test delete with wait=True that times out and performs final state check."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1778,15 +1726,11 @@ class TestKubeRayClusterDeleteEdgeCases:
                     # Mock time to force timeout - provide enough values
                     mock_time.side_effect = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-                    result = cluster_with_basic_executor.delete(
-                        wait=True, timeout=5, poll_interval=1
-                    )
+                    result = cluster_with_basic_executor.delete(wait=True, timeout=5, poll_interval=1)
 
                     assert result is False  # Should timeout
 
-    def test_delete_with_wait_error_during_final_check(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_delete_with_wait_error_during_final_check(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test delete with wait=True that has error during final state check."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1810,15 +1754,11 @@ class TestKubeRayClusterDeleteEdgeCases:
                     # Mock empty pods for final check
                     mock_core_api.list_namespaced_pod.return_value = Mock(items=[])
 
-                    result = cluster_with_basic_executor.delete(
-                        wait=True, timeout=5, poll_interval=1
-                    )
+                    result = cluster_with_basic_executor.delete(wait=True, timeout=5, poll_interval=1)
 
                     assert result is False  # Should timeout
 
-    def test_delete_with_wait_api_exception_during_wait(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_delete_with_wait_api_exception_during_wait(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test delete with wait=True that has API exception during wait loop."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1841,9 +1781,7 @@ class TestKubeRayClusterDeleteEdgeCases:
                     # Mock empty pods for final check
                     mock_core_api.list_namespaced_pod.return_value = Mock(items=[])
 
-                    result = cluster_with_basic_executor.delete(
-                        wait=True, timeout=5, poll_interval=1
-                    )
+                    result = cluster_with_basic_executor.delete(wait=True, timeout=5, poll_interval=1)
 
                     assert result is False  # Should timeout
 
@@ -1865,9 +1803,7 @@ class TestKubeRayClusterDeleteEdgeCases:
                     # Mock time to force timeout - provide enough values
                     mock_time.side_effect = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-                    result = cluster_with_basic_executor.delete(
-                        wait=True, timeout=5, poll_interval=1
-                    )
+                    result = cluster_with_basic_executor.delete(wait=True, timeout=5, poll_interval=1)
 
                     assert result is False  # Should timeout
 
@@ -1888,9 +1824,7 @@ class TestKubeRayJobStatusEdgeCases:
         """Create a basic KubeRayExecutor."""
         return KubeRayExecutor(
             namespace="test-namespace",
-            volumes=[
-                {"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}
-            ],
+            volumes=[{"name": "workspace", "persistentVolumeClaim": {"claimName": "workspace-pvc"}}],
             volume_mounts=[{"name": "workspace", "mountPath": "/workspace"}],
         )
 
@@ -1967,9 +1901,7 @@ class TestKubeRayWaitUntilRunningEdgeCases:
         with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
             return KubeRayCluster(name="test-cluster", executor=basic_executor)
 
-    def test_wait_until_running_no_pod_conditions(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_wait_until_running_no_pod_conditions(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test wait_until_running when head pod has no conditions."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -1990,9 +1922,7 @@ class TestKubeRayWaitUntilRunningEdgeCases:
             result = cluster_with_basic_executor.wait_until_running(timeout=10)
             assert result is True  # Should return True based on phase only
 
-    def test_wait_until_running_no_head_pod_found(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_wait_until_running_no_head_pod_found(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test wait_until_running when no head pod is found."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -2010,14 +1940,10 @@ class TestKubeRayWaitUntilRunningEdgeCases:
             mock_core_api.list_namespaced_pod.return_value = mock_pods
 
             with patch("time.sleep"):
-                result = cluster_with_basic_executor.wait_until_running(
-                    timeout=1, delay_between_attempts=0.5
-                )
+                result = cluster_with_basic_executor.wait_until_running(timeout=1, delay_between_attempts=0.5)
             assert result is False  # No head pod found
 
-    def test_wait_until_running_pod_not_running(
-        self, cluster_with_basic_executor, mock_k8s_clients
-    ):
+    def test_wait_until_running_pod_not_running(self, cluster_with_basic_executor, mock_k8s_clients):
         """Test wait_until_running when head pod is not running."""
         mock_api, mock_core_api = mock_k8s_clients
 
@@ -2035,9 +1961,7 @@ class TestKubeRayWaitUntilRunningEdgeCases:
             mock_core_api.list_namespaced_pod.return_value = mock_pods
 
             with patch("time.sleep"):
-                result = cluster_with_basic_executor.wait_until_running(
-                    timeout=1, delay_between_attempts=0.5
-                )
+                result = cluster_with_basic_executor.wait_until_running(timeout=1, delay_between_attempts=0.5)
             assert result is False
 
 
@@ -2065,9 +1989,7 @@ class TestKubeRayExecutorLifecycleEdgeCases:
         with patch("nemo_run.run.ray.kuberay.get_user", return_value="testuser"):
             cluster = KubeRayCluster(name="test-cluster", executor=executor)
 
-            mock_api.create_namespaced_custom_object.return_value = {
-                "metadata": {"name": "test-cluster"}
-            }
+            mock_api.create_namespaced_custom_object.return_value = {"metadata": {"name": "test-cluster"}}
 
             cluster.create(pre_ray_start_commands=["echo test"])
 

@@ -118,10 +118,7 @@ class TestDryRun:
 
         captured = capsys.readouterr()
         assert "Dry run for task test.test_api:some_fn" in captured.out
-        assert (
-            "LocalExecutor(packager=Packager(debug=False, symlink_from_remote_dir=None)"
-            in captured.out
-        )
+        assert "LocalExecutor(packager=Packager(debug=False, symlink_from_remote_dir=None)" in captured.out
 
     def test_dryrun_fn_with_build(self, mocker, configured_fn):
         build_mock = Mock()

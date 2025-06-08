@@ -102,9 +102,7 @@ def test_cancel_existing(skypilot_scheduler, skypilot_executor):
         mock_parse_app.return_value = ("test_cluster_name", "test_role", 123)
 
         skypilot_scheduler._cancel_existing("test_session___test_cluster_name___test_role___123")
-        mock_cancel.assert_called_once_with(
-            app_id="test_session___test_cluster_name___test_role___123"
-        )
+        mock_cancel.assert_called_once_with(app_id="test_session___test_cluster_name___test_role___123")
 
 
 def test_validate(skypilot_scheduler, mock_app_def):

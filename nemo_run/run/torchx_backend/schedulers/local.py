@@ -52,6 +52,7 @@ from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.run import experiment as run_experiment
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
+
 try:
     import fcntl
 
@@ -140,9 +141,7 @@ class PersistentLocalScheduler(SchedulerMixin, LocalScheduler):  # type: ignore
         if (app_id not in self._apps) and (app_id in saved_apps):
             resp = DescribeAppResponse()
             resp.app_id = app_id
-            resp.roles = [
-                Role(name=name, image="") for name in saved_apps[app_id].role_replicas.keys()
-            ]
+            resp.roles = [Role(name=name, image="") for name in saved_apps[app_id].role_replicas.keys()]
             resp.state = saved_apps[app_id].state
             resp.num_restarts = 0
             resp.ui_url = f"file://{saved_apps[app_id].log_dir}"

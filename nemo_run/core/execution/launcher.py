@@ -176,9 +176,7 @@ class SlurmRay(SlurmTemplate):
         self.template_vars["head_init_wait_time"] = self.head_init_wait_time
         self.template_vars["worker_init_wait_time"] = self.worker_init_wait_time
         if self.env_vars:
-            self.template_vars["env_vars"] = "\n".join(
-                [f'export {k}="{v}"' for k, v in self.env_vars.items()]
-            )
+            self.template_vars["env_vars"] = "\n".join([f'export {k}="{v}"' for k, v in self.env_vars.items()])
         # Call parent's post_init
         super().__post_init__()
 

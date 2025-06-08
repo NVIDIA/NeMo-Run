@@ -51,6 +51,7 @@ from nemo_run.core.tunnel.client import (
 from nemo_run.core.tunnel.server import TunnelMetadata, server_dir
 from nemo_run.devspace.base import DevSpace
 
+
 logger = logging.getLogger(__name__)
 noquote: TypeAlias = str
 
@@ -349,9 +350,7 @@ class SlurmExecutor(Executor):
     run_as_group: bool = field(init=False, default=False)
 
     @classmethod
-    def merge(
-        cls: Type["SlurmExecutor"], executors: list["SlurmExecutor"], num_tasks: int
-    ) -> "SlurmExecutor":
+    def merge(cls: Type["SlurmExecutor"], executors: list["SlurmExecutor"], num_tasks: int) -> "SlurmExecutor":
         assert len(executors) in [1, num_tasks]
         if len(executors) == 1 and not executors[0].heterogeneous:
             executors[0].run_as_group = True
@@ -364,18 +363,13 @@ class SlurmExecutor(Executor):
         main_executor.run_as_group = True
 
         if main_executor.het_group_indices:
-            assert main_executor.heterogeneous, (
-                "heterogeneous must be True if het_group_indices is provided"
-            )
+            assert main_executor.heterogeneous, "heterogeneous must be True if het_group_indices is provided"
             assert len(main_executor.het_group_indices) == num_tasks, (
                 "het_group_indices must be the same length as the number of tasks"
             )
-            assert all(
-                x <= y
-                for x, y in zip(
-                    main_executor.het_group_indices, main_executor.het_group_indices[1:]
-                )
-            ), "het_group_indices must be equal or increasing than previous"
+            assert all(x <= y for x, y in zip(main_executor.het_group_indices, main_executor.het_group_indices[1:])), (
+                "het_group_indices must be equal or increasing than previous"
+            )
 
         main_executor.resource_group = [
             cls.ResourceRequest(
@@ -389,9 +383,7 @@ class SlurmExecutor(Executor):
                 gpus_per_task=main_executor.gpus_per_task,
                 srun_args=main_executor.srun_args,
                 job_details=copy.deepcopy(main_executor.job_details),
-                het_group_index=main_executor.het_group_indices[0]
-                if main_executor.het_group_indices
-                else None,
+                het_group_index=main_executor.het_group_indices[0] if main_executor.het_group_indices else None,
             )
         ]
 
@@ -475,11 +467,7 @@ class SlurmExecutor(Executor):
 
         srun = f"srun {' '.join(args)} {cmd}"
         if env_vars:
-            srun = (
-                " ".join([f"{key}={shlex.quote(val)}" for key, val in env_vars.items()])
-                + " "
-                + srun
-            )
+            srun = " ".join([f"{key}={shlex.quote(val)}" for key, val in env_vars.items()]) + " " + srun
 
         return self.slurm.run(srun, **kwargs)
 
@@ -587,17 +575,15 @@ class SlurmExecutor(Executor):
                 f"Packager {get_packaging_job_key(self.experiment_id, job_name)} is configured to symlink from remote dir. Skipping packaging."
             )
             if type(packager) is Packager:
-                self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = (
-                    PackagingJob(symlink=False)
+                self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = PackagingJob(
+                    symlink=False
                 )
                 return
 
-            self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = (
-                PackagingJob(
-                    symlink=True,
-                    src_path=packager.symlink_from_remote_dir,
-                    dst_path=os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
-                )
+            self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = PackagingJob(
+                symlink=True,
+                src_path=packager.symlink_from_remote_dir,
+                dst_path=os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
             )
 
             # Tunnel job dir is the directory of the experiment id, so the base job dir is two levels up
@@ -629,24 +615,18 @@ class SlurmExecutor(Executor):
         ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
-            remote_nsys_extraction_path = os.path.join(
-                self.job_dir, self.get_launcher().nsys_folder
-            )
+            remote_nsys_extraction_path = os.path.join(self.job_dir, self.get_launcher().nsys_folder)
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
             # Touch hidden init file
             ctx.run(f"touch {remote_nsys_extraction_path}/.init")
         if local_pkg:
-            ctx.run(
-                f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
-            )
+            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True)
 
-        self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = (
-            PackagingJob(
-                symlink=False,
-                dst_path=None
-                if type(packager) is Packager
-                else os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
-            )
+        self.tunnel.packaging_jobs[get_packaging_job_key(self.experiment_id, job_name)] = PackagingJob(
+            symlink=False,
+            dst_path=None
+            if type(packager) is Packager
+            else os.path.join(self.tunnel.job_dir, Path(self.job_dir).name, "code"),
         )
 
     def parse_deps(self) -> list[str]:
@@ -679,11 +659,7 @@ class SlurmExecutor(Executor):
         if self.gpus_per_task:
             return self.gpus_per_task
 
-        return (
-            self.ntasks_per_node
-            if isinstance(self.ntasks_per_node, int)
-            else self.ntasks_per_node[0]
-        )
+        return self.ntasks_per_node if isinstance(self.ntasks_per_node, int) else self.ntasks_per_node[0]
 
     def macro_values(self) -> Optional[ExecutorMacros]:
         return ExecutorMacros(
@@ -707,9 +683,7 @@ class SlurmExecutor(Executor):
         if launcher and isinstance(launcher, FaultTolerance):
             base_dir = os.path.join(self.tunnel.job_dir, Path(self.job_dir).name)
             launcher.cfg_path = os.path.join(base_dir, f"{self.job_name}_ft_cfg.yml")
-            launcher.finished_flag_file = os.path.join(
-                "/", RUNDIR_NAME, f"{self.job_name}_finished_flag"
-            )
+            launcher.finished_flag_file = os.path.join("/", RUNDIR_NAME, f"{self.job_name}_finished_flag")
             launcher.job_results_file = os.path.join(base_dir, f"{self.job_name}_job_results")
 
     @property
@@ -787,9 +761,7 @@ class SlurmBatchRequest:
             is printed, with their default values
         """
         args = asdict(self.executor)  # noqa: F821
-        parameters = {
-            k: v for k, v in args.items() if v is not None and k in SlurmExecutor.SBATCH_FLAGS
-        }
+        parameters = {k: v for k, v in args.items() if v is not None and k in SlurmExecutor.SBATCH_FLAGS}
 
         # rename and reformat parameters
 
@@ -805,9 +777,7 @@ class SlurmBatchRequest:
             else f"{self.executor.account}-{self.executor.account.split('_')[-1]}."
         )
         job_name = f"{job_name_prefix}{original_job_name}"
-        slurm_job_dir = (
-            self.executor.tunnel.job_dir if self.executor.tunnel else self.executor.job_dir
-        )
+        slurm_job_dir = self.executor.tunnel.job_dir if self.executor.tunnel else self.executor.job_dir
         job_directory_name = Path(self.executor.job_dir).name
         job_details = self.executor.job_details
 
@@ -843,9 +813,7 @@ class SlurmBatchRequest:
             )
             final_group_index = len(self.executor.resource_group) - 1
             if self.executor.het_group_indices:
-                final_group_index = self.executor.het_group_indices.index(
-                    max(self.executor.het_group_indices)
-                )
+                final_group_index = self.executor.het_group_indices.index(max(self.executor.het_group_indices))
 
             for i in range(len(self.executor.resource_group)):
                 resource_req = self.executor.resource_group[i]
@@ -853,21 +821,13 @@ class SlurmBatchRequest:
                     assert self.executor.resource_group[i - 1].het_group_index is not None, (
                         "het_group_index must be set for all requests in resource_group"
                     )
-                    if (
-                        i > 0
-                        and resource_req.het_group_index
-                        == self.executor.resource_group[i - 1].het_group_index
-                    ):
+                    if i > 0 and resource_req.het_group_index == self.executor.resource_group[i - 1].het_group_index:
                         continue
 
                 het_parameters = parameters.copy()
-                het_parameters["output"] = parameters["output"].replace(
-                    original_job_name, self.jobs[i]
-                )
+                het_parameters["output"] = parameters["output"].replace(original_job_name, self.jobs[i])
                 if "error" in parameters:
-                    het_parameters["error"] = parameters["error"].replace(
-                        original_job_name, self.jobs[i]
-                    )
+                    het_parameters["error"] = parameters["error"].replace(original_job_name, self.jobs[i])
                 het_parameters.update(
                     {
                         "job_name": f"{job_details.job_name[:-2] if job_details.job_name.endswith('-0') else job_details.job_name}-{i}",
@@ -888,9 +848,7 @@ class SlurmBatchRequest:
         if self.executor.dependencies:
             slurm_deps = self.executor.parse_deps()
             sbatch_flags.append(
-                _as_sbatch_flag(
-                    "dependency", f"{self.executor.dependency_type}:{':'.join(slurm_deps)}"
-                )
+                _as_sbatch_flag("dependency", f"{self.executor.dependency_type}:{':'.join(slurm_deps)}")
             )
 
         env_vars = []
@@ -905,16 +863,12 @@ class SlurmBatchRequest:
         srun_commands = []
         group_env_vars = []
         srun_stdout = noquote(job_details.srun_stdout)
-        stderr_flags = (
-            [] if self.executor.stderr_to_stdout else ["--error", noquote(job_details.srun_stderr)]
-        )
+        stderr_flags = [] if self.executor.stderr_to_stdout else ["--error", noquote(job_details.srun_stderr)]
         memory_measure_out = None
         if self.executor.memory_measure:
             memory_measure_out = srun_stdout
 
-        def get_container_flags(
-            base_mounts: list[str], src_job_dir: str, container_image: Optional[str]
-        ) -> list[str]:
+        def get_container_flags(base_mounts: list[str], src_job_dir: str, container_image: Optional[str]) -> list[str]:
             _container_flags = ["--container-image", container_image] if container_image else []
 
             new_mounts = copy.deepcopy(base_mounts)
@@ -933,17 +887,13 @@ class SlurmBatchRequest:
             return _container_flags
 
         for group_ind, command_group in enumerate(self.command_groups):
-            if self.executor.run_as_group and len(self.executor.resource_group) == len(
-                self.command_groups
-            ):
+            if self.executor.run_as_group and len(self.executor.resource_group) == len(self.command_groups):
                 resource_req = self.executor.resource_group[group_ind]
                 if not resource_req.job_details.job_name:
                     resource_req.job_details.job_name = f"{job_name_prefix}{self.jobs[group_ind]}"
 
                 if not resource_req.job_details.folder:
-                    resource_req.job_details.folder = os.path.join(
-                        slurm_job_dir, job_directory_name
-                    )
+                    resource_req.job_details.folder = os.path.join(slurm_job_dir, job_directory_name)
 
                 cmd_stdout = noquote(resource_req.job_details.srun_stdout)
                 cmd_stderr = (
@@ -1042,11 +992,7 @@ class SlurmBatchRequest:
         }
 
         if self.launcher and isinstance(self.launcher, FaultTolerance):
-            assert (
-                self.launcher.cfg_path
-                and self.launcher.finished_flag_file
-                and self.launcher.job_results_file
-            )
+            assert self.launcher.cfg_path and self.launcher.finished_flag_file and self.launcher.job_results_file
             vars_to_fill["fault_tol_cfg_path"] = self.launcher.cfg_path
             vars_to_fill["fault_tol_finished_flag_file"] = self.launcher.finished_flag_file
             vars_to_fill["fault_tol_job_results_file"] = self.launcher.job_results_file
@@ -1075,9 +1021,7 @@ class SlurmTunnelCallback(Callback):
 
     def on_start(self):
         if self.srun is not None:
-            self.srun_status = self.console.status(
-                Text("srun: ", style="bold green"), spinner="dots"
-            )
+            self.srun_status = self.console.status(Text("srun: ", style="bold green"), spinner="dots")
             self.srun_status.start()
             self.srun_is_done = False
         else:
@@ -1092,10 +1036,7 @@ class SlurmTunnelCallback(Callback):
 
             if stdout:
                 for line in stdout:
-                    if (
-                        "To connect to the tunnel, run the following command on your local machine:"
-                        in line
-                    ):
+                    if "To connect to the tunnel, run the following command on your local machine:" in line:
                         if not self.srun_is_done:
                             self.srun_is_done = True
                             self.srun_status.stop()
@@ -1112,9 +1053,7 @@ class SlurmTunnelCallback(Callback):
             )
             self.forward_port_context.__enter__()
 
-            self.ssh_config.add_entry(
-                metadata.user, "localhost", int(metadata.port), self.tunnel_name
-            )
+            self.ssh_config.add_entry(metadata.user, "localhost", int(metadata.port), self.tunnel_name)
             self.ssh_entry_added = True
 
             with self.console.status("Setting up port forwarding", spinner="dots"):

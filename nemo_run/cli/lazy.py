@@ -2,15 +2,15 @@ import ast
 import builtins
 import contextlib
 import importlib
+import inspect
 import os
 import re
 import shlex
 import sys
 from dataclasses import dataclass, field
-import inspect
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Iterator, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
 
 from fiddle import Buildable, daglish
 from fiddle._src import signatures
@@ -19,6 +19,7 @@ from fiddle.experimental import serialization
 from omegaconf import DictConfig, OmegaConf
 
 from nemo_run.config import Partial
+
 
 if TYPE_CHECKING:
     from nemo_run.cli.cli_parser import RunContext
@@ -102,11 +103,7 @@ class LazyEntrypoint(Buildable):
         if isinstance(factory, LazyModule):
             factory = factory.name
         # Handle @ syntax in factory parameter
-        elif (
-            isinstance(factory, str)
-            and factory.startswith("@")
-            and _is_config_file_path(factory[1:])
-        ):
+        elif isinstance(factory, str) and factory.startswith("@") and _is_config_file_path(factory[1:]):
             try:
                 factory_config = load_config_from_path(factory)
 
@@ -114,9 +111,7 @@ class LazyEntrypoint(Buildable):
                 if "_factory_" in factory_config:
                     factory = factory_config["_factory_"]
                     # Remove _factory_ from the config so it's not processed twice
-                    remaining_config = OmegaConf.create(
-                        {k: v for k, v in factory_config.items() if k != "_factory_"}
-                    )
+                    remaining_config = OmegaConf.create({k: v for k, v in factory_config.items() if k != "_factory_"})
                     # Convert remaining config to arguments and add them
                     factory_args = dictconfig_to_dot_list(remaining_config)
                     cmd_args.extend([f"{name}{op}{value}" for name, op, value in factory_args])
@@ -171,9 +166,7 @@ class LazyEntrypoint(Buildable):
         sig = inspect.signature(_fn)
         param_names = sig.parameters.keys()
 
-        dotlist = dictconfig_to_dot_list(
-            _args_to_dictconfig(self._args_), has_factory=self._factory_ is not None
-        )
+        dotlist = dictconfig_to_dot_list(_args_to_dictconfig(self._args_), has_factory=self._factory_ is not None)
         _args = [f"{name}{op}{value}" for name, op, value in dotlist]
 
         out = parse_cli_args(fn, _args)
@@ -255,9 +248,7 @@ class LazyEntrypoint(Buildable):
             key, op, value = match.groups()
             self._args_.append((key, op, value))
 
-    def _parse_config(
-        self, config: str | DictConfig | Path | None = None, overwrites: list[str] | None = None
-    ):
+    def _parse_config(self, config: str | DictConfig | Path | None = None, overwrites: list[str] | None = None):
         """
         Parse configuration files and CLI overwrites, handling @ syntax references.
 
@@ -322,11 +313,7 @@ class LazyEntrypoint(Buildable):
                 key, op, value = match.groups()
 
                 # If this is a @ syntax, load the config and merge it
-                if (
-                    isinstance(value, str)
-                    and value.startswith("@")
-                    and _is_config_file_path(value[1:])
-                ):
+                if isinstance(value, str) and value.startswith("@") and _is_config_file_path(value[1:]):
                     try:
                         # Load the referenced config file
                         loaded_config = load_config_from_path(value)
@@ -335,9 +322,7 @@ class LazyEntrypoint(Buildable):
                         # If the key already exists in to_parse, we need special handling
                         if key in to_parse:
                             # If both are dictionaries, merge them
-                            if isinstance(to_parse[key], DictConfig) and isinstance(
-                                loaded_config, DictConfig
-                            ):
+                            if isinstance(to_parse[key], DictConfig) and isinstance(loaded_config, DictConfig):
                                 to_parse[key] = OmegaConf.merge(to_parse[key], loaded_config)
                             else:
                                 # Otherwise, the @ syntax takes precedence
@@ -438,11 +423,7 @@ class LazyTarget:
                 self.script = script_path.read_text()
                 if len(cmd) > 1:
                     self.import_path = " ".join(cmd[1:])
-            if (
-                cmd[0] in ("nemo", "nemo_run")
-                or cmd[0].endswith("/nemo")
-                or cmd[0].endswith("/nemo_run")
-            ):
+            if cmd[0] in ("nemo", "nemo_run") or cmd[0].endswith("/nemo") or cmd[0].endswith("/nemo_run"):
                 self.import_path = " ".join(cmd[1:])
 
     def __call__(self, *args, **kwargs):
@@ -652,19 +633,13 @@ def dictconfig_to_dot_list(
                     else:
                         target = f"Config[{target}]"
                 result.append((full_key, "=", target))
-                remaining_config = OmegaConf.create(
-                    {k: v for k, v in value.items() if k != "_target_"}
-                )
+                remaining_config = OmegaConf.create({k: v for k, v in value.items() if k != "_target_"})
                 result.extend(
-                    dictconfig_to_dot_list(
-                        remaining_config, full_key, has_target=True, has_factory=has_factory
-                    )
+                    dictconfig_to_dot_list(remaining_config, full_key, has_target=True, has_factory=has_factory)
                 )
             elif "_factory_" in value:
                 result.append((full_key, "=", value["_factory_"]))
-                remaining_config = OmegaConf.create(
-                    {k: v for k, v in value.items() if k != "_factory_"}
-                )
+                remaining_config = OmegaConf.create({k: v for k, v in value.items() if k != "_factory_"})
                 result.extend(dictconfig_to_dot_list(remaining_config, full_key, has_factory=True))
             else:
                 result.extend(dictconfig_to_dot_list(value, full_key, has_factory=has_factory))
@@ -899,9 +874,11 @@ def load_config_from_path(path_with_syntax: str) -> Any:
     Raises:
         ValueError: If the file path is invalid or the file doesn't exist
     """
-    from nemo_run.cli.config import ConfigSerializer
-    from omegaconf import OmegaConf
     import os
+
+    from omegaconf import OmegaConf
+
+    from nemo_run.cli.config import ConfigSerializer
 
     # Extract file path and optional section
     section_match = re.match(r"^@([\w\./\\-]+)(?::(\w+))?$", path_with_syntax)

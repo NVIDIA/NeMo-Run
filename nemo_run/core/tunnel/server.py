@@ -56,9 +56,7 @@ def launch(
     port = s.getsockname()[1]
     s.close()
 
-    metadata = TunnelMetadata(
-        user=user, workspace_name=workspace_name, hostname=hostname, port=port
-    )
+    metadata = TunnelMetadata(user=user, workspace_name=workspace_name, hostname=hostname, port=port)
     metadata.save(path)
     atexit.register(client.delete_tunnel_dir, path)
     ctx.run('echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config.d/custom.conf')
