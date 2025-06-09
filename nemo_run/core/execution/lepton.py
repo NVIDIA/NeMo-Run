@@ -103,8 +103,7 @@ class LeptonExecutor(Executor):
             ),
             completions=1,
             parallelism=1,
-            mounts=[Mount(**mount) for mount in self.mounts],
-            ttl_seconds_after_finished=600,
+            mounts=[Mount(**mount) for mount in self.mounts]
         )
 
         custom_name = f"data-mover-{int(datetime.now().timestamp())}"
