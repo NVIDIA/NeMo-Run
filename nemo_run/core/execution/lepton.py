@@ -254,7 +254,7 @@ cd /nemo_run/code
             f.write(launch_script)
 
         logger.info("Copying experiment directory to remote filesystem")
-        self.move_data(sleep=60)
+        self.move_data()
 
         logger.info("Creating distributed workload")
         job = self.create_lepton_job(name)
