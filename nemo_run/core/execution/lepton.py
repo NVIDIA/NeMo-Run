@@ -137,7 +137,6 @@ class LeptonExecutor(Executor):
         if current_job_status != LeptonJobState.Completed:
             raise RuntimeError(f"Job {job_id} failed with status: {current_job_status}")
 
-        time.sleep(sleep)
 
         delete_success = client.job.delete(job_id)
        
