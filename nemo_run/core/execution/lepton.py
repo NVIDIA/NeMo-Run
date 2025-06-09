@@ -129,23 +129,23 @@ class LeptonExecutor(Executor):
                 raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds.")
             current_job = client.job.get(job_id)
             current_job_status = current_job.status.state
-            if count > 0 and current_job_status in [LeptonJobState.Completed, LeptonJobState.Failed, LeptonJobState.Unknown]:
+            if count > 0 and current_job_status in [
+                LeptonJobState.Completed,
+                LeptonJobState.Failed,
+                LeptonJobState.Unknown,
+            ]:
                 break
-            count+=1
+            count += 1
             time.sleep(poll_interval)
 
         if current_job_status != LeptonJobState.Completed:
             raise RuntimeError(f"Job {job_id} failed with status: {current_job_status}")
 
-
         delete_success = client.job.delete(job_id)
-       
         if delete_success:
             logging.info(f"Successfully deleted job {job_id}")
         else:
             logging.error(f"Failed to delete job {job_id}")
-
-
 
     def _node_group_id(self, client: APIClient) -> DedicatedNodeGroup:
         """
