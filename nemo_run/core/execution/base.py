@@ -166,7 +166,7 @@ class Executor(ConfigurableMixin):
             return launcher.get_nsys_prefix(profile_dir=self.job_dir)
 
     def get_nsys_entrypoint(self) -> str:
-        return ("nsys","")
+        return ("nsys", "")
 
     def supports_launcher_transform(self) -> bool:
         return False

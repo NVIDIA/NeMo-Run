@@ -551,13 +551,13 @@ class SlurmExecutor(Executor):
             if launcher.nsys_gpu_metrics:
                 nsys_prefix += ["$GPU_METRICS_FLAG"]
         return nsys_prefix
-    
+
     def get_nsys_entrypoint(self) -> str:
         launcher = self.get_launcher()
         entrypoint, postfix = "nsys", ""
         if launcher.nsys_gpu_metrics:
-            entrypoint="bash -c 'GPU_METRICS_FLAG=\"\"; if [ \"$SLURM_PROCID\" -eq 0 ]; then GPU_METRICS_FLAG=\"--gpu-metrics-devices=all\"; fi; nsys"
-            postfix="'"
+            entrypoint = 'bash -c \'GPU_METRICS_FLAG=""; if [ "$SLURM_PROCID" -eq 0 ]; then GPU_METRICS_FLAG="--gpu-metrics-devices=all"; fi; nsys'
+            postfix = "'"
         return (entrypoint, postfix)
 
     def supports_launcher_transform(self) -> bool:
