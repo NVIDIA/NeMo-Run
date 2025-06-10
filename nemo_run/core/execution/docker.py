@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 def get_client() -> "DockerClient":
     import docker
 
-    return docker.from_env(timeout=int(os.environ.get("NEMO_RUN_DOCKER_CLIENT_TIMEOUT", 60)))
+    return docker.from_env(timeout=int(os.environ.get("NEMORUN_DOCKER_CLIENT_TIMEOUT", 60)))
 
 
 def ensure_network(client: Optional["DockerClient"] = None, network: Optional[str] = None) -> None:
