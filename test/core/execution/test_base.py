@@ -126,6 +126,11 @@ class TestExecutor:
         executor = Executor(launcher="torchrun")
         assert isinstance(executor.get_launcher(), Torchrun)
 
+    def test_get_nsys_entrypoint(self):
+        mock_launcher = Launcher()
+        executor = Executor(launcher=mock_launcher)
+        assert executor.get_nsys_entrypoint() == ("nsys", "")
+
     def test_cleanup(self):
         executor = Executor()
         assert executor.cleanup("handle") is None

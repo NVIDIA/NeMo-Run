@@ -170,9 +170,37 @@ class TestSlurmExecutorExtended:
         launcher_mock = MagicMock()
         launcher_mock.nsys_profile = True
         launcher_mock.get_nsys_prefix.return_value = ["nsys", "profile"]
+        launcher_mock.nsys_gpu_metrics = False
 
         with patch.object(executor, "get_launcher", return_value=launcher_mock):
             assert executor.get_launcher_prefix() == ["nsys", "profile"]
+
+    def test_get_launcher_prefix_with_gpu_metrics(self):
+        """Test the get_launcher_prefix method with nsys_profile when gpu metrics is enabled."""
+        executor = SlurmExecutor(account="test")
+
+        # Test with launcher that has nsys_profile
+        launcher_mock = MagicMock()
+        launcher_mock.nsys_profile = True
+        launcher_mock.get_nsys_prefix.return_value = ["nsys", "profile"]
+        launcher_mock.nsys_gpu_metrics = True
+
+        with patch.object(executor, "get_launcher", return_value=launcher_mock):
+            assert executor.get_launcher_prefix() == ["nsys", "profile", "$GPU_METRICS_FLAG"]
+
+    def test_get_nsys_entrypoint(self):
+        """Test the get_nsys_entrypoint method with nsys_profile."""
+        executor = SlurmExecutor(account="test")
+
+        # Test with launcher that has nsys_profile
+        launcher_mock = MagicMock()
+        launcher_mock.nsys_gpu_metrics = True
+
+        with patch.object(executor, "get_launcher", return_value=launcher_mock):
+            assert executor.get_nsys_entrypoint() == (
+                'bash -c \'GPU_METRICS_FLAG=""; if [ "$SLURM_PROCID" -eq 0 ]; then GPU_METRICS_FLAG="--gpu-metrics-devices=all"; fi; nsys',
+                "'",
+            )
 
     def test_supports_launcher_transform(self):
         """Test the supports_launcher_transform method."""
