@@ -230,9 +230,9 @@ def package(
 
     if metadata:
         if USE_WITH_RAY_CLUSTER_KEY in metadata:
-            assert isinstance(
-                executor, SlurmExecutor
-            ), f"{USE_WITH_RAY_CLUSTER_KEY} is only supported for SlurmExecutor"
+            assert isinstance(executor, SlurmExecutor), (
+                f"{USE_WITH_RAY_CLUSTER_KEY} is only supported for SlurmExecutor"
+            )
 
     app_def.metadata = metadata
     return app_def
