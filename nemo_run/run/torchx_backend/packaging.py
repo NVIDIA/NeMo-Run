@@ -230,9 +230,9 @@ def package(
 
     if metadata:
         if USE_WITH_RAY_CLUSTER_KEY in metadata:
-            assert isinstance(executor, SlurmExecutor), (
-                f"{USE_WITH_RAY_CLUSTER_KEY} is only supported for SlurmExecutor"
-            )
+            assert isinstance(
+                executor, SlurmExecutor
+            ), f"{USE_WITH_RAY_CLUSTER_KEY} is only supported for SlurmExecutor"
 
     app_def.metadata = metadata
     return app_def
@@ -246,7 +246,7 @@ def merge_executables(app_defs: Iterator[specs.AppDef], name: str) -> specs.AppD
         if USE_WITH_RAY_CLUSTER_KEY in metadata:
             assert idx == 0, f"{USE_WITH_RAY_CLUSTER_KEY} is only supported for the first command"
 
-        result.metadata.update(app_def.metadata)
+        result.metadata.update(metadata)
         result.roles.extend(app_def.roles)
     return result
 
