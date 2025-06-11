@@ -32,6 +32,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.githubpages",
     "sphinx.ext.napoleon",
+    "sphinxcontrib.mermaid",
 ]
 
 templates_path = ["_templates"]
@@ -59,6 +60,8 @@ autodoc_typehints = "signature"
 
 # MyST settings
 myst_heading_anchors = 3
+myst_fence_as_directive = ["mermaid"]
+myst_footnote_transition = False
 
 # Napoleon settings
 napoleon_google_docstring = True
