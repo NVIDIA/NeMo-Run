@@ -32,6 +32,7 @@ from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.components import ft_launcher, torchrun
 
+
 log: logging.Logger = logging.getLogger(__name__)
 
 
@@ -107,9 +108,7 @@ def package(
                     (
                         f"{name}_config.yaml",
                         _serialize(
-                            fdl_dc.convert_dataclasses_to_configs(
-                                fn_or_script, allow_post_init=True
-                            ),
+                            fdl_dc.convert_dataclasses_to_configs(fn_or_script, allow_post_init=True),
                             serializer_cls=YamlSerializer,
                         ),
                     ),

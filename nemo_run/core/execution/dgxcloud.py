@@ -18,6 +18,7 @@ from nemo_run.core.execution.base import Executor, ExecutorMacros
 from nemo_run.core.packaging.base import Packager
 from nemo_run.core.packaging.git import GitArchivePackager
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -91,9 +92,7 @@ class DGXCloudExecutor(Executor):
         for prj in projects:
             if not self.project_name or prj["name"] == self.project_name:  # [2]
                 project_id, cluster_id = prj["id"], prj["clusterId"]
-                logger.debug(
-                    "Found project '%s' (%s) on cluster '%s'", prj["name"], project_id, cluster_id
-                )
+                logger.debug("Found project '%s' (%s) on cluster '%s'", prj["name"], project_id, cluster_id)
                 break
         return project_id, cluster_id
 
@@ -180,9 +179,7 @@ class DGXCloudExecutor(Executor):
         ]:
             time.sleep(sleep)
             status = self.status(workload_id)
-            logger.debug(
-                f"Polling data movement workload {workload_id}'s status. Current status is: {status}"
-            )
+            logger.debug(f"Polling data movement workload {workload_id}'s status. Current status is: {status}")
 
         if status is not DGXCloudState.COMPLETED:
             raise RuntimeError(f"Failed to move data to PVC. Workload status is {status}")
@@ -202,9 +199,7 @@ class DGXCloudExecutor(Executor):
                 resp.text,
             )
 
-    def create_training_job(
-        self, token: str, project_id: str, cluster_id: str, name: str
-    ) -> requests.Response:
+    def create_training_job(self, token: str, project_id: str, cluster_id: str, name: str) -> requests.Response:
         """
         Creates a training job on DGX Cloud using the provided project/cluster IDs.
         For multi-node jobs, creates a distributed workload. Otherwise creates a single-node training.
@@ -239,9 +234,7 @@ class DGXCloudExecutor(Executor):
             "image": self.container_image,
             "compute": {"gpuDevicesRequest": self.gpus_per_node},
             "storage": {"pvc": self.pvcs},
-            "environmentVariables": [
-                {"name": key, "value": value} for key, value in self.env_vars.items()
-            ],
+            "environmentVariables": [{"name": key, "value": value} for key, value in self.env_vars.items()],
             **self.custom_spec,
         }
 
@@ -300,9 +293,7 @@ cd /nemo_run/code
         logger.info("Creating training workload")
         resp = self.create_training_job(token, project_id, cluster_id, name)
         if resp.status_code not in [200, 202]:
-            raise RuntimeError(
-                f"Failed to create job, status_code={resp.status_code}, reason={resp.text}"
-            )
+            raise RuntimeError(f"Failed to create job, status_code={resp.status_code}, reason={resp.text}")
 
         r_json = resp.json()
         job_id = r_json["workloadId"]
@@ -382,9 +373,7 @@ cd /nemo_run/code
         self.job_dir = os.path.join(exp_dir, task_dir)
         assert any(
             map(
-                lambda x: os.path.commonpath(
-                    [os.path.abspath(x["path"]), os.path.abspath(self.pvc_nemo_run_dir)]
-                )
+                lambda x: os.path.commonpath([os.path.abspath(x["path"]), os.path.abspath(self.pvc_nemo_run_dir)])
                 == os.path.abspath(x["path"]),
                 self.pvcs,
             )
@@ -443,14 +432,10 @@ cd /nemo_run/code
         ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
-            remote_nsys_extraction_path = os.path.join(
-                self.job_dir, self.get_launcher().nsys_folder
-            )
+            remote_nsys_extraction_path = os.path.join(self.job_dir, self.get_launcher().nsys_folder)
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
         if local_pkg:
-            ctx.run(
-                f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
-            )
+            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True)
 
     def macro_values(self) -> Optional[ExecutorMacros]:
         return None

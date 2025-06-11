@@ -35,8 +35,7 @@ def list(experiment_title: str):
     """List all experiments for a given title."""
     CONSOLE.log(f"[bold magenta] Listing experiments with title {experiment_title}")
     CONSOLE.log(
-        Experiment.catalog(experiment_title)
-        or f"[bold red] There are no experiments for '{experiment_title}'"
+        Experiment.catalog(experiment_title) or f"[bold red] There are no experiments for '{experiment_title}'"
     )
 
 
@@ -68,9 +67,7 @@ def cancel(
     all: Annotated[bool, typer.Option(help="Cancel all jobs")] = False,
     dependencies: Annotated[
         bool,
-        typer.Option(
-            "--dependencies", "-d", help="Cancel all dependencies of the specified job as well"
-        ),
+        typer.Option("--dependencies", "-d", help="Cancel all dependencies of the specified job as well"),
     ] = False,
 ):
     """

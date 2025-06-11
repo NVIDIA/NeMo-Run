@@ -26,9 +26,7 @@ class TestSlurmTemplate:
     def test_init_validation(self):
         """Test that SlurmTemplate requires either template_path or template_inline."""
         # Should raise error when neither template_path nor template_inline are provided
-        with pytest.raises(
-            ValueError, match="Either template_path or template_inline must be provided"
-        ):
+        with pytest.raises(ValueError, match="Either template_path or template_inline must be provided"):
             SlurmTemplate()
 
         # Should not raise when template_path is provided
@@ -95,9 +93,7 @@ class TestSlurmTemplate:
     def test_render_template_inline(self):
         """Test rendering a template with inline content."""
         template_content = "#!/bin/bash\necho {{ message }}\n{{ command }}"
-        template = SlurmTemplate(
-            template_inline=template_content, template_vars={"message": "Hello World"}
-        )
+        template = SlurmTemplate(template_inline=template_content, template_vars={"message": "Hello World"})
 
         cmd = ["python", "script.py", "--arg", "value"]
         rendered = template.render_template(cmd)
@@ -108,9 +104,7 @@ class TestSlurmTemplate:
     def test_render_template_with_path(self, monkeypatch):
         """Test rendering a template with a path."""
         # Create a SlurmTemplate instance with a template path
-        template = SlurmTemplate(
-            template_path="test_template.sh.j2", template_vars={"message": "Hello World"}
-        )
+        template = SlurmTemplate(template_path="test_template.sh.j2", template_vars={"message": "Hello World"})
 
         # Create expected result
         expected = "#!/bin/bash\necho Hello World\npython script.py --arg value"
@@ -296,9 +290,7 @@ class TestSlurmRay:
 
     def test_nsys_profile(self):
         """Test nsys_profile in SlurmRay."""
-        ray = SlurmRay(
-            nsys_profile=True, nsys_folder="ray_profiles", nsys_trace=["nvtx", "cuda", "cublas"]
-        )
+        ray = SlurmRay(nsys_profile=True, nsys_folder="ray_profiles", nsys_trace=["nvtx", "cuda", "cublas"])
 
         # Check that nsys parameters are set correctly
         assert ray.nsys_profile is True

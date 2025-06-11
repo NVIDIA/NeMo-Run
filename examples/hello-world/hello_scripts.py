@@ -17,6 +17,7 @@ from simple.add import SomeObject, add_object, commonly_used_object
 
 import nemo_run as run
 
+
 # This script defines an experiment that invokes three tasks in parallel, two scripts and a run.Partial.
 # The example demonstrates how you can use scripts and run.Partial.
 if __name__ == "__main__":

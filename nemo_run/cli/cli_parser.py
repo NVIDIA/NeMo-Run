@@ -28,23 +28,24 @@ from typing import (
     Any,
     Callable,
     Dict,
+    ForwardRef,
+    FrozenSet,
     List,
     Literal,
     Optional,
+    Set,
+    Tuple,
     Type,
     TypeVar,
     Union,
     get_args,
     get_origin,
-    ForwardRef,
-    Set,
-    Tuple,
-    FrozenSet,
 )
 
 import fiddle as fdl
 
 from nemo_run.config import Config, Partial
+
 
 logger = logging.getLogger(__name__)
 
@@ -233,9 +234,7 @@ class PythonicParser:
             try:
                 op = Operation(op_str)
             except ValueError:
-                raise ArgumentParsingError(
-                    f"Invalid operation: {op_str}", arg, {"key": key, "value": value}
-                )
+                raise ArgumentParsingError(f"Invalid operation: {op_str}", arg, {"key": key, "value": value})
             return {key: (op, value)}
         raise ArgumentParsingError("Invalid argument format", arg, {})
 
@@ -511,9 +510,7 @@ class PythonicParser:
             return self._contains_unsafe_operations(node.body)
         elif isinstance(node, ast.BinOp):
             # Allow basic arithmetic operations
-            return self._contains_unsafe_operations(node.left) or self._contains_unsafe_operations(
-                node.right
-            )
+            return self._contains_unsafe_operations(node.left) or self._contains_unsafe_operations(node.right)
         elif isinstance(node, ast.UnaryOp):
             return self._contains_unsafe_operations(node.operand)
         elif isinstance(node, (ast.List, ast.Tuple, ast.Set, ast.Dict)):
@@ -549,9 +546,7 @@ class PythonicParser:
                 return eval(value)
             raise ArgumentValueError(f"Invalid ternary expression: {value}", value, {})
         except Exception as e:
-            raise ArgumentValueError(
-                f"Error parsing ternary expression '{value}': {str(e)}", value, {}
-            )
+            raise ArgumentValueError(f"Error parsing ternary expression '{value}': {str(e)}", value, {})
 
     def apply_operation(self, op: Operation, old: Any, new: Any) -> Any:
         """
@@ -891,10 +886,7 @@ class TypeParser:
             if not isinstance(parsed, dict):
                 raise ValueError("Not a dict")
             key_type, val_type = get_args(annotation)
-            return {
-                self.parse(str(k), key_type): self.parse(str(v), val_type)
-                for k, v in parsed.items()
-            }
+            return {self.parse(str(k), key_type): self.parse(str(v), val_type) for k, v in parsed.items()}
         except Exception as e:
             raise DictParseError(value, Dict, f"Invalid dict: {str(e)}")
 
@@ -935,9 +927,7 @@ class TypeParser:
                     return self.parse(value, arg)
                 except ParseError as e:
                     errors.append(str(e))
-        raise ParseError(
-            value, annotation, f"No matching type in Union. Errors: {'; '.join(errors)}"
-        )
+        raise ParseError(value, annotation, f"No matching type in Union. Errors: {'; '.join(errors)}")
 
     def parse_unknown(self, value: str, annotation: Type) -> Any:
         """Parse a string value for an unknown or unsupported type.
@@ -989,9 +979,7 @@ class TypeParser:
             LiteralParseError: If the value is not one of the allowed Literal values.
         """
         literal_values = get_args(annotation)
-        if (value.startswith("'") and value.endswith("'")) or (
-            value.startswith('"') and value.endswith('"')
-        ):
+        if (value.startswith("'") and value.endswith("'")) or (value.startswith('"') and value.endswith('"')):
             value = value[1:-1]
         if value in literal_values:
             return value
@@ -1139,9 +1127,7 @@ def parse_cli_args(
                 try:
                     nested = parse_attribute(attr, nested)
                 except AttributeError as e:
-                    raise ArgumentValueError(
-                        f"Invalid attribute: {attr}", key, {"nested": nested}
-                    ) from e
+                    raise ArgumentValueError(f"Invalid attribute: {attr}", key, {"nested": nested}) from e
 
             signature = _signature(nested.__fn_or_cls__)
             # If nested.__fn_or_cls__ is a class and has just *args and **kwargs as parameters,
@@ -1154,11 +1140,7 @@ def parse_cli_args(
         param = signature.parameters.get(arg_name)
         if param is None:
             kwargs_param = next(
-                (
-                    p
-                    for p in signature.parameters.values()
-                    if p.kind == inspect.Parameter.VAR_KEYWORD
-                ),
+                (p for p in signature.parameters.values() if p.kind == inspect.Parameter.VAR_KEYWORD),
                 None,
             )
             if kwargs_param:
@@ -1166,9 +1148,7 @@ def parse_cli_args(
                 param = inspect.Parameter(
                     arg_name,
                     inspect.Parameter.KEYWORD_ONLY,
-                    annotation=kwargs_param.annotation
-                    if kwargs_param.annotation != inspect.Parameter.empty
-                    else Any,
+                    annotation=kwargs_param.annotation if kwargs_param.annotation != inspect.Parameter.empty else Any,
                 )
             else:
                 raise ArgumentValueError(
@@ -1182,9 +1162,7 @@ def parse_cli_args(
             annotation = param.annotation
         logger.debug(f"Parsing value {value} as {annotation}")
 
-        annotation = _maybe_resolve_annotation(
-            getattr(nested, "__fn_or_cls__", nested), arg_name, annotation
-        )
+        annotation = _maybe_resolve_annotation(getattr(nested, "__fn_or_cls__", nested), arg_name, annotation)
 
         if annotation:
             try:
@@ -1219,9 +1197,7 @@ def parse_cli_args(
                     parser.apply_operation(op, getattr(nested, arg_name), parsed_value),
                 )
         except AttributeError as e:
-            raise ArgumentValueError(
-                f"Invalid argument: {str(e)}", arg, {"key": key, "value": value}
-            )
+            raise ArgumentValueError(f"Invalid argument: {str(e)}", arg, {"key": key, "value": value})
 
     return output
 
@@ -1255,8 +1231,8 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
     """
     import catalogue
 
-    from nemo_run.config import Partial, get_type_namespace
     from nemo_run.cli.api import extract_constituent_types
+    from nemo_run.config import Partial, get_type_namespace
 
     def _get_from_registry(val, annotation, name):
         if catalogue.check_exists(get_type_namespace(annotation), val):
@@ -1359,9 +1335,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 def _signature(fn: Callable):
     if fn is dict:
         # Create a signature that accepts **kwargs for dict
-        return inspect.Signature(
-            [inspect.Parameter("kwargs", inspect.Parameter.VAR_KEYWORD, annotation=Any)]
-        )
+        return inspect.Signature([inspect.Parameter("kwargs", inspect.Parameter.VAR_KEYWORD, annotation=Any)])
     return inspect.signature(fn)
 
 
@@ -1428,16 +1402,12 @@ def parse_attribute(attr, nested):
             try:
                 result = result[int(part)]
             except (IndexError, KeyError, TypeError) as e:
-                raise ArgumentValueError(
-                    f"Invalid index '{part}' for {attr}", attr, {"nested": nested}
-                ) from e
+                raise ArgumentValueError(f"Invalid index '{part}' for {attr}", attr, {"nested": nested}) from e
         else:
             try:
                 result = getattr(result, part)
             except AttributeError as e:
-                raise ArgumentValueError(
-                    f"Invalid attribute '{part}' for {attr}", attr, {"nested": nested}
-                ) from e
+                raise ArgumentValueError(f"Invalid attribute '{part}' for {attr}", attr, {"nested": nested}) from e
 
     return result
 
@@ -1503,11 +1473,7 @@ def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
         tree = ast.parse(source)
         type_checking_imports = {}
         for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.If)
-                and isinstance(node.test, ast.Name)
-                and node.test.id == "TYPE_CHECKING"
-            ):
+            if isinstance(node, ast.If) and isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
                 for stmt in node.body:
                     if isinstance(stmt, (ast.Import, ast.ImportFrom)):
                         if isinstance(stmt, ast.Import):

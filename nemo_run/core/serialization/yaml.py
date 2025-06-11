@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import inspect
 import importlib
+import inspect
+
 import yaml
 from fiddle._src import config as config_lib
 from fiddle._src import partial
@@ -31,8 +32,7 @@ def _config_representer(dumper, data, type_name="Config"):
     # to be an issue.
     if "__fn_or_cls__" in value:
         raise ValueError(
-            "It is not supported to dump objects of functions/classes "
-            "that have a __fn_or_cls__ parameter."
+            "It is not supported to dump objects of functions/classes that have a __fn_or_cls__ parameter."
         )
 
     value["_target_"] = (
@@ -108,9 +108,10 @@ class YamlSerializer:
         Returns:
             A Buildable object (Config or Partial).
         """
+        from omegaconf import OmegaConf
+
         from nemo_run.cli.cli_parser import parse_cli_args
         from nemo_run.cli.lazy import dictconfig_to_dot_list
-        from omegaconf import OmegaConf
 
         # Load the YAML into a DictConfig
         config_dict = yaml.safe_load(serialized)

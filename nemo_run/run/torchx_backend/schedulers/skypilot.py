@@ -47,6 +47,7 @@ from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.skypilot import _SKYPILOT_AVAILABLE, SkypilotExecutor
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
+
 try:
     import fcntl
 
@@ -109,9 +110,7 @@ class SkypilotScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         executor = req.executor
         executor.package(executor.packager, job_name=executor.job_name)
         job_id, handle = executor.launch(task)
-        assert job_id and handle, (
-            f"Failed scheduling run on Skypilot. Job id: {job_id}, Handle: {handle}"
-        )
+        assert job_id and handle, f"Failed scheduling run on Skypilot. Job id: {job_id}, Handle: {handle}"
         app_id = f"{executor.experiment_id}___{handle.get_cluster_name()}___{task.name}___{job_id}"
         _, task_details = SkypilotExecutor.status(app_id=app_id)
         if task_details:
@@ -128,9 +127,7 @@ class SkypilotScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
     ) -> AppDryRunInfo[SkypilotRequest]:
         from sky.utils import common_utils
 
-        assert isinstance(cfg, SkypilotExecutor), (
-            f"{cfg.__class__} not supported for skypilot scheduler."
-        )
+        assert isinstance(cfg, SkypilotExecutor), f"{cfg.__class__} not supported for skypilot scheduler."
         executor = cfg
 
         assert len(app.roles) == 1, "Only 1 role supported for Skypilot executor."

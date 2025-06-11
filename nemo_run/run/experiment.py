@@ -35,9 +35,8 @@ from fiddle._src import daglish, diffing
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
 from rich.progress import Task as RichTask
-from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState
 
@@ -66,9 +65,8 @@ from nemo_run.run.plugin import ExperimentPlugin
 from nemo_run.run.torchx_backend.runner import get_runner
 from nemo_run.run.utils import TeeStdoutStderr
 
-_current_experiment: contextvars.ContextVar["Experiment"] = contextvars.ContextVar(
-    "nemo_current_experiment"
-)
+
+_current_experiment: contextvars.ContextVar["Experiment"] = contextvars.ContextVar("nemo_current_experiment")
 
 
 class DummyConsole:
@@ -371,9 +369,7 @@ nemo experiment cancel {exp_id} 0
 
     def _save_tunnels(self):
         serializer = ZlibJSONSerializer()
-        serialized_tunnels = {
-            k: serializer.serialize(v.to_config()) for k, v in self.tunnels.items()
-        }
+        serialized_tunnels = {k: serializer.serialize(v.to_config()) for k, v in self.tunnels.items()}
         with open(os.path.join(self._exp_dir, self.__class__._TUNNELS_FILE), "w+") as f:
             json.dump(serialized_tunnels, f)
 
@@ -555,9 +551,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         """
         Add a configured function along with its executor config to the experiment.
         """
-        assert _current_experiment.get(None) == self, (
-            "Using Experiment without it's context manager is not permitted."
-        )
+        assert _current_experiment.get(None) == self, "Using Experiment without it's context manager is not permitted."
 
         job_ids = set([job.id for job in self.jobs])
         for dep in dependencies or []:
@@ -639,9 +633,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             tail_logs: If True, tails logs from all tasks in the experiment. If False, relies on task specific setting. Defaults to False.
             direct: If True, runs all tasks in the experiment sequentially in the same process. Note that if direct=True, then sequential also will be True. Defaults to False.
         """
-        assert _current_experiment.get(None) == self, (
-            "Using Experiment without it's context manager is not permitted."
-        )
+        assert _current_experiment.get(None) == self, "Using Experiment without it's context manager is not permitted."
 
         if self._launched:
             self.console.log("[bold magenta]Experiment already running...")
@@ -673,9 +665,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
             for job in self.jobs:
                 assert isinstance(job, Job)
-                with TeeStdoutStderr(
-                    os.path.join(job.executor.job_dir, f"log_{job.id}_direct_run.out")
-                ):
+                with TeeStdoutStderr(os.path.join(job.executor.job_dir, f"log_{job.id}_direct_run.out")):
                     job.launch(wait=True, direct=True, runner=self._runner)
 
             self._save_jobs()
@@ -695,9 +685,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                     executors.add(job.executors.__class__)
 
         if detach and any(map(lambda x: x not in self._DETACH_SUPPORTED_EXECUTORS, executors)):
-            self.console.log(
-                "[bold red] Cannot detach from this experiment. Please keep it running until completion."
-            )
+            self.console.log("[bold red] Cannot detach from this experiment. Please keep it running until completion.")
             detach = False
 
         is_dag = any(map(lambda job: len(job.dependencies) > 0, self.jobs))
@@ -778,9 +766,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                         for dep_id in job.dependencies:
                             dep = job_map[dep_id]
                             handle = dep.handle
-                            assert dep.launched and handle, (
-                                f"Dependency {dep.id} for {job.id} not yet launched."
-                            )
+                            assert dep.launched and handle, f"Dependency {dep.id} for {job.id} not yet launched."
                             deps.append(handle)
 
                         job.executor.dependencies = deps  # type: ignore
@@ -851,14 +837,10 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             _current_experiment.set(self)
             _set_current_experiment = True
 
-        def _get_job_info_and_dict(
-            idx: int, job: Job | JobGroup
-        ) -> tuple[list[str], dict[str, str]]:
+        def _get_job_info_and_dict(idx: int, job: Job | JobGroup) -> tuple[list[str], dict[str, str]]:
             job_info = []
             job_info.append(f"[bold green]Task {idx}[/bold green]: [bold orange1]{job.id}")
-            job_info.append(
-                f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}"
-            )
+            job_info.append(f"- [bold green]Status[/bold green]: {str(job.status(runner=self._runner))}")
             job_info.append(f"- [bold green]Executor[/bold green]: {job.executor.info()}")
 
             try:
@@ -880,9 +862,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 "local_dir": job.executor.job_dir,
             }
 
-            if isinstance(job.executor, SlurmExecutor) and isinstance(
-                job.executor.tunnel, SSHTunnel
-            ):
+            if isinstance(job.executor, SlurmExecutor) and isinstance(job.executor.tunnel, SSHTunnel):
                 directory_info.extend(
                     [
                         "- [bold green]Remote Directory[/bold green]: "
@@ -960,18 +940,14 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             job = next(filter(lambda x: x.id == job_id, self.jobs))
             if isinstance(job, Job) and job.handle.endswith("direct_run"):
                 self.console.log("This job was run with direct=True.")
-                self.console.log(
-                    f"Logs may be present in task directory at:\n[bold]{job.executor.job_dir}."
-                )
+                self.console.log(f"Logs may be present in task directory at:\n[bold]{job.executor.job_dir}.")
                 return
 
             try:
                 job.logs(runner=self._runner, regex=regex)
             except Exception as e:
                 self.console.log(f"[bold red]Failed to get logs for {job_id}\nError: {e}\n")
-                self.console.log(
-                    f"Logs may be present in job directory at:\n[bold]{job.executor.job_dir}."
-                )
+                self.console.log(f"Logs may be present in job directory at:\n[bold]{job.executor.job_dir}.")
         except StopIteration:
             self.console.log(f"[bold red]Job {job_id} not found")
         finally:
@@ -984,12 +960,8 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         Resets an experiment to make it ready for a relaunch.
         Only works if the current experiment run has already been launched.
         """
-        if not self._reconstruct and not os.path.isfile(
-            os.path.join(self._exp_dir, self._DONE_FILE)
-        ):
-            self.console.log(
-                f"[bold magenta]Experiment {self._id} has not run yet, skipping reset..."
-            )
+        if not self._reconstruct and not os.path.isfile(os.path.join(self._exp_dir, self._DONE_FILE)):
+            self.console.log(f"[bold magenta]Experiment {self._id} has not run yet, skipping reset...")
             return self
 
         old_id, old_exp_dir, old_launched = self._id, self._exp_dir, self._launched
@@ -1028,10 +1000,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                 else:
                     if isinstance(job.tasks, str):
                         tasks = serializer.deserialize(job.tasks)
-                        job.tasks = [
-                            fdl.build(task) if task.__fn_or_cls__ == Script else task
-                            for task in tasks
-                        ]
+                        job.tasks = [fdl.build(task) if task.__fn_or_cls__ == Script else task for task in tasks]
 
                     self.add(
                         job.tasks,
@@ -1040,9 +1009,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
                         tail_logs=job.tail_logs,
                     )
         except Exception as e:
-            self.console.log(
-                f"[bold magenta]Failed resetting Experiment {self._id} due to error: {e}"
-            )
+            self.console.log(f"[bold magenta]Failed resetting Experiment {self._id} due to error: {e}")
             # Double check exp dir is unchanged
             new_path = os.path.join(get_nemorun_home(), "experiments", self._title, self._id)
             if self._exp_dir == new_path and new_path != old_exp_dir:
@@ -1085,9 +1052,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
     def _add_progress(self, job: Job | JobGroup):
         if self._live_progress:
-            self._task_progress[job.id] = self._progress.add_task(
-                f"[bold green]{job.id}", total=None
-            )
+            self._task_progress[job.id] = self._progress.add_task(f"[bold green]{job.id}", total=None)
 
     def _update_progress(self, job: Job | JobGroup, state: AppState):
         if self._live_progress:
@@ -1115,11 +1080,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
 
         self._runner.close()
 
-        if (
-            _current_experiment is not None
-            and _current_experiment.get(None)
-            and self._current_experiment_token
-        ):
+        if _current_experiment is not None and _current_experiment.get(None) and self._current_experiment_token:
             _current_experiment.reset(self._current_experiment_token)
             self._current_experiment_token = None
 
@@ -1135,8 +1096,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             if hasattr(self, "detach") and self.detach:
                 self.console.rule(f"[bold magenta]Detaching from Experiment {self._id}.")
                 self.console.log(
-                    "Task specific cleanup won't be run.\n"
-                    "Ephemeral logs and artifacts may be lost.",
+                    "Task specific cleanup won't be run.\nEphemeral logs and artifacts may be lost.",
                 )
 
                 if self._launched:
@@ -1225,9 +1185,7 @@ For more information about `run.Config` and `run.Partial`, please refer to https
             else:
                 if isinstance(job.tasks, str):
                     tasks = serializer.deserialize(job.tasks)
-                    job.tasks = [
-                        fdl.build(task) if task.__fn_or_cls__ == Script else task for task in tasks
-                    ]
+                    job.tasks = [fdl.build(task) if task.__fn_or_cls__ == Script else task for task in tasks]
 
         return Tasks((job.task if isinstance(job, Job) else job.tasks) for job in self._jobs)
 

@@ -154,9 +154,7 @@ class TestSSHTunnel:
         mock_session.is_connected = True
 
         # Test connection with identity file
-        tunnel = SSHTunnel(
-            host="test.host", user="test_user", job_dir="/remote/job", identity="/path/to/key"
-        )
+        tunnel = SSHTunnel(host="test.host", user="test_user", job_dir="/remote/job", identity="/path/to/key")
 
         tunnel.connect()
 
@@ -215,9 +213,7 @@ class TestSSHTunnel:
         ssh_tunnel.pre_command = "source /env.sh"
 
         ssh_tunnel.run("test command")
-        mock_session.run.assert_called_once_with(
-            "source /env.sh && test command", hide=True, warn=False
-        )
+        mock_session.run.assert_called_once_with("source /env.sh && test command", hide=True, warn=False)
 
     def test_put(self, ssh_tunnel):
         mock_session = MagicMock()
@@ -282,9 +278,7 @@ class TestSSHConfigFile:
         config_file.add_entry("user", "host", 22, "test")
 
         mock_file.assert_called_once_with("/test/config", "w")
-        mock_file().write.assert_called_once_with(
-            "Host tunnel.test\n    User user\n    HostName host\n    Port 22\n"
-        )
+        mock_file().write.assert_called_once_with("Host tunnel.test\n    User user\n    HostName host\n    Port 22\n")
 
     @patch("builtins.open", new_callable=mock_open, read_data="Existing content\n")
     @patch("os.path.exists", return_value=True)

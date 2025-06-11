@@ -68,9 +68,7 @@ class TestLeptonExecutor:
         mock_job_api = MagicMock()
         mock_instance.job = mock_job_api
 
-        mock_job_api.get = MagicMock(
-            return_value=MockLeptonJob(LeptonJobState.Running, ready=2, active=2)
-        )
+        mock_job_api.get = MagicMock(return_value=MockLeptonJob(LeptonJobState.Running, ready=2, active=2))
 
         mock_APIClient.return_value = mock_instance
 
@@ -190,9 +188,7 @@ class TestLeptonExecutor:
         mock_nodegroup.list_all.return_value = [
             SimpleNamespace(metadata=SimpleNamespace(name="123456", id_="my-node-id"))
         ]
-        mock_nodegroup.list_nodes.return_value = [
-            SimpleNamespace(metadata=SimpleNamespace(id_="10-10-10-10"))
-        ]
+        mock_nodegroup.list_nodes.return_value = [SimpleNamespace(metadata=SimpleNamespace(id_="10-10-10-10"))]
 
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
@@ -221,9 +217,7 @@ class TestLeptonExecutor:
         )
         custom_name = "data-mover-1"
         deployment = LeptonDeployment(
-            metadata=Metadata(
-                id=custom_name, name=custom_name, visibility=LeptonVisibility("private")
-            ),
+            metadata=Metadata(id=custom_name, name=custom_name, visibility=LeptonVisibility("private")),
             spec=spec,
         )
 
@@ -409,9 +403,7 @@ class TestLeptonExecutor:
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
             nemo_run_dir="/workspace/nemo_run",
-            mounts=[
-                {"path": "/workspace", "mount_path": "/workspace", "from": "local-storage:nfs"}
-            ],
+            mounts=[{"path": "/workspace", "mount_path": "/workspace", "from": "local-storage:nfs"}],
         )
 
         assert executor._validate_mounts() is None
@@ -451,9 +443,7 @@ class TestLeptonExecutor:
         mock_job_api = MagicMock()
         mock_instance.job = mock_job_api
 
-        mock_job_api.get = MagicMock(
-            return_value=MockLeptonJob(LeptonJobState.Running, ready=2, active=2)
-        )
+        mock_job_api.get = MagicMock(return_value=MockLeptonJob(LeptonJobState.Running, ready=2, active=2))
 
         mock_APIClient.return_value = mock_instance
 
@@ -474,9 +464,7 @@ class TestLeptonExecutor:
         mock_job_api = MagicMock()
         mock_instance.job = mock_job_api
 
-        mock_job_api.get = MagicMock(
-            return_value=MockLeptonJob(LeptonJobState.Running, ready=1, active=2)
-        )
+        mock_job_api.get = MagicMock(return_value=MockLeptonJob(LeptonJobState.Running, ready=1, active=2))
 
         mock_APIClient.return_value = mock_instance
 
@@ -497,9 +485,7 @@ class TestLeptonExecutor:
         mock_job_api = MagicMock()
         mock_instance.job = mock_job_api
 
-        mock_job_api.get = MagicMock(
-            return_value=MockLeptonJob(LeptonJobState.Starting, ready=0, active=2)
-        )
+        mock_job_api.get = MagicMock(return_value=MockLeptonJob(LeptonJobState.Starting, ready=0, active=2))
 
         mock_APIClient.return_value = mock_instance
 
@@ -566,9 +552,7 @@ class TestLeptonExecutor:
         mock_job_api = MagicMock()
         mock_instance.job = mock_job_api
 
-        mock_job_api.get = MagicMock(
-            return_value=MockLeptonJob(LeptonJobState.Running, ready=2, active=2)
-        )
+        mock_job_api.get = MagicMock(return_value=MockLeptonJob(LeptonJobState.Running, ready=2, active=2))
 
         mock_APIClient.return_value = mock_instance
 

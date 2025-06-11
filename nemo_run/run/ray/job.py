@@ -21,6 +21,7 @@ from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.frontend.console.api import configure_logging
 from nemo_run.run.ray.slurm import SlurmRayJob
 
+
 # Import guard for Kubernetes dependencies
 try:
     from nemo_run.core.execution.kuberay import KubeRayExecutor

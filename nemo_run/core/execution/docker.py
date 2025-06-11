@@ -38,6 +38,7 @@ from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 
+
 if TYPE_CHECKING:
     from docker import DockerClient
     from docker.models.containers import Container
@@ -139,9 +140,7 @@ class DockerExecutor(Executor):
     resource_group: list["DockerExecutor"] = field(init=False, default_factory=list)
 
     @classmethod
-    def merge(
-        cls: Type["DockerExecutor"], executors: list["DockerExecutor"], num_tasks: int
-    ) -> "DockerExecutor":
+    def merge(cls: Type["DockerExecutor"], executors: list["DockerExecutor"], num_tasks: int) -> "DockerExecutor":
         assert len(executors) in [1, num_tasks]
         if len(executors) == 1:
             executors = [executors[0]] + [copy.deepcopy(executors[0]) for _ in range(1, num_tasks)]
@@ -207,14 +206,10 @@ class DockerExecutor(Executor):
         ctx.run(f"mkdir -p {local_code_extraction_path}")
 
         if self.get_launcher().nsys_profile:
-            remote_nsys_extraction_path = os.path.join(
-                self.job_dir, self.get_launcher().nsys_folder
-            )
+            remote_nsys_extraction_path = os.path.join(self.job_dir, self.get_launcher().nsys_folder)
             ctx.run(f"mkdir -p {remote_nsys_extraction_path}")
         if local_pkg:
-            ctx.run(
-                f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True
-            )
+            ctx.run(f"tar -xvzf {local_pkg} -C {local_code_extraction_path} --ignore-zeros", hide=True)
 
     def cleanup(self, handle: str):
         _, _, app_id = parse_app_handle(handle)

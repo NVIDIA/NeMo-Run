@@ -14,7 +14,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass
-from typing import List, ForwardRef
+from typing import ForwardRef, List
 
 import nemo_run as run
 

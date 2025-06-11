@@ -16,6 +16,7 @@
 from dataclasses import dataclass
 
 import pytest
+
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.tunnel.client import SSHTunnel
 from nemo_run.devspace.base import DevSpace
@@ -46,9 +47,7 @@ class TestDevSpace:
             "name": "test",
             "executor": "mock_executor",
         }
-        mocker.patch("fiddle.build").return_value = DevSpace(
-            "test", executor=DummyExecutor(tunnel=tunnel_mock)
-        )
+        mocker.patch("fiddle.build").return_value = DevSpace("test", executor=DummyExecutor(tunnel=tunnel_mock))
 
         DevSpace.connect("user@host", "/path")
         assert tunnel_mock.called

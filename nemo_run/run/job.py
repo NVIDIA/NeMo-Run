@@ -94,9 +94,7 @@ class Job(ConfigurableMixin):
 
     def prepare(self):
         self.executor.create_job_dir()
-        self._executable = package(
-            self.id, self.task, executor=self.executor, serialize_to_file=True
-        )
+        self._executable = package(self.id, self.task, executor=self.executor, serialize_to_file=True)
 
     def launch(
         self,
@@ -239,14 +237,10 @@ class JobGroup(ConfigurableMixin):
         assert executor_type in self.SUPPORTED_EXECUTORS, "Unsupported executor type."
         if executor_type == SlurmExecutor:
             self._merge = True
-            self.executors = SlurmExecutor.merge(
-                cast(list[SlurmExecutor], executors), num_tasks=len(self.tasks)
-            )
+            self.executors = SlurmExecutor.merge(cast(list[SlurmExecutor], executors), num_tasks=len(self.tasks))
         elif executor_type == DockerExecutor:
             self._merge = True
-            self.executors = DockerExecutor.merge(
-                cast(list[DockerExecutor], executors), num_tasks=len(self.tasks)
-            )
+            self.executors = DockerExecutor.merge(cast(list[DockerExecutor], executors), num_tasks=len(self.tasks))
         else:
             self._merge = False
             if len(executors) == 1:

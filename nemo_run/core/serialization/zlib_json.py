@@ -29,9 +29,9 @@ class ZlibJSONSerializer:
         cfg: config.Buildable,
         pyref_policy: Optional[serialization.PyrefPolicy] = None,
     ) -> str:
-        return base64.urlsafe_b64encode(
-            zlib.compress(serialization.dump_json(cfg, pyref_policy).encode())
-        ).decode("ascii")
+        return base64.urlsafe_b64encode(zlib.compress(serialization.dump_json(cfg, pyref_policy).encode())).decode(
+            "ascii"
+        )
 
     def deserialize(
         self,

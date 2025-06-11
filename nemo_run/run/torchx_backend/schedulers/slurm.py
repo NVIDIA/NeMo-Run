@@ -58,14 +58,13 @@ from nemo_run.run import experiment as run_experiment
 from nemo_run.run.ray.slurm import SlurmRayRequest
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
+
 log: logging.Logger = logging.getLogger(__name__)
 SLURM_JOB_DIRS = os.path.join(get_nemorun_home(), ".slurm_jobs")
 
 
 class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
-    def __init__(
-        self, session_name: str, experiment: Optional[run_experiment.Experiment] = None
-    ) -> None:
+    def __init__(self, session_name: str, experiment: Optional[run_experiment.Experiment] = None) -> None:
         self.tunnel: Optional[Tunnel] = None
         super().__init__(session_name)
         self.experiment = experiment
@@ -122,13 +121,9 @@ class SlurmTunnelScheduler(SchedulerMixin, SlurmScheduler):  # type: ignore
             values = executor.macro_values()
 
             if values:
-                executor.env_vars = {
-                    key: values.substitute(arg) for key, arg in executor.env_vars.items()
-                }
+                executor.env_vars = {key: values.substitute(arg) for key, arg in executor.env_vars.items()}
                 for resource_req in executor.resource_group:
-                    resource_req.env_vars = {
-                        key: values.substitute(arg) for key, arg in resource_req.env_vars.items()
-                    }
+                    resource_req.env_vars = {key: values.substitute(arg) for key, arg in resource_req.env_vars.items()}
 
             for role in app.roles:
                 if values:
@@ -355,11 +350,7 @@ class TunnelLogIterator(LogIterator):
             try:
                 for _ in range(5):
                     extension = os.path.splitext(self._log_file)[1]
-                    ls_term = (
-                        self._ls_term
-                        if self._ls_term
-                        else os.path.join(self._remote_dir, f"log*{extension}")
-                    )
+                    ls_term = self._ls_term if self._ls_term else os.path.join(self._remote_dir, f"log*{extension}")
                     ls_term = ls_term.replace("%j", self._app_id)
                     ls_output = self._scheduler.tunnel.run(
                         f"ls -1 {ls_term} 2> /dev/null",
@@ -374,9 +365,7 @@ class TunnelLogIterator(LogIterator):
                         break
                     time.sleep(1)
             except Exception as e:
-                log.warning(
-                    f"Failed fetching logs from remote (will display logs from previous fetch): {e}"
-                )
+                log.warning(f"Failed fetching logs from remote (will display logs from previous fetch): {e}")
 
 
 def create_scheduler(session_name: str, **kwargs: Any) -> SlurmTunnelScheduler:
@@ -387,14 +376,10 @@ def create_scheduler(session_name: str, **kwargs: Any) -> SlurmTunnelScheduler:
     )
 
 
-def _save_job_dir(
-    job_id: str, local_job_dir: str, tunnel: SSHTunnel | LocalTunnel, ls_term: str
-) -> None:
+def _save_job_dir(job_id: str, local_job_dir: str, tunnel: SSHTunnel | LocalTunnel, ls_term: str) -> None:
     os.makedirs(os.path.dirname(SLURM_JOB_DIRS), exist_ok=True)
     with open(SLURM_JOB_DIRS, "a+") as f:
-        f.write(
-            f"{job_id} = {ls_term},{local_job_dir},{tunnel.__class__.__name__},{json.dumps(asdict(tunnel))}\n"
-        )
+        f.write(f"{job_id} = {ls_term},{local_job_dir},{tunnel.__class__.__name__},{json.dumps(asdict(tunnel))}\n")
 
 
 def _get_job_dirs() -> dict[str, tuple[str, SSHTunnel | LocalTunnel, str]]:

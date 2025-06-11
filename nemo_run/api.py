@@ -39,6 +39,7 @@ from nemo_run.config import Config, Partial
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.api import CONSOLE, CustomConfigRepr
 
+
 F = TypeVar("F", bound=Callable[..., Any])
 T = TypeVar("T")
 P = ParamSpec("P")

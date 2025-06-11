@@ -32,6 +32,7 @@ from nemo_run.config import get_type_namespace, get_underlying_types
 from nemo_run.core.frontend.console.api import CONSOLE
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
 
+
 RECURSIVE_TYPES = (typing.Union, typing.Optional)
 
 
@@ -62,9 +63,7 @@ def _get_rows_for_factories(
                 link = f"file://{file_path}#L{line_no}"
             else:
                 link = f"{editor}://file/{file_path}:{line_no}"
-            func_text = Text.from_markup(
-                f"[link={link}]{module}.{func.__name__}[/link]", style="bold cyan"
-            )
+            func_text = Text.from_markup(f"[link={link}]{module}.{func.__name__}[/link]", style="bold cyan")
         else:
             func_text = Text(f"{module}.{func.__name__}" if module else "N/A", style="bold cyan")
 
@@ -94,9 +93,7 @@ def help_for_callable(
     display_executors: bool = True,
 ) -> None:
     if not callable(entity):
-        CONSOLE.print(
-            f"[bold cyan]Help unavailable for {entity}. Entity is not callable.[/bold cyan]"
-        )
+        CONSOLE.print(f"[bold cyan]Help unavailable for {entity}. Entity is not callable.[/bold cyan]")
         return
 
     box_style = getattr(box, BOX_STYLE, None)
@@ -122,9 +119,7 @@ def help_for_callable(
     try:
         sig = inspect.signature(entity)
     except Exception:
-        CONSOLE.print(
-            f"[bold cyan]Help unavailable for {entity}. Failed getting signature.[/bold cyan]"
-        )
+        CONSOLE.print(f"[bold cyan]Help unavailable for {entity}. Failed getting signature.[/bold cyan]")
         return
 
     params = sig.parameters
@@ -287,7 +282,9 @@ def class_to_str(class_obj):
             "lightning.pytorch.core.module.LightningModule",
             "pytorch_lightning.core.module.LightningModule",
         ):
-            return "[link=https://lightning.ai/docs/pytorch/latest/common/lightning_module.html]L.LightningModule[/link]"
+            return (
+                "[link=https://lightning.ai/docs/pytorch/latest/common/lightning_module.html]L.LightningModule[/link]"
+            )
         if full_class_name in (
             "lightning.pytorch.core.datamodule.LightningDataModule",
             "pytorch_lightning.core.datamodule.LightningDataModule",

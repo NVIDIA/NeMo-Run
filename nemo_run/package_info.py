@@ -13,6 +13,7 @@
 # limitations under the License.
 from packaging.version import Version
 
+
 __version__ = "0.5.0rc0.dev0"
 
 MAJOR = Version(__version__).major

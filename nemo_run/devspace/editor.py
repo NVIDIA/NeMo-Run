@@ -54,11 +54,7 @@ def launch_editor(tunnel: str, path: str):
             # This avoids the code launch script activating the WSL remote extension
             # which enables us to specify the ssh tunnel as the remote
             if os.name == "posix" and "WSL" in os.uname().release:
-                code_cli = (
-                    (Path(shutil.which("code")).parent.parent / "Code.exe")
-                    .as_posix()
-                    .replace(" ", "\\ ")
-                )
+                code_cli = (Path(shutil.which("code")).parent.parent / "Code.exe").as_posix().replace(" ", "\\ ")
 
             cmd = f"{code_cli} --new-window --remote ssh-remote+tunnel.{tunnel} {path}"
             CONSOLE.print(cmd)

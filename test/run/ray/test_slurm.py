@@ -29,9 +29,8 @@ from nemo_run.run.ray.slurm import (
     get_last_job_id,
 )
 
-ARTIFACTS_DIR = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "..", "..", "core", "execution", "artifacts"
-)
+
+ARTIFACTS_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "core", "execution", "artifacts")
 
 
 class TestSlurmRayCluster:
@@ -289,9 +288,7 @@ class TestSlurmRayCluster:
         assert status["ray_ready"] is True  # COMPLETED jobs are considered ray_ready
 
     @patch("nemo_run.run.ray.slurm.get_last_job_id")
-    def test_status_job_not_in_squeue_no_sacct_output(
-        self, mock_get_last_job_id, cluster, mock_tunnel
-    ):
+    def test_status_job_not_in_squeue_no_sacct_output(self, mock_get_last_job_id, cluster, mock_tunnel):
         """Test status when job not in squeue and sacct returns no output."""
         mock_tunnel.run.side_effect = [
             Mock(stdout="", return_code=0),  # squeue -n job_name (empty)
@@ -408,9 +405,7 @@ class TestSlurmRayCluster:
 
                     with patch("queue.Queue") as mock_queue_class:
                         mock_queue = Mock()
-                        mock_queue.get.side_effect = RuntimeError(
-                            "Port 8265 is already in use locally"
-                        )
+                        mock_queue.get.side_effect = RuntimeError("Port 8265 is already in use locally")
                         mock_queue_class.return_value = mock_queue
 
                         with pytest.raises(RuntimeError, match="Port .* is already in use locally"):
@@ -419,9 +414,7 @@ class TestSlurmRayCluster:
     @patch("subprocess.Popen")
     @patch("socket.socket")
     @patch("queue.Queue")
-    def test_port_forward_ssh_process_fails(
-        self, mock_queue_class, mock_socket, mock_popen, cluster
-    ):
+    def test_port_forward_ssh_process_fails(self, mock_queue_class, mock_socket, mock_popen, cluster):
         """Test port forwarding when SSH process fails to start."""
         # Mock successful socket binding
         mock_sock = Mock()
@@ -560,9 +553,7 @@ class TestSlurmRayJob:
         result = job.stop()
 
         assert result is True
-        mock_cancel.assert_called_once_with(
-            job.executor, "test-job", 12345, wait=False, timeout=60, poll_interval=5
-        )
+        mock_cancel.assert_called_once_with(job.executor, "test-job", 12345, wait=False, timeout=60, poll_interval=5)
 
     @patch("nemo_run.run.ray.slurm.get_last_job_id")
     def test_stop_no_job_id(self, mock_get_last_job_id, job):
@@ -720,9 +711,7 @@ class TestSlurmRayJob:
     @patch("subprocess.run")
     @patch("os.makedirs")
     @patch("os.getcwd")
-    def test_start_with_packager_local_tunnel(
-        self, mock_getcwd, mock_makedirs, mock_subprocess, mock_mkdtemp, job
-    ):
+    def test_start_with_packager_local_tunnel(self, mock_getcwd, mock_makedirs, mock_subprocess, mock_mkdtemp, job):
         """Test starting job with packager and local tunnel."""
         mock_mkdtemp.return_value = "/tmp/mock_temp"
         mock_getcwd.return_value = "/repo/root"

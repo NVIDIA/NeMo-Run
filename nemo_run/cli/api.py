@@ -18,12 +18,12 @@ import inspect
 import logging
 import os
 import sys
+import typing
 from dataclasses import dataclass, field
 from functools import cache, wraps
-import typing
 from typing import (
-    Any,
     Annotated,
+    Any,
     Callable,
     Dict,
     Generic,
@@ -51,8 +51,8 @@ from rich import box
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
-from rich.table import Table
 from rich.syntax import Syntax
+from rich.table import Table
 from typer import Option, Typer, rich_utils
 from typer.core import TyperCommand, TyperGroup
 from typer.models import OptionInfo
@@ -61,20 +61,21 @@ from typing_extensions import NotRequired, ParamSpec, TypedDict
 from nemo_run.cli import devspace as devspace_cli
 from nemo_run.cli import experiment as experiment_cli
 from nemo_run.cli.cli_parser import parse_cli_args, parse_factory
+from nemo_run.cli.config import ConfigSerializer
+from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.config import (
+    RECURSIVE_TYPES,
     Config,
     Partial,
     get_nemorun_home,
     get_type_namespace,
-    RECURSIVE_TYPES,
 )
 from nemo_run.core.execution import LocalExecutor, SkypilotExecutor, SlurmExecutor
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.frontend.console.styles import BOX_STYLE, TABLE_STYLES
-from nemo_run.cli.config import ConfigSerializer
-from nemo_run.cli.lazy import LazyEntrypoint
 from nemo_run.run.experiment import Experiment
 from nemo_run.run.plugin import ExperimentPlugin as Plugin
+
 
 F = TypeVar("F", bound=Callable[..., Any])
 Params = ParamSpec("Params")
@@ -419,10 +420,7 @@ def factory(
             return_type = _get_return_type(fn)
             if not (
                 isinstance(return_type, (Config, Partial))
-                or (
-                    hasattr(return_type, "__origin__")
-                    and issubclass(return_type.__origin__, (Config, Partial))
-                )
+                or (hasattr(return_type, "__origin__") and issubclass(return_type.__origin__, (Config, Partial)))
             ):
                 raise ValueError(
                     f"Factory function {fn} has a return type which is not a subclass of Config or Partial. "
@@ -527,11 +525,7 @@ def list_factories(type_or_namespace: Type | str) -> list[Callable]:
     _load_entrypoints()
     _load_workspace()
 
-    _namespace = (
-        get_type_namespace(type_or_namespace)
-        if isinstance(type_or_namespace, type)
-        else type_or_namespace
-    )
+    _namespace = get_type_namespace(type_or_namespace) if isinstance(type_or_namespace, type) else type_or_namespace
     response = catalogue._get_all([_namespace])
     return list(response.values())
 
@@ -582,9 +576,7 @@ def create_cli(
         for ep in entrypoints:
             _get_or_add_typer(app, name=ep.name)
 
-        if not nested_entrypoints_creation or (
-            len(sys.argv) > 1 and sys.argv[1] in entrypoints.names
-        ):
+        if not nested_entrypoints_creation or (len(sys.argv) > 1 and sys.argv[1] in entrypoints.names):
             _add_typer_nested(app, list_entrypoints())
 
         app.add_typer(
@@ -639,13 +631,9 @@ def add_global_options(app: Typer):
             "--rich-show-locals/--rich-hide-locals",
             help="Toggle local variables in exceptions",
         ),
-        rich_theme: Optional[str] = typer.Option(
-            None, "--rich-theme", help="Color theme (dark/light/monochrome)"
-        ),
+        rich_theme: Optional[str] = typer.Option(None, "--rich-theme", help="Color theme (dark/light/monochrome)"),
     ):
-        _configure_global_options(
-            app, rich_exceptions, rich_traceback, rich_locals, rich_theme, verbose
-        )
+        _configure_global_options(app, rich_exceptions, rich_traceback, rich_locals, rich_theme, verbose)
 
     return global_options
 
@@ -737,8 +725,7 @@ def _register_factory(
     else:
         _return_type = _get_return_type(fn)
         if isinstance(_return_type, (Config, Partial)) or (
-            hasattr(_return_type, "__origin__")
-            and issubclass(_return_type.__origin__, (Config, Partial))
+            hasattr(_return_type, "__origin__") and issubclass(_return_type.__origin__, (Config, Partial))
         ):
             _return_type = get_args(_return_type)[0]
 
@@ -878,29 +865,17 @@ class RunContext:
         )
         def command(
             run_name: str = typer.Option(None, "--name", "-n", help="Name of the run"),
-            direct: bool = typer.Option(
-                False, "--direct/--no-direct", help="Execute the run directly"
-            ),
-            dryrun: bool = typer.Option(
-                False, "--dryrun", help="Print the scheduler request without submitting"
-            ),
-            factory: Optional[str] = typer.Option(
-                None, "--factory", "-f", help="Predefined factory to use"
-            ),
-            load: Optional[str] = typer.Option(
-                None, "--load", "-l", help="Load a factory from a directory"
-            ),
-            yaml: Optional[str] = typer.Option(
-                None, "--yaml", "-y", help="Path to a YAML file to load"
-            ),
+            direct: bool = typer.Option(False, "--direct/--no-direct", help="Execute the run directly"),
+            dryrun: bool = typer.Option(False, "--dryrun", help="Print the scheduler request without submitting"),
+            factory: Optional[str] = typer.Option(None, "--factory", "-f", help="Predefined factory to use"),
+            load: Optional[str] = typer.Option(None, "--load", "-l", help="Load a factory from a directory"),
+            yaml: Optional[str] = typer.Option(None, "--yaml", "-y", help="Path to a YAML file to load"),
             repl: bool = typer.Option(False, "--repl", "-r", help="Enter interactive mode"),
             detach: bool = typer.Option(False, "--detach", help="Detach from the run"),
             skip_confirmation: bool = typer.Option(
                 False, "--yes", "-y", "--no-confirm", help="Skip confirmation before execution"
             ),
-            tail_logs: bool = typer.Option(
-                False, "--tail-logs/--no-tail-logs", help="Tail logs after execution"
-            ),
+            tail_logs: bool = typer.Option(False, "--tail-logs/--no-tail-logs", help="Tail logs after execution"),
             verbose: bool = Option(False, "-v", "--verbose", help="Enable verbose logging"),
             rich_exceptions: bool = typer.Option(
                 False,
@@ -917,18 +892,10 @@ class RunContext:
                 "--rich-show-locals/--rich-hide-locals",
                 help="Toggle local variables in exceptions",
             ),
-            rich_theme: Optional[str] = typer.Option(
-                None, "--rich-theme", help="Color theme (dark/light/monochrome)"
-            ),
-            to_yaml: Optional[str] = typer.Option(
-                None, "--to-yaml", help="Export config to YAML file"
-            ),
-            to_toml: Optional[str] = typer.Option(
-                None, "--to-toml", help="Export config to TOML file"
-            ),
-            to_json: Optional[str] = typer.Option(
-                None, "--to-json", help="Export config to JSON file"
-            ),
+            rich_theme: Optional[str] = typer.Option(None, "--rich-theme", help="Color theme (dark/light/monochrome)"),
+            to_yaml: Optional[str] = typer.Option(None, "--to-yaml", help="Export config to YAML file"),
+            to_toml: Optional[str] = typer.Option(None, "--to-toml", help="Export config to TOML file"),
+            to_json: Optional[str] = typer.Option(None, "--to-json", help="Export config to JSON file"),
             ctx: typer.Context = typer.Context,
         ):
             _cmd_defaults = cmd_defaults or {}
@@ -941,8 +908,7 @@ class RunContext:
                 yaml=yaml or _cmd_defaults.get("yaml", None),
                 repl=repl or _cmd_defaults.get("repl", False),
                 detach=detach or _cmd_defaults.get("detach", False),
-                skip_confirmation=skip_confirmation
-                or _cmd_defaults.get("skip_confirmation", False),
+                skip_confirmation=skip_confirmation or _cmd_defaults.get("skip_confirmation", False),
                 tail_logs=tail_logs or _cmd_defaults.get("tail_logs", False),
                 to_yaml=to_yaml or _cmd_defaults.get("to_yaml", None),
                 to_toml=to_toml or _cmd_defaults.get("to_toml", None),
@@ -1014,9 +980,7 @@ class RunContext:
                 tail_logs=self.tail_logs,
             )
 
-    def cli_execute(
-        self, fn: Callable, args: List[str], entrypoint_type: Literal["task", "experiment"] = "task"
-    ):
+    def cli_execute(self, fn: Callable, args: List[str], entrypoint_type: Literal["task", "experiment"] = "task"):
         """
         Execute the given function as a CLI command.
 
@@ -1144,9 +1108,7 @@ class RunContext:
 
         # If any export flag is used, export the configuration and exit
         if any([self.to_yaml, self.to_toml, self.to_json]):
-            _serialize_configuration(
-                to_run, self.to_yaml, self.to_toml, self.to_json, is_lazy=True, console=console
-            )
+            _serialize_configuration(to_run, self.to_yaml, self.to_toml, self.to_json, is_lazy=True, console=console)
             console.print("[bold cyan]Export complete. Skipping execution.[/bold cyan]")
             return
 
@@ -1426,9 +1388,7 @@ class Entrypoint(Generic[Params, ReturnType]):
     ):
         if type == "task":
             if "executor" in inspect.signature(fn).parameters:
-                raise ValueError(
-                    "The function cannot have an argument named `executor` as it is a reserved keyword."
-                )
+                raise ValueError("The function cannot have an argument named `executor` as it is a reserved keyword.")
         elif type in ("sequential_experiment", "parallel_experiment"):
             if "ctx" not in inspect.signature(fn).parameters:
                 raise ValueError(
@@ -1636,9 +1596,7 @@ class GeneralCommand(TyperGroup):
         return out
 
 
-def _parse_prefixed_args(
-    args: List[str], prefix: str
-) -> Tuple[Optional[str], List[str], List[str]]:
+def _parse_prefixed_args(args: List[str], prefix: str) -> Tuple[Optional[str], List[str], List[str]]:
     """
     Parse arguments to separate prefixed args from others.
 
@@ -1664,9 +1622,7 @@ def _parse_prefixed_args(
                 prefixed_arg_value = arg.split("=")[1]
             else:
                 if not arg.startswith(f"{prefix}.") and not arg.startswith(f"{prefix}["):
-                    raise ValueError(
-                        f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}"
-                    )
+                    raise ValueError(f"{prefix.capitalize()} overwrites must start with '{prefix}.'. Got {arg}")
                 if arg.startswith(f"{prefix}."):
                     prefixed_args.append(arg.replace(f"{prefix}.", ""))
                 elif arg.startswith(f"{prefix}["):
@@ -1758,9 +1714,7 @@ def _serialize_configuration(
                 else:
                     # Standard lazy config handling
                     config_dict = {
-                        "_target_": config._target_path_
-                        if hasattr(config, "_target_path_")
-                        else str(config._target_),
+                        "_target_": config._target_path_ if hasattr(config, "_target_path_") else str(config._target_),
                     }
                     if config._factory_:
                         config_dict["_factory_"] = str(config._factory_)
@@ -1875,9 +1829,7 @@ def extract_constituent_types(type_hint: Any) -> Set[Type]:
     # Handle older style type hints (_GenericAlias)
     if hasattr(typing, "_GenericAlias") and isinstance(type_hint, typing._GenericAlias):  # type: ignore
         # Correctly handle Annotated by getting the first argument (the actual type)
-        if str(type_hint).startswith("typing.Annotated") or str(type_hint).startswith(
-            "typing_extensions.Annotated"
-        ):
+        if str(type_hint).startswith("typing.Annotated") or str(type_hint).startswith("typing_extensions.Annotated"):
             # Recurse on the actual type, skipping metadata
             return extract_constituent_types(type_hint.__args__[0])
         else:
@@ -1894,9 +1846,7 @@ def extract_constituent_types(type_hint: Any) -> Set[Type]:
         # Collect types from arguments
         result = set()
         for arg in type_hint.__args__:
-            if arg is not type(
-                None
-            ):  # Also skip NoneType here for generics like list[Optional[int]]
+            if arg is not type(None):  # Also skip NoneType here for generics like list[Optional[int]]
                 result.update(extract_constituent_types(arg))
         # Add the origin itself (e.g., list, dict)
         if isinstance(origin, type):
@@ -1949,9 +1899,7 @@ def extract_constituent_types(type_hint: Any) -> Set[Type]:
             result.add(type_hint)
 
     # If no types were added, return the original type hint to preserve behavior
-    if (
-        not result
-    ):  # This covers cases like type_hint being a TypeVar that resulted in an empty set initially
+    if not result:  # This covers cases like type_hint being a TypeVar that resulted in an empty set initially
         return {type_hint}
 
     return result

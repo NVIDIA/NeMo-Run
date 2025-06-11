@@ -1,5 +1,6 @@
 import nemo_run as run
 
+
 with run.lazy_imports():
     from test.test_utils import dummy_entrypoint, dummy_recipe
 

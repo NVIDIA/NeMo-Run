@@ -29,9 +29,7 @@ from nemo_run.run.torchx_backend.schedulers.dgxcloud import (
 
 @pytest.fixture
 def mock_app_def():
-    return AppDef(
-        name="test_app", roles=[Role(name="test_role", image="nvcr.io/nvidia/nemo:latest")]
-    )
+    return AppDef(name="test_app", roles=[Role(name="test_role", image="nvcr.io/nvidia/nemo:latest")])
 
 
 @pytest.fixture
@@ -99,9 +97,7 @@ def test_schedule(dgx_cloud_scheduler, mock_app_def, dgx_cloud_executor):
 
 def test_describe(dgx_cloud_scheduler, dgx_cloud_executor):
     with (
-        mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
-        ) as mock_get_job_dirs,
+        mock.patch("nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs") as mock_get_job_dirs,
         mock.patch.object(DGXCloudExecutor, "status") as mock_status,
     ):
         mock_get_job_dirs.return_value = {
@@ -121,9 +117,7 @@ def test_describe(dgx_cloud_scheduler, dgx_cloud_executor):
 
 def test_cancel_existing(dgx_cloud_scheduler, dgx_cloud_executor):
     with (
-        mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs"
-        ) as mock_get_job_dirs,
+        mock.patch("nemo_run.run.torchx_backend.schedulers.dgxcloud._get_job_dirs") as mock_get_job_dirs,
         mock.patch.object(DGXCloudExecutor, "cancel") as mock_cancel,
     ):
         mock_get_job_dirs.return_value = {

@@ -37,12 +37,8 @@ class TestSlurmJobDetails:
         # Test property methods
         assert str(details.stderr) == "/path/to/job/sbatch_test_job_%j.err"
         assert str(details.stdout) == "/path/to/job/sbatch_test_job_%j.out"
-        assert (
-            str(details.srun_stderr) == "/path/to/job/log-test_job_%j_${SLURM_RESTART_COUNT:-0}.err"
-        )
-        assert (
-            str(details.srun_stdout) == "/path/to/job/log-test_job_%j_${SLURM_RESTART_COUNT:-0}.out"
-        )
+        assert str(details.srun_stderr) == "/path/to/job/log-test_job_%j_${SLURM_RESTART_COUNT:-0}.err"
+        assert str(details.srun_stdout) == "/path/to/job/log-test_job_%j_${SLURM_RESTART_COUNT:-0}.out"
         assert details.ls_term == "/path/to/job/log*"
 
         # Test repr method
@@ -92,9 +88,7 @@ class TestSlurmExecutorExtended:
         assert executor.nproc_per_node() == 4
 
         # Test with torchrun_nproc_per_node
-        executor = SlurmExecutor(
-            account="test", nodes=2, ntasks_per_node=4, torchrun_nproc_per_node=8
-        )
+        executor = SlurmExecutor(account="test", nodes=2, ntasks_per_node=4, torchrun_nproc_per_node=8)
         assert executor.nproc_per_node() == 8
 
         # Test with gpus_per_node and ntasks_per_node=1
@@ -207,9 +201,7 @@ class TestSlurmExecutorExtended:
         executor = SlurmExecutor(account="test")
 
         # Test with SlurmTemplate launcher
-        with patch.object(
-            executor, "get_launcher", return_value=SlurmTemplate(template_inline="content")
-        ):
+        with patch.object(executor, "get_launcher", return_value=SlurmTemplate(template_inline="content")):
             assert executor.supports_launcher_transform() is True
 
         # Test with non-SlurmTemplate launcher
@@ -270,9 +262,7 @@ class TestSlurmExecutorExtended:
             callback = executor.connect_devspace(mock_space, tunnel_dir="/path/to/tunnel")
 
             # Verify SlurmTunnelCallback was created correctly
-            mock_callback_cls.assert_called_once_with(
-                executor, space=mock_space, tunnel_dir="/path/to/tunnel"
-            )
+            mock_callback_cls.assert_called_once_with(executor, space=mock_space, tunnel_dir="/path/to/tunnel")
             assert callback == mock_callback
 
 
@@ -379,9 +369,7 @@ class TestSlurmExecutor:
 
     def test_merge_multiple_executor(self):
         executor = SlurmExecutor(account="account", heterogeneous=True)
-        executor_2 = SlurmExecutor(
-            account="account_2", nodes=2, ntasks_per_node=4, container_image="abcd"
-        )
+        executor_2 = SlurmExecutor(account="account_2", nodes=2, ntasks_per_node=4, container_image="abcd")
         merged_executor = SlurmExecutor.merge([executor, executor_2], num_tasks=2)
         assert len(merged_executor.resource_group) == 2
         assert merged_executor.resource_group[1].container_image == "abcd"

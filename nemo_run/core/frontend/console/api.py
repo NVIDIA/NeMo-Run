@@ -18,6 +18,7 @@ import logging
 from rich.console import Console, _is_jupyter
 from rich.logging import RichHandler
 
+
 CONSOLE = Console()
 
 

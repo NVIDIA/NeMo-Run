@@ -103,9 +103,7 @@ def test_print_log_lines_with_log_supported_executor(mock_runner: Runner, mock_s
         mock_logs.assert_called_with("12345", fallback_path="test_path")
 
 
-def test_print_log_lines_with_unsupported_executor(
-    mock_runner: Runner, mock_status: AppStatus, capsys
-):
+def test_print_log_lines_with_unsupported_executor(mock_runner: Runner, mock_status: AppStatus, capsys):
     executor_cls = MockExecutorNoLogs
     REVERSE_EXECUTOR_MAPPING["dummy_backend"] = executor_cls
     mock_runner.status.return_value = mock_status

@@ -28,6 +28,7 @@ from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.tunnel.client import LocalTunnel, SSHTunnel
 from nemo_run.run.torchx_backend.packaging import package
 
+
 ARTIFACTS_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "artifacts")
 
 
@@ -36,13 +37,9 @@ class TestSlurmBatchRequest:
         values = executor.macro_values()
 
         if values:
-            executor.env_vars = {
-                key: values.substitute(arg) for key, arg in executor.env_vars.items()
-            }
+            executor.env_vars = {key: values.substitute(arg) for key, arg in executor.env_vars.items()}
             for resource_req in executor.resource_group:
-                resource_req.env_vars = {
-                    key: values.substitute(arg) for key, arg in resource_req.env_vars.items()
-                }
+                resource_req.env_vars = {key: values.substitute(arg) for key, arg in resource_req.env_vars.items()}
 
     @pytest.fixture
     def dummy_slurm_request_with_artifact(
@@ -81,9 +78,7 @@ class TestSlurmBatchRequest:
             tunnel=LocalTunnel(job_dir="/root/"),
         )
         slurm_config.job_name = "sample_job"
-        slurm_config.launcher = FaultTolerance(
-            workload_check_interval=10, rank_heartbeat_timeout=10
-        )
+        slurm_config.launcher = FaultTolerance(workload_check_interval=10, rank_heartbeat_timeout=10)
         role = package(
             name="test_ft",
             fn_or_script=Script("test_ft.sh"),
@@ -293,9 +288,7 @@ class TestSlurmBatchRequest:
             heterogeneous=True,
         )
         slurm_config.job_name = "sample_job"
-        slurm_config.launcher = FaultTolerance(
-            workload_check_interval=10, rank_heartbeat_timeout=10
-        )
+        slurm_config.launcher = FaultTolerance(workload_check_interval=10, rank_heartbeat_timeout=10)
         slurm_config.resource_group = [
             SlurmExecutor.ResourceRequest(
                 packager=slurm_config.packager,
@@ -497,10 +490,7 @@ class TestSlurmBatchRequest:
 
         sbatch_script = dummy_slurm_request.materialize()
         assert "#SBATCH --array=0-10" in sbatch_script
-        assert (
-            "#SBATCH --output=/root/sample_job/sbatch_account-account.sample_job_%A_%a.out"
-            in sbatch_script
-        )
+        assert "#SBATCH --output=/root/sample_job/sbatch_account-account.sample_job_%A_%a.out" in sbatch_script
 
     def test_dummy_batch_additonal_params(
         self,
@@ -623,9 +613,7 @@ class TestSlurmBatchRequest:
         assert "srun --output /custom_folder_2/log_custom_sample_job_2.out" in sbatch_script
         assert "#SBATCH --output=/custom_folder/sbatch_job.out" in sbatch_script
 
-    def test_ft_slurm_request_materialize(
-        self, ft_slurm_request_with_artifact: tuple[SlurmBatchRequest, str]
-    ):
+    def test_ft_slurm_request_materialize(self, ft_slurm_request_with_artifact: tuple[SlurmBatchRequest, str]):
         ft_slurm_request, artifact = ft_slurm_request_with_artifact
         sbatch_script = ft_slurm_request.materialize()
         expected = Path(artifact).read_text()
@@ -633,9 +621,7 @@ class TestSlurmBatchRequest:
         expected = re.sub(r"--rdzv-id \d+", "--rdzv-id 1", expected)
         assert sbatch_script.strip() == expected.strip()
 
-    def test_ft_het_slurm_request_materialize(
-        self, ft_het_slurm_request_with_artifact: tuple[SlurmBatchRequest, str]
-    ):
+    def test_ft_het_slurm_request_materialize(self, ft_het_slurm_request_with_artifact: tuple[SlurmBatchRequest, str]):
         ft_het_slurm_request, artifact = ft_het_slurm_request_with_artifact
         executor = ft_het_slurm_request.executor
         self.apply_macros(executor)
@@ -676,9 +662,7 @@ class TestSlurmBatchRequest:
                 return Path(self.folder) / "log_job.out"
 
         custom_name = "custom_het_job"
-        het_request.executor.job_details = CustomJobDetails(
-            job_name=custom_name, folder="/custom_folder"
-        )
+        het_request.executor.job_details = CustomJobDetails(job_name=custom_name, folder="/custom_folder")
         sbatch_script = het_request.materialize()
         for i in range(len(het_request.jobs)):
             assert f"#SBATCH --job-name={custom_name}-{i}" in sbatch_script

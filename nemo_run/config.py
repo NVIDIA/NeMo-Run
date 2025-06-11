@@ -37,6 +37,7 @@ from typing_extensions import Annotated, ParamSpec, Self
 
 import nemo_run.exceptions as run_exceptions
 
+
 Params = ParamSpec("Params")
 ReturnType = TypeVar("ReturnType")
 
@@ -126,9 +127,7 @@ def from_dict(raw_data: dict | list | str | float | int | bool, cls: Type[_T]) -
     if isinstance(raw_data, dict):
         underlying_types = get_underlying_types(cls)
         underlying_types = [tp for tp in underlying_types if tp is not type(None)]
-        assert len(underlying_types) == 1, (
-            f"Unable to load {cls}. Nested union types are not currently supported."
-        )
+        assert len(underlying_types) == 1, f"Unable to load {cls}. Nested union types are not currently supported."
         cls = underlying_types[0]  # type: ignore
 
     if dataclasses.is_dataclass(cls):
@@ -384,9 +383,7 @@ class ConfigurableMixin(_VisualizeMixin):
         """
         if dataclasses.is_dataclass(self):
             try:
-                return fdl.cast(
-                    Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True)
-                )
+                return fdl.cast(Config, fdl_dc.convert_dataclasses_to_configs(self, allow_post_init=True))
             except Exception as e:
                 raise NotImplementedError(
                     f"Cannot convert type {type(self)} to Config",
@@ -396,8 +393,7 @@ class ConfigurableMixin(_VisualizeMixin):
             return self  # type: ignore
         else:
             raise NotImplementedError(
-                f"Cannot convert type {type(self)} to Config. "
-                f"Please override the `to_config` method for {type(self)}."
+                f"Cannot convert type {type(self)} to Config. Please override the `to_config` method for {type(self)}."
             )
 
     def _repr_svg_(self):

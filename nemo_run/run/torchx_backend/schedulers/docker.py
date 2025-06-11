@@ -51,6 +51,7 @@ from nemo_run.core.execution.docker import (
 )
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
+
 log: logging.Logger = logging.getLogger(__name__)
 
 
@@ -61,9 +62,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         self._scheduled_reqs: list[DockerJobRequest] = []
 
     def _submit_dryrun(self, app: AppDef, cfg: Executor) -> AppDryRunInfo[DockerJobRequest]:  # type: ignore
-        assert isinstance(cfg, DockerExecutor), (
-            f"{cfg.__class__} not supported for docker scheduler."
-        )
+        assert isinstance(cfg, DockerExecutor), f"{cfg.__class__} not supported for docker scheduler."
         executor = cfg
 
         if len(app.roles) > 1:
@@ -72,13 +71,9 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         values = executor.macro_values()
 
         if values:
-            executor.env_vars = {
-                key: values.substitute(arg) for key, arg in executor.env_vars.items()
-            }
+            executor.env_vars = {key: values.substitute(arg) for key, arg in executor.env_vars.items()}
             for resource_req in executor.resource_group:
-                resource_req.env_vars = {
-                    key: values.substitute(arg) for key, arg in resource_req.env_vars.items()
-                }
+                resource_req.env_vars = {key: values.substitute(arg) for key, arg in resource_req.env_vars.items()}
 
         containers = []
         for i, role in enumerate(app.roles):
@@ -122,9 +117,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         for container in req.containers:
             for i, mount in enumerate(container.executor.volumes):
                 if mount.startswith(RUNDIR_SPECIAL_NAME):
-                    container.executor.volumes[i] = mount.replace(
-                        RUNDIR_SPECIAL_NAME, req.executor.job_dir, 1
-                    )
+                    container.executor.volumes[i] = mount.replace(RUNDIR_SPECIAL_NAME, req.executor.job_dir, 1)
             container.executor.volumes.append(f"{req.executor.job_dir}:/{RUNDIR_NAME}")
 
         req.run(client=client)
@@ -201,9 +194,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
             return [""]
 
         def local_logs(container: DockerContainer):
-            existing_log_files = glob.glob(
-                os.path.join(container.executor.job_dir, f"*{role_name}*.out")
-            )
+            existing_log_files = glob.glob(os.path.join(container.executor.job_dir, f"*{role_name}*.out"))
             if not existing_log_files:
                 return [""]
 
@@ -274,9 +265,7 @@ class PersistentDockerScheduler(SchedulerMixin, DockerScheduler):  # type: ignor
         except Exception as e:
             # When the `__del__` method is invoked, we cannot rely on presence of object attributes,
             # More info: https://stackoverflow.com/questions/18058730/python-attributeerror-on-del
-            log.warning(
-                f"Exception {e} occurred while trying to clean `DockerScheduler` via `__del__` method"
-            )
+            log.warning(f"Exception {e} occurred while trying to clean `DockerScheduler` via `__del__` method")
 
 
 def create_scheduler(session_name: str, **kwargs: Any) -> PersistentDockerScheduler:

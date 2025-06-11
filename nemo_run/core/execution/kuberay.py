@@ -29,6 +29,7 @@ from kubernetes.client.rest import ApiException
 
 from nemo_run.core.execution.base import Executor
 
+
 # Group, Version, Plural
 GROUP = "ray.io"
 VERSION = "v1alpha1"
@@ -373,18 +374,18 @@ def update_worker_group_resources(
     worker_groups = cluster["spec"]["workerGroupSpecs"]
 
     def add_values(group_index: int, container_index: int):
-        worker_groups[group_index]["template"]["spec"]["containers"][container_index]["resources"][
-            "requests"
-        ]["cpu"] = cpu_requests
-        worker_groups[group_index]["template"]["spec"]["containers"][container_index]["resources"][
-            "requests"
-        ]["memory"] = memory_requests
-        worker_groups[group_index]["template"]["spec"]["containers"][container_index]["resources"][
-            "limits"
-        ]["cpu"] = cpu_limits
-        worker_groups[group_index]["template"]["spec"]["containers"][container_index]["resources"][
-            "limits"
-        ]["memory"] = memory_limits
+        worker_groups[group_index]["template"]["spec"]["containers"][container_index]["resources"]["requests"][
+            "cpu"
+        ] = cpu_requests
+        worker_groups[group_index]["template"]["spec"]["containers"][container_index]["resources"]["requests"][
+            "memory"
+        ] = memory_requests
+        worker_groups[group_index]["template"]["spec"]["containers"][container_index]["resources"]["limits"]["cpu"] = (
+            cpu_limits
+        )
+        worker_groups[group_index]["template"]["spec"]["containers"][container_index]["resources"]["limits"][
+            "memory"
+        ] = memory_limits
 
     for group_index, worker_group in enumerate(worker_groups):
         if worker_group["groupName"] != group_name:
@@ -394,9 +395,7 @@ def update_worker_group_resources(
         container_names = [container["name"] for container in containers]
 
         if len(containers) == 0:
-            logger.error(
-                f"error updating container resources, the worker group {group_name} has no containers"
-            )
+            logger.error(f"error updating container resources, the worker group {group_name} has no containers")
             return cluster, False
 
         if container_name == "unspecified":
@@ -508,9 +507,7 @@ def sync_workdir_via_pod(
     )
 
     # Create Pod (idempotent – reuse if already exists)
-    logger.info(
-        f"Creating data-mover pod '{pod_name}' in namespace '{namespace}' (or re-using if present)"
-    )
+    logger.info(f"Creating data-mover pod '{pod_name}' in namespace '{namespace}' (or re-using if present)")
     try:
         core_v1_api.create_namespaced_pod(namespace=namespace, body=pod_body)
     except ApiException as e:
@@ -579,9 +576,7 @@ def sync_workdir_via_pod(
     logger.info(f"Workdir synced to PVC at {user_workspace_path} via data-mover pod.")
 
     if cleanup:
-        core_v1_api.delete_namespaced_pod(
-            name=pod_name, namespace=namespace, body=client.V1DeleteOptions()
-        )
+        core_v1_api.delete_namespaced_pod(name=pod_name, namespace=namespace, body=client.V1DeleteOptions())
 
         # Wait for termination
         timeout = time.time() + cleanup_timeout

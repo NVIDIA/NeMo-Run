@@ -186,9 +186,7 @@ def test_log_iter(docker_scheduler, docker_executor):
         container_mock.logs = mock.Mock(return_value=["log1", "log2"])
         mock_get_container.return_value = container_mock
 
-        logs = list(
-            docker_scheduler.log_iter("test_session___test_role___test_container_id", "test_role")
-        )
+        logs = list(docker_scheduler.log_iter("test_session___test_role___test_container_id", "test_role"))
         assert logs == ["log1", "log2"]
         assert mock_get_container.call_count == 1
         assert container_mock.logs.call_count == 1

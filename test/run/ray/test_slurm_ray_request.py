@@ -22,9 +22,8 @@ from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.tunnel.client import SSHTunnel
 from nemo_run.run.ray.slurm import SlurmRayRequest
 
-ARTIFACTS_DIR = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "..", "..", "core", "execution", "artifacts"
-)
+
+ARTIFACTS_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "core", "execution", "artifacts")
 
 
 class TestSlurmRayRequest:
@@ -146,9 +145,7 @@ class TestSlurmRayRequest:
         for pattern in patterns:
             assert pattern in script, f"Missing pattern in {test_name}: {pattern}"
 
-    def test_basic_ray_cluster_artifact(
-        self, basic_ray_request_with_artifact: tuple[SlurmRayRequest, str]
-    ):
+    def test_basic_ray_cluster_artifact(self, basic_ray_request_with_artifact: tuple[SlurmRayRequest, str]):
         """Test that basic Ray cluster script matches key patterns from artifact."""
         ray_request, artifact_path = basic_ray_request_with_artifact
         generated_script = ray_request.materialize()
@@ -159,9 +156,7 @@ class TestSlurmRayRequest:
 
         assert generated_script.strip() == expected_script.strip()
 
-    def test_advanced_ray_cluster_artifact(
-        self, advanced_ray_request_with_artifact: tuple[SlurmRayRequest, str]
-    ):
+    def test_advanced_ray_cluster_artifact(self, advanced_ray_request_with_artifact: tuple[SlurmRayRequest, str]):
         """Test that advanced Ray cluster script matches key patterns from SSH artifact."""
         ray_request, artifact_path = advanced_ray_request_with_artifact
         generated_script = ray_request.materialize()
@@ -207,9 +202,7 @@ class TestSlurmRayRequest:
 
     def test_additional_parameters(self):
         """Test materialize with additional SBATCH parameters."""
-        executor = SlurmExecutor(
-            account="test_account", additional_parameters={"custom_param": "custom_value"}
-        )
+        executor = SlurmExecutor(account="test_account", additional_parameters={"custom_param": "custom_value"})
         executor.tunnel = Mock(spec=SSHTunnel)
         executor.tunnel.job_dir = "/tmp/test_jobs"
 
@@ -292,9 +285,7 @@ class TestSlurmRayRequest:
         """Test materialize handles special RUNDIR_SPECIAL_NAME mounts."""
         from nemo_run.config import RUNDIR_SPECIAL_NAME
 
-        executor = SlurmExecutor(
-            account="test_account", container_mounts=[f"{RUNDIR_SPECIAL_NAME}:/special"]
-        )
+        executor = SlurmExecutor(account="test_account", container_mounts=[f"{RUNDIR_SPECIAL_NAME}:/special"])
         executor.tunnel = Mock(spec=SSHTunnel)
         executor.tunnel.job_dir = "/tmp/test_jobs"
 

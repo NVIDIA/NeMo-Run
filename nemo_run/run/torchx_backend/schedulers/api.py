@@ -25,6 +25,7 @@ from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
 
+
 EXECUTOR_MAPPING: dict[Type[Executor], str] = {
     SlurmExecutor: "slurm_tunnel",
     SkypilotExecutor: "skypilot",

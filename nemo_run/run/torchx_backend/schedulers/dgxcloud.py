@@ -30,6 +30,7 @@ from nemo_run.core.execution.dgxcloud import DGXCloudExecutor, DGXCloudState
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.schedulers.api import SchedulerMixin
 
+
 # Local placeholder for storing DGX job states
 DGX_JOB_DIRS = os.path.join(get_nemorun_home(), ".dgx_jobs.json")
 
@@ -76,8 +77,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         opts.add(
             "job_dir",
             type_=str,
-            help="The directory to place the job code and outputs."
-            " The directory must not exist and will be created.",
+            help="The directory to place the job code and outputs. The directory must not exist and will be created.",
         )
         return opts
 
@@ -86,9 +86,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         app: AppDef,
         cfg: Executor,
     ) -> AppDryRunInfo[DGXRequest]:
-        assert isinstance(cfg, DGXCloudExecutor), (
-            f"{cfg.__class__} not supported for DGXCloud scheduler."
-        )
+        assert isinstance(cfg, DGXCloudExecutor), f"{cfg.__class__} not supported for DGXCloud scheduler."
         executor = cfg
 
         assert len(app.roles) == 1, "Only single-role apps are supported."
@@ -148,9 +146,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         roles_statuses = [
             RoleStatus(
                 role_name,
-                replicas=[
-                    ReplicaStatus(id=0, role=role_name, state=AppState.SUBMITTED, hostname="")
-                ],
+                replicas=[ReplicaStatus(id=0, role=role_name, state=AppState.SUBMITTED, hostname="")],
             )
         ]
 
@@ -216,9 +212,7 @@ def _save_job_dir(app_id: str, job_status: str, executor: DGXCloudExecutor) -> N
 
         app = {
             "job_status": job_status,
-            "executor": serializer.serialize(
-                fdl_dc.convert_dataclasses_to_configs(executor, allow_post_init=True)
-            ),
+            "executor": serializer.serialize(fdl_dc.convert_dataclasses_to_configs(executor, allow_post_init=True)),
         }
         original_apps[app_id] = app
 

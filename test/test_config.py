@@ -27,8 +27,8 @@ from nemo_run.config import (
     OptionalDefaultConfig,
     Script,
     from_dict,
-    set_value,
     get_underlying_types,
+    set_value,
 )
 from nemo_run.exceptions import SetValueError
 

@@ -17,6 +17,7 @@ from typing import Any
 
 from typer import rich_utils
 
+
 TABLE_STYLES: dict[str, Any] = {
     "show_lines": rich_utils.STYLE_COMMANDS_TABLE_SHOW_LINES,
     "leading": rich_utils.STYLE_COMMANDS_TABLE_LEADING,

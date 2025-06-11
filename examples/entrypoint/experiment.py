@@ -94,9 +94,7 @@ def train_models_experiment(
 
     with run.Experiment("train_models_experiment") as exp:
         for i, (model, optimizer) in enumerate(zip(models, optimizers)):
-            train = run.Partial(
-                train_model, model=model, optimizer=optimizer, epochs=epochs, batch_size=batch_size
-            )
+            train = run.Partial(train_model, model=model, optimizer=optimizer, epochs=epochs, batch_size=batch_size)
 
             exp.add(train, name=f"train_model_{i}", executor=ctx.executor)
 

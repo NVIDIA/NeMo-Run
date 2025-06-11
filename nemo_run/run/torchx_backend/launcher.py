@@ -31,6 +31,7 @@ from nemo_run.exceptions import UnknownStatusError
 from nemo_run.run.logs import get_logs
 from nemo_run.run.torchx_backend.runner import Runner, get_runner
 
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -161,9 +162,7 @@ def wait_and_exit(
     logger.info(f"Job {app_id} finished: {status.state}")
 
     if log_thread and log_thread.is_alive():
-        logger.warning(
-            f"Waiting for {app_id}'s log thread to complete for {log_join_timeout} seconds..."
-        )
+        logger.warning(f"Waiting for {app_id}'s log thread to complete for {log_join_timeout} seconds...")
         log_thread.join(timeout=log_join_timeout)
         if log_thread.is_alive():
             logger.warning("Log thread did not complete within timeout, some logs may be missing")

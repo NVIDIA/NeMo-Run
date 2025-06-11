@@ -74,9 +74,7 @@ def run(
         fn_or_script = fn_or_script.resolve()
 
     default_name = (
-        fn_or_script.get_name()
-        if isinstance(fn_or_script, Script)
-        else get_type_namespace(fn_or_script.__fn_or_cls__)
+        fn_or_script.get_name() if isinstance(fn_or_script, Script) else get_type_namespace(fn_or_script.__fn_or_cls__)
     )
     name = name or default_name
     with Experiment(title=name, executor=executor, log_level=log_level) as exp:

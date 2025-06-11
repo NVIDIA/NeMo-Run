@@ -63,9 +63,7 @@ def test_submit_dryrun(local_scheduler, mock_app_def, local_executor):
 def test_schedule(mock_save, local_scheduler, mock_app_def, local_executor):
     dryrun_info = local_scheduler._submit_dryrun(mock_app_def, local_executor)
 
-    with mock.patch(
-        "torchx.schedulers.local_scheduler.LocalScheduler.schedule"
-    ) as mock_super_schedule:
+    with mock.patch("torchx.schedulers.local_scheduler.LocalScheduler.schedule") as mock_super_schedule:
         mock_super_schedule.return_value = "test_app_id"
         app_id = local_scheduler.schedule(dryrun_info)
 
@@ -80,9 +78,7 @@ def test_describe_existing_app(mock_save, local_scheduler):
     expected_response = DescribeAppResponse()
     expected_response.app_id = app_id
 
-    with mock.patch(
-        "torchx.schedulers.local_scheduler.LocalScheduler.describe"
-    ) as mock_super_describe:
+    with mock.patch("torchx.schedulers.local_scheduler.LocalScheduler.describe") as mock_super_describe:
         mock_super_describe.return_value = expected_response
         response = local_scheduler.describe(app_id)
 
@@ -96,9 +92,7 @@ def test_describe_from_saved_apps(mock_get_job_dirs, local_scheduler):
     app_id = "test_app_id"
 
     # First simulate the app not in current apps
-    with mock.patch(
-        "torchx.schedulers.local_scheduler.LocalScheduler.describe"
-    ) as mock_super_describe:
+    with mock.patch("torchx.schedulers.local_scheduler.LocalScheduler.describe") as mock_super_describe:
         mock_super_describe.return_value = None
 
         from torchx.schedulers.local_scheduler import _LocalAppDef
@@ -125,17 +119,13 @@ def test_log_iter_warns_on_since_until(local_scheduler):
             with mock.patch("os.path.isfile", return_value=True):
                 with mock.patch("nemo_run.run.torchx_backend.schedulers.local.LogIterator"):
                     # Call with since parameter
-                    list(
-                        local_scheduler.log_iter("test_app_id", "test_role", since=mock.MagicMock())
-                    )
+                    list(local_scheduler.log_iter("test_app_id", "test_role", since=mock.MagicMock()))
                     mock_warn.assert_called_once()
 
                     mock_warn.reset_mock()
 
                     # Call with until parameter
-                    list(
-                        local_scheduler.log_iter("test_app_id", "test_role", until=mock.MagicMock())
-                    )
+                    list(local_scheduler.log_iter("test_app_id", "test_role", until=mock.MagicMock()))
                     mock_warn.assert_called_once()
 
 
@@ -152,9 +142,7 @@ def test_save_and_get_job_dirs():
 
     # Create a temporary file to mock LOCAL_JOB_DIRS
     with tempfile.NamedTemporaryFile() as temp_file:
-        with mock.patch(
-            "nemo_run.run.torchx_backend.schedulers.local.LOCAL_JOB_DIRS", temp_file.name
-        ):
+        with mock.patch("nemo_run.run.torchx_backend.schedulers.local.LOCAL_JOB_DIRS", temp_file.name):
             # Test _save_job_dir
             _save_job_dir(test_apps)
 

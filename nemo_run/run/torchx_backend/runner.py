@@ -30,6 +30,7 @@ from torchx.util.types import none_throws
 
 from nemo_run.core.execution.base import Executor
 
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -44,20 +45,16 @@ class Runner(TorchXRunner):
     ) -> AppDryRunInfo:
         # input validation
         if not app.roles:
-            raise ValueError(
-                f"No roles for app: {app.name}. Did you forget to add roles to AppDef?"
-            )
+            raise ValueError(f"No roles for app: {app.name}. Did you forget to add roles to AppDef?")
 
         for role in app.roles:
             if not role.entrypoint:
                 raise ValueError(
-                    f"No entrypoint for role: {role.name}."
-                    f" Did you forget to call role.runs(entrypoint, args, env)?"
+                    f"No entrypoint for role: {role.name}. Did you forget to call role.runs(entrypoint, args, env)?"
                 )
             if role.num_replicas <= 0:
                 raise ValueError(
-                    f"Non-positive replicas for role: {role.name}."
-                    f" Did you forget to set role.num_replicas?"
+                    f"Non-positive replicas for role: {role.name}. Did you forget to set role.num_replicas?"
                 )
 
         with log_event("dryrun", scheduler):
