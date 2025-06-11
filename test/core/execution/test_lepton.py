@@ -22,11 +22,8 @@ import pytest
 from leptonai.api.v1.types.common import LeptonVisibility, Metadata
 from leptonai.api.v1.types.deployment import (
     LeptonContainer,
-    LeptonDeployment,
-    LeptonDeploymentUserSpec,
     LeptonResourceAffinity,
     Mount,
-    ResourceRequirement,
 )
 from leptonai.api.v1.types.job import LeptonJob, LeptonJobUserSpec
 
