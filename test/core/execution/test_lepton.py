@@ -28,7 +28,7 @@ from leptonai.api.v1.types.deployment import (
     Mount,
     ResourceRequirement,
 )
-from leptonai.api.v1.types.job import LeptonJob
+from leptonai.api.v1.types.job import LeptonJob, LeptonJobUserSpec
 
 from nemo_run.core.execution.lepton import LeptonExecutor, LeptonJobState
 from nemo_run.core.packaging.git import GitArchivePackager
@@ -173,19 +173,15 @@ class TestLeptonExecutor:
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_move_data_success(self, mock_APIClient, mock_datetime, mock_copy):
         mock_instance = MagicMock()
-        mock_deployment_api = MagicMock()
-        mock_instance.deployment = mock_deployment_api
-        mock_deployment_api.create = MagicMock()
+        mock_job_api = MagicMock()
+        mock_instance.job = mock_job_api
         mock_copy.return_value = ["sh", "-c", "echo 'hello world'"]
         mock_APIClient.return_value = mock_instance
         mock_client = mock_APIClient.return_value
         mock_nodegroup = MagicMock()
-        mock_datetime = MagicMock()
         mock_datetime_now = MagicMock()
-        mock_datetime.now = mock_datetime_now
-        mock_timestamp = MagicMock()
-        mock_datetime_now.timestamp = MagicMock()
-        mock_timestamp.return_value = "1"
+        mock_datetime.now.return_value = mock_datetime_now
+        mock_datetime_now.timestamp.return_value = 1
         mock_client.nodegroup = mock_nodegroup
         mock_nodegroup.list_all.return_value = [
             SimpleNamespace(metadata=SimpleNamespace(name="123456", id_="my-node-id"))
@@ -193,6 +189,7 @@ class TestLeptonExecutor:
         mock_nodegroup.list_nodes.return_value = [
             SimpleNamespace(metadata=SimpleNamespace(id_="10-10-10-10"))
         ]
+        mock_job_api.get.return_value = SimpleNamespace(status=SimpleNamespace(state="Completed"))
 
         executor = LeptonExecutor(
             container_image="nvcr.io/nvidia/test:latest",
@@ -203,32 +200,35 @@ class TestLeptonExecutor:
 
         executor.move_data()
 
-        spec = LeptonDeploymentUserSpec(
-            container=LeptonContainer(
-                image="busybox:1.37.0",
-                command=["sh", "-c", "echo 'hello world'"],
-            ),
-            mounts=[Mount(path="/workspace", mount_path="/workspace")],
-        )
-        spec.resource_requirement = ResourceRequirement(
+        expected_cmd = ["sh", "-c", "echo 'hello world'"]
+        expected_spec = LeptonJobUserSpec(
             resource_shape="cpu.small",
             affinity=LeptonResourceAffinity(
                 allowed_dedicated_node_groups=["my-node-id"],
                 allowed_nodes_in_node_group=["10-10-10-10"],
             ),
-            min_replicas=1,
-            max_replicas=1,
-        )
-        custom_name = "data-mover-1"
-        deployment = LeptonDeployment(
-            metadata=Metadata(
-                id=custom_name, name=custom_name, visibility=LeptonVisibility("private")
+            container=LeptonContainer(
+                image="busybox:1.37.0",
+                command=expected_cmd,
             ),
-            spec=spec,
+            completions=1,
+            parallelism=1,
+            mounts=[Mount(path="/workspace", mount_path="/workspace")],
         )
 
-        mock_copy.assert_called_once_with("", "")
-        mock_deployment_api.create.assert_called_once_with(deployment)
+        custom_name = "data-mover-1"
+        expected_job = LeptonJob(
+            metadata=Metadata(
+                id=custom_name,
+                name=custom_name,
+                visibility=LeptonVisibility("private"),
+            ),
+            spec=expected_spec,
+        )
+
+        mock_copy.assert_called_once_with(executor.job_dir, executor.lepton_job_dir)
+        mock_job_api.create.assert_called_once_with(expected_job)
+        mock_job_api.delete.assert_called_once_with(mock_job_api.create.return_value.metadata.id_)
 
     def test_node_group_id(self):
         mock_client = MagicMock(
