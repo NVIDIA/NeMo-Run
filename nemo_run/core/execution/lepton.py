@@ -13,15 +13,12 @@ from typing import Any, List, Optional, Set, Type
 from invoke.context import Context
 from leptonai.api.v2.client import APIClient
 from leptonai.api.v1.types.affinity import LeptonResourceAffinity
-from leptonai.api.v1.types.common import LeptonVisibility, Metadata
+from leptonai.api.v1.types.common import Metadata, LeptonVisibility
 from leptonai.api.v1.types.dedicated_node_group import DedicatedNodeGroup
 from leptonai.api.v1.types.deployment import (
     EnvVar,
     LeptonContainer,
-    LeptonDeployment,
-    LeptonDeploymentUserSpec,
     Mount,
-    ResourceRequirement,
 )
 from leptonai.api.v1.types.job import LeptonJob, LeptonJobState, LeptonJobUserSpec
 from leptonai.api.v1.types.replica import Replica
@@ -85,7 +82,7 @@ class LeptonExecutor(Executor):
             full_command = ["sh", "-c", cmd]
             return full_command
 
-    def move_data(self, sleep: float = 10) -> None:
+    def move_data(self, sleep: float = 10, timeout: int = 600, poll_interval: int = 5) -> None:
         """
         Moves job directory into remote storage and deletes the workload after completion.
         """
@@ -94,34 +91,60 @@ class LeptonExecutor(Executor):
         node_group_id = self._node_group_id(client)
         valid_node_ids = self._valid_node_ids(node_group_id, client)
 
-        spec = LeptonDeploymentUserSpec(
-            container=LeptonContainer(
-                image="busybox:1.37.0",  # Use a very low resource container
-                command=cmd,
-            ),
-            mounts=[Mount(**mount) for mount in self.mounts],
-        )
-        spec.resource_requirement = ResourceRequirement(
+        job_spec = LeptonJobUserSpec(
             resource_shape="cpu.small",
             affinity=LeptonResourceAffinity(
                 allowed_dedicated_node_groups=[node_group_id.metadata.id_],
                 allowed_nodes_in_node_group=valid_node_ids,
             ),
-            min_replicas=1,
-            max_replicas=1,
+            container=LeptonContainer(
+                image="busybox:1.37.0",
+                command=cmd,
+            ),
+            completions=1,
+            parallelism=1,
+            mounts=[Mount(**mount) for mount in self.mounts],
         )
+
         custom_name = f"data-mover-{int(datetime.now().timestamp())}"
 
-        deployment = LeptonDeployment(
+        job = LeptonJob(
             metadata=Metadata(
                 id=custom_name,
                 name=custom_name,
                 visibility=LeptonVisibility("private"),
             ),
-            spec=spec,
+            spec=job_spec,
         )
 
-        client.deployment.create(deployment)
+        response = client.job.create(job)
+        job_id = response.metadata.id_
+
+        start_time = time.time()
+        count = 0
+
+        while True:
+            if time.time() - start_time > timeout:
+                raise TimeoutError(f"Job {job_id} did not complete within {timeout} seconds.")
+            current_job = client.job.get(job_id)
+            current_job_status = current_job.status.state
+            if count > 0 and current_job_status in [
+                LeptonJobState.Completed,
+                LeptonJobState.Failed,
+                LeptonJobState.Unknown,
+            ]:
+                break
+            count += 1
+            time.sleep(poll_interval)
+
+        if current_job_status != LeptonJobState.Completed:
+            raise RuntimeError(f"Job {job_id} failed with status: {current_job_status}")
+
+        delete_success = client.job.delete(job_id)
+        if delete_success:
+            logging.info(f"Successfully deleted job {job_id}")
+        else:
+            logging.error(f"Failed to delete job {job_id}")
 
     def _node_group_id(self, client: APIClient) -> DedicatedNodeGroup:
         """
