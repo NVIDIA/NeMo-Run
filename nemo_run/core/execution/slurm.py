@@ -414,7 +414,6 @@ class SlurmExecutor(Executor):
                 )
             )
 
-        main_executor.env_vars = {}
         return main_executor
 
     def __post_init__(self):

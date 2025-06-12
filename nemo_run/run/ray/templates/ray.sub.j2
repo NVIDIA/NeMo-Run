@@ -295,6 +295,20 @@ echo "[INFO] Ray cluster information saved to $CLUSTER_DIR/ray_cluster_info.json
 
 ########################################################
 
+{% if srun_commands %}
+# Run extra commands
+{% for srun_command in srun_commands %}
+{%- if loop.index <= group_env_vars|length %}
+{%- for env_var in group_env_vars[loop.index - 1] %}
+{{env_var}}
+{%- endfor %}
+{%- endif %}
+
+{{srun_command}}
+{% endfor %}
+########################################################
+{% endif -%}
+
 # We can now launch a job on this cluster
 # We do so by launching a driver process on the physical node that the head node is on
 # This driver process is responsible for launching a job on the Ray cluster
