@@ -9,3 +9,4 @@ Guides
    management
    why-use-nemo-run
    ray
+   cli
