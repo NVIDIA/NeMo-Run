@@ -1,7 +1,5 @@
 # Ray Clusters & Jobs
 
----
-
 > **Audience**: You already know how to configure executors with NeMo-Run and want distributed *Ray* on either Kubernetes **or** Slurm.
 >
 > **TL;DR**: `RayCluster` manages the _cluster_; `RayJob` submits a job with an ephemeral cluster.  Everything else is syntactic sugar.
