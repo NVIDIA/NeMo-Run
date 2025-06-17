@@ -225,6 +225,10 @@ class DGXCloudExecutor(Executor):
         if self.nodes < 1:
             raise ValueError("Node count must be at least 1")
 
+        if len(name)>=35: 
+            logger.warning("Training name can only be max 35 characters. Shortening name to 35 characters...")
+            name=name[:34]
+
         # Common payload elements
         common_payload = {
             "name": name,
@@ -265,6 +269,7 @@ class DGXCloudExecutor(Executor):
         headers = self._default_headers(token=token)
         response = requests.post(url, json=payload, headers=headers)
 
+        logger.info(json.dumps(payload))
         logger.debug(
             "Created %s job; response code=%s, content=%s",
             "distributed" if self.nodes > 1 else "training",
@@ -276,6 +281,7 @@ class DGXCloudExecutor(Executor):
 
     def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
         name = name.replace("_", "-").replace(".", "-").lower()  # to meet K8s requirements
+        logger.info(f"workload name:{name}")
         token = self.get_auth_token()
         if not token:
             raise RuntimeError("Failed to get auth token")
