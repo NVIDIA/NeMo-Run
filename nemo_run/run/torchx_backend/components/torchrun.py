@@ -128,8 +128,11 @@ def torchrun(
         num_nodes = nnodes_rep
         nproc_per_node = str(nproc_per_node)
 
+        # set node rank to relative node id in the current allocation
         if use_env and os.getenv("NODE_RANK"):
             node_rank = os.environ["NODE_RANK"]
+        elif use_env and os.getenv("SLURM_NODEID"):
+            node_rank = os.environ["SLURM_NODEID"]
         else:
             node_rank = torchx_dist._noquote(f"$${ExecutorMacros.NODE_RANK_VAR}")
 
