@@ -538,7 +538,7 @@ Deserialized task does not match original task. The following paths in your task
 
 {pprint.PrettyPrinter(indent=4).pformat(diff)}
 
-For more information about `run.Config` and `run.Partial`, please refer to https://github.com/NVIDIA/NeMo-Run/blob/main/docs/source/guides/configuration.md.
+For more information about `run.Config` and `run.Partial`, please refer to https://github.com/NVIDIA-NeMo/Run/blob/main/docs/source/guides/configuration.md.
 """
         if not valid:
             raise RuntimeError(f"Failed to validate task {task_info}.\n{message}")

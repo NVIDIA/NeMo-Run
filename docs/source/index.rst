@@ -26,14 +26,14 @@ Installation
 ------------
 To install the project, use the following command:
 
-``pip install git+https://github.com/NVIDIA/NeMo-Run.git``
+``pip install git+https://github.com/NVIDIA-NeMo/Run.git``
 
 To install Skypilot, we have optional features available.
 
-``pip install git+https://github.com/NVIDIA/NeMo-Run.git[skypilot]``
+``pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot]``
 will install Skypilot w Kubernetes
 
-``pip install git+https://github.com/NVIDIA/NeMo-Run.git[skypilot-all]``
+``pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot-all]``
 will install Skypilot w all clouds
 
 You can also manually install Skypilot from https://skypilot.readthedocs.io/en/latest/getting-started/installation.html
