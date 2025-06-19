@@ -33,7 +33,7 @@ Please see this [detailed guide](./docs/source/guides/why-use-nemo-run.md) for r
 To install the project, use the following command:
 
 ```bash
-pip install git+https://github.com/NVIDIA/NeMo-Run.git
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
 Make sure you have `pip` installed and configured properly.

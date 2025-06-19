@@ -29,7 +29,7 @@ We support the following `launchers`:
 - `torchrun` or `run.Torchrun`: This will launch the task using `torchrun`. See the `Torchrun` class for configuration options. You can use it using `executor.launcher = "torchrun"` or `executor.launcher = Torchrun(...)`.
 - `ft` or `run.core.execution.FaultTolerance`: This will launch the task using NVIDIA's fault tolerant launcher. See the `FaultTolerance` class for configuration options. You can use it using `executor.launcher = "ft"` or `executor.launcher = FaultTolerance(...)`.
 
-> **_NOTE:_** Launcher may not work very well with `run.Script`. Please report any issues at https://github.com/NVIDIA/NeMo-Run/issues.
+> **_NOTE:_** Launcher may not work very well with `run.Script`. Please report any issues at https://github.com/NVIDIA-NeMo/Run/issues.
 
 ### Packagers
 
