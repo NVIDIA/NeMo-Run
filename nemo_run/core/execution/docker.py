@@ -38,6 +38,7 @@ from nemo_run.core.packaging.git import GitArchivePackager
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 
+
 if TYPE_CHECKING:
     from docker import DockerClient
     from docker.models.containers import Container
@@ -63,7 +64,7 @@ logger = logging.getLogger(__name__)
 def get_client() -> "DockerClient":
     import docker
 
-    return docker.from_env()
+    return docker.from_env(timeout=int(os.environ.get("NEMORUN_DOCKER_CLIENT_TIMEOUT", 60)))
 
 
 def ensure_network(client: Optional["DockerClient"] = None, network: Optional[str] = None) -> None:
