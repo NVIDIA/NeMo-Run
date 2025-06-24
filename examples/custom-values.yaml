@@ -1,0 +1,28 @@
+image:
+  repository: nvcr.io/nvidia/nemo
+  tag: 24.12-rc0
+
+service:
+  type: LoadBalancer
+  port: 8888
+
+# resources:
+#   limits:
+#     nvidia.com/gpu: 1
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""
+
+config:
+  password: "nemo-run"
+  allowRoot: true
+
+command:
+  enabled: true
+  entrypoint: ["/bin/bash", "-c"]
+  args:
+    [
+      "apt update && apt install graphviz -y && jupyter lab --ServerApp.ip=0.0.0.0 --ServerApp.port=8888 --ServerApp.allow_root=True --ServerApp.token='' --ServerApp.password='' --no-browser",
+    ]
