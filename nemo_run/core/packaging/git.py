@@ -41,9 +41,9 @@ class GitArchivePackager(Packager):
     #. This extracted tar file becomes the working directory for your job.
 
     .. note::
-        git archive will only package code committed in the specified ref.
-        Any uncommitted code will not be packaged.
-        We are working on adding an option to package uncommitted code but it is not ready yet.
+        By default, git archive will only package code committed in the specified ref.
+        You can use include_uncommitted=True and include_untracked=True to package
+        uncommitted changes and untracked files respectively.
     """
 
     basepath: str = ""
@@ -71,6 +71,12 @@ class GitArchivePackager(Packager):
 
     check_uncommitted_changes: bool = False
     check_untracked_files: bool = False
+
+    #: Include uncommitted changes in the archive
+    include_uncommitted: bool = False
+
+    #: Include untracked files in the archive
+    include_untracked: bool = False
 
     def package(self, path: Path, job_dir: str, name: str) -> str:
         output_file = os.path.join(job_dir, f"{name}.tar.gz")
@@ -132,6 +138,129 @@ class GitArchivePackager(Packager):
             ctx.run(git_archive_cmd)
             if self.include_submodules:
                 ctx.run(git_submodule_cmd)
+
+        # Handle uncommitted changes
+        if self.include_uncommitted:
+            unstaged_file_id = uuid.uuid4()
+            unstaged_tar_file = f"unstaged_{unstaged_file_id}.tmp"
+
+            with ctx.cd(git_base_path):
+                # Get the list of files with unstaged changes
+                changed_files = (
+                    subprocess.run(
+                        "git diff --name-only", shell=True, capture_output=True, text=True
+                    )
+                    .stdout.strip()
+                    .split("\n")
+                )
+
+                if changed_files and changed_files[0]:  # Check if non-empty
+                    # Filter files in subpath if specified
+                    if self.subpath:
+                        filtered_files = []
+                        for f in changed_files:
+                            if f.startswith(self.subpath):
+                                filtered_files.append(f)
+                        changed_files = filtered_files
+
+                    if changed_files:
+                        # Create the tarfile in the right way based on subpath
+                        if self.subpath:
+                            # We need to change to the subpath dir and create the tar without the prefix
+                            subpath_dir = os.path.join(git_base_path, self.subpath)
+
+                            # Create list of files relative to the subpath
+                            relative_files = []
+                            for f in changed_files:
+                                relative_files.append(
+                                    os.path.relpath(os.path.join(git_base_path, f), subpath_dir)
+                                )
+
+                            # Create tar from the subpath directory
+                            tar_path = os.path.join(git_base_path, unstaged_tar_file)
+                            with ctx.cd(subpath_dir):
+                                if relative_files:  # Only create tar if there are files
+                                    ctx.run(f"tar -cf {tar_path} {' '.join(relative_files)}")
+                                else:
+                                    # Create empty tar file to avoid errors
+                                    ctx.run(f"tar -cf {tar_path} --files-from /dev/null")
+                        else:
+                            # No subpath, create tar from the git base path
+                            if changed_files:  # Only create tar if there are files
+                                ctx.run(f"tar -cf {unstaged_tar_file} {' '.join(changed_files)}")
+                            else:
+                                # Create empty tar file to avoid errors
+                                ctx.run(f"tar -cf {unstaged_tar_file} --files-from /dev/null")
+
+                        # Add to the main archive - use a more compatible approach
+                        # Instead of using 'tar Af', use the extract-and-create approach for all platforms
+                        temp_dir = f"temp_extract_unstaged_{unstaged_file_id}"
+                        ctx.run(f"mkdir -p {temp_dir}")
+                        ctx.run(f"tar xf {output_file}.tmp -C {temp_dir}")
+                        ctx.run(f"tar xf {unstaged_tar_file} -C {temp_dir}")
+                        ctx.run(f"tar cf {output_file}.tmp -C {temp_dir} .")
+                        ctx.run(f"rm -rf {temp_dir}")
+                        ctx.run(f"rm {unstaged_tar_file}")
+
+        # Handle untracked files
+        if self.include_untracked:
+            untracked_file_id = uuid.uuid4()
+            untracked_tar_file = f"untracked_{untracked_file_id}.tmp"
+
+            with ctx.cd(git_base_path):
+                # Get the list of untracked files
+                untracked_files = (
+                    subprocess.run(
+                        "git ls-files --others --exclude-standard",
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    .stdout.strip()
+                    .split("\n")
+                )
+
+                if untracked_files and untracked_files[0]:  # Check if non-empty
+                    # Filter files in subpath if specified
+                    if self.subpath:
+                        filtered_files = []
+                        for f in untracked_files:
+                            if f.startswith(self.subpath):
+                                filtered_files.append(f)
+                        untracked_files = filtered_files
+
+                    if untracked_files:
+                        # Create the tarfile in the right way based on subpath
+                        if self.subpath:
+                            # We need to change to the subpath dir and create the tar without the prefix
+                            subpath_dir = os.path.join(git_base_path, self.subpath)
+
+                            # Create list of files relative to the subpath
+                            relative_files = []
+                            for f in untracked_files:
+                                relative_files.append(
+                                    os.path.relpath(os.path.join(git_base_path, f), subpath_dir)
+                                )
+
+                            # Create tar from the subpath directory
+                            tar_path = os.path.join(git_base_path, untracked_tar_file)
+                            with ctx.cd(subpath_dir):
+                                ctx.run(f"tar -cf {tar_path} {' '.join(relative_files)}")
+                        else:
+                            # No subpath, create tar from the git base path
+                            ctx.run(f"tar -cf {untracked_tar_file} {' '.join(untracked_files)}")
+
+                        # Add to the main archive - use a more compatible approach
+                        # Instead of using 'tar Af', use the extract-and-create approach for all platforms
+                        temp_dir = f"temp_extract_untracked_{untracked_file_id}"
+                        ctx.run(f"mkdir -p {temp_dir}")
+                        ctx.run(f"tar xf {output_file}.tmp -C {temp_dir}")
+                        ctx.run(f"tar xf {untracked_tar_file} -C {temp_dir}")
+                        ctx.run(f"tar cf {output_file}.tmp -C {temp_dir} .")
+                        ctx.run(f"rm -rf {temp_dir}")
+                        ctx.run(f"rm {untracked_tar_file}")
+
+        # Process include_pattern files
         if isinstance(self.include_pattern, str):
             self.include_pattern = [self.include_pattern]
 
