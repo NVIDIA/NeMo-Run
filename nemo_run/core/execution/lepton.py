@@ -240,7 +240,10 @@ class LeptonExecutor(Executor):
 
     def launch(self, name: str, cmd: list[str]) -> tuple[str, str]:
         self._validate_mounts()
-        name = name.replace("_", "-").replace(".", "-")  # to meet K8s requirements
+        name = name.replace("_", "-").replace(".", "-").lower()  # to meet K8s requirements
+        if len(name) > 35:
+            logger.warning("length of name exceeds 35 characters. Shortening...")
+            name = name[:34]
         launch_script = f"""
 wget -O init.sh https://raw.githubusercontent.com/leptonai/scripts/main/lepton_env_to_pytorch.sh
 chmod +x init.sh
