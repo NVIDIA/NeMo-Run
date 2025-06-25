@@ -1,0 +1,233 @@
+---
+description: Guidelines for verifying technical documentation claims against source code to ensure accuracy between documentation and implementation.
+globs: 
+alwaysApply: false
+---
+# Documentation Verification Guidelines
+
+These guidelines ensure technical documentation accurately reflects the actual project implementation and maintains the highest standards of factual accuracy. Follow these verification procedures when writing or updating documentation to prevent inaccuracies that could mislead users.
+
+## Editorial Accuracy Principles
+
+### No Speculation or Extrapolation
+- **Document only verified functionality**: Never document presumed behavior or "likely" features without verifying against source code and `pyproject.toml`
+- **Avoid assumptions**: Don't make assumptions about unreleased functionality or implementation details
+- **Source everything**: If information cannot be verified against the codebase, acknowledge the gap rather than guessing
+
+### Handling Uncertainty and Missing Information
+- **Use clear qualifiers**: When certainty is limited, use phrases like "as of version X..." or "in the current implementation..."
+- **Mark experimental features**: Explicitly state when documentation covers experimental or beta features
+- **Document gaps clearly**: When information is missing, state this clearly and direct readers to source code or examples
+- **Use appropriate warnings**: Include admonitions for important caveats:
+  ```markdown
+  :::{warning}
+  This feature is experimental and may change in future releases without notice.
+  :::
+  ```
+
+### Performance and Benchmarking Claims
+- **Require evidence**: Back all performance statements with specific, reproducible benchmarks from `examples/` or `tutorials/`
+- **Include methodology**: Document test environment details, hardware specifications, and dataset characteristics
+- **Use precise language**: Avoid vague terms like "fast" or "efficient" - provide quantifiable metrics
+- **Comparative claims**: Ensure performance comparisons are fair, accurate, and based on equivalent test conditions
+
+## Project Configuration Verification
+
+### pyproject.toml Validation
+**Critical Rule**: Always check `pyproject.toml` for project configuration, dependencies, and CLI commands before documenting.
+
+- **Console Scripts**: Verify all documented CLI commands exist in `[project.scripts]` section
+- **Dependencies**: Check that documented dependencies match `[project.dependencies]` and optional dependencies
+- **Project Metadata**: Verify project name, version, and other metadata match documentation
+- **Entry Points**: Confirm all documented entry points are properly registered
+
+### CLI Command Verification Process
+1. **Check pyproject.toml**: Look in `[project.scripts]` for console script definitions
+2. **Verify Script Paths**: Ensure the script paths point to existing files in the project source directory
+3. **Test CLI Commands**: Run documented CLI commands to ensure they work
+4. **Validate Arguments**: Check script argument parsing matches documented examples
+5. **Cross-Reference**: Verify CLI examples work with the actual script implementations
+
+### Common CLI Validation Checks
+- ✅ All documented CLI commands exist in `[project.scripts]` section of `pyproject.toml`
+- ✅ Script paths in `pyproject.toml` point to actual files
+- ✅ CLI argument examples match script argument parsing
+- ✅ CLI commands execute without errors with documented arguments
+- ✅ Console script entry points are properly formatted
+
+## Code Example Verification
+
+### Source Code Validation
+**Primary Rule**: All code examples must be validated against the actual implementation in the project source directory before publication.
+
+- **Import Statements**: Verify all imports reference actual modules in the project
+- **Class/Function Signatures**: Check that documented method signatures match source code exactly
+- **Parameter Types**: Confirm all parameter types, defaults, and constraints match implementation
+- **Return Values**: Verify documented return types and structures match actual code
+
+### Systematic Code Verification Process
+1. **Locate Source Implementation**: Find the relevant class/function in the project source directory
+2. **Check pyproject.toml**: Verify any CLI commands, dependencies, or entry points
+3. **Check Signatures**: Compare documented signatures with actual implementation
+4. **Verify Parameters**: Ensure all required/optional parameters are correctly documented
+5. **Test Imports**: Verify import paths work from documented context
+6. **Execute Examples**: Run code examples to ensure they work with current codebase
+
+### Common Code Validation Checks
+- ✅ All imports can be resolved from the project package
+- ✅ Class constructors match documented parameters
+- ✅ Method signatures include all required arguments
+- ✅ Default parameter values match implementation
+- ✅ Documented exceptions match those raised in source code
+- ✅ Configuration classes match their actual schemas
+
+## Configuration Documentation
+
+### Configuration Schema Verification
+- **Extract from Source**: Pull all configurable options directly from config classes in the project source
+- **Required vs Optional**: Clearly distinguish required and optional configuration parameters
+- **Default Values**: Verify defaults match implementation, not documentation assumptions
+- **Valid Options**: Document valid ranges, enums, and interdependencies from source code
+
+### Configuration Validation Steps
+1. **Locate Config Classes**: Find relevant configuration classes in the project source
+2. **Extract Parameters**: List all configurable parameters from class definitions
+3. **Check Defaults**: Verify default values match source code
+4. **Test Examples**: Ensure configuration examples work with actual implementations
+5. **Validate Constraints**: Check parameter validation logic in source code
+
+## Tutorial and Example Verification
+
+### Executable Examples
+- **Test All Tutorials**: Every tutorial in `tutorials/` should be executable against current codebase
+- **Complete Examples**: Include all necessary imports, data setup, and dependencies
+- **Data Requirements**: Verify example datasets and file formats are correctly specified
+- **Environment Setup**: Ensure documented environment requirements are sufficient
+
+### Example Quality Standards
+- **Realistic Data**: Use realistic dataset examples, not just placeholder text
+- **Complete Workflows**: Examples should demonstrate end-to-end workflows
+- **Error Handling**: Document common error scenarios with actual error messages
+- **Best Practices**: Examples should follow established patterns from `examples/` directory
+
+## Project Component Documentation
+
+### Component Verification
+Verify component documentation against the actual project structure:
+- **Core Modules**: Check core functionality against main source directory
+- **Utilities**: Verify utility functions and helper modules
+- **Extensions**: Validate extension or plugin documentation
+- **APIs**: Ensure API documentation matches actual endpoints and schemas
+
+### Component Validation Steps
+1. **Identify Components**: Map documented functionality to actual implementations
+2. **Check CLI Availability**: Verify CLI commands exist in `pyproject.toml` if documented
+3. **Check Compatibility**: Verify component combinations work as documented
+4. **Test Data Flow**: Ensure data formats between components are correct
+5. **Validate Outputs**: Check that documented output formats match actual results
+
+## Automated Verification Integration
+
+### Code Validation Automation
+- **Import Testing**: Automated tests that verify all documented imports work
+- **CLI Testing**: Automated tests that verify all documented CLI commands exist and work
+- **Example Execution**: CI pipeline that runs tutorial and example code
+- **Link Checking**: Verify all references to source code files are valid
+- **Documentation Testing**: Include documentation examples in test suites
+
+### Verification Tooling
+- **Pytest Integration**: Use pytest to validate code examples in documentation
+- **Notebook Testing**: Automated execution of Jupyter notebooks in `tutorials/`
+- **Configuration Validation**: Test configuration examples against actual schemas
+- **Import Resolution**: Check that all documented imports resolve correctly
+- **CLI Validation**: Test that all documented CLI commands can be executed
+
+## Verification Workflow
+
+### During Documentation Creation
+1. **Check pyproject.toml**: Verify CLI commands, dependencies, and project configuration
+2. **Identify Source Components**: Locate relevant modules/classes in the project source
+3. **Extract Implementation Details**: Document actual parameters, types, and behavior
+4. **Create Working Examples**: Build examples that execute successfully
+5. **Test Against Source**: Validate examples against current codebase
+6. **Document Dependencies**: List all required packages and versions
+
+### During Documentation Updates
+1. **Check for Config Changes**: Compare current `pyproject.toml` against previously documented versions
+2. **Check for Code Changes**: Compare current source against previously documented versions
+3. **Update Examples**: Modify examples to reflect any implementation changes
+4. **Re-validate**: Run full validation process on updated examples
+5. **Test Breaking Changes**: Verify that source changes don't break existing examples
+
+### Quality Assurance Checklist
+
+Before publishing documentation:
+- [ ] CLI commands verified against `[project.scripts]` in `pyproject.toml`
+- [ ] Dependencies match those listed in `pyproject.toml`
+- [ ] All code examples tested against current source code
+- [ ] Import statements verified for correctness
+- [ ] Configuration examples tested with actual implementations
+- [ ] Tutorial notebooks execute successfully
+- [ ] Function/class signatures match source code exactly
+- [ ] Example datasets and file formats validated
+- [ ] Error scenarios documented with actual error messages
+- [ ] Dependencies clearly specified in requirements
+
+## When Discrepancies Are Found
+
+### Immediate Actions
+1. **Document the Issue**: Create clear warning admonitions in affected documentation
+2. **Track the Problem**: File GitHub issues with specific details about the discrepancy
+3. **Determine Root Cause**: Investigate whether source code, `pyproject.toml`, or documentation needs correction
+4. **Establish Timeline**: Set clear deadlines for resolution
+
+### Example Warning Format
+```markdown
+:::{warning}
+**Implementation Verification Required**: This example has not been validated against the current project source code and configuration. Please verify imports, CLI commands, and parameters before use.
+:::
+```
+
+## Verification Tracking
+
+### Documentation Metadata
+- Maintain "last verified" timestamps on code example sections
+- Track which project version was used for verification
+- Document any known discrepancies and their resolution status
+- Link to specific source files and `pyproject.toml` sections used for verification
+
+### Coverage Metrics
+- Measure percentage of code examples that have been source-validated
+- Track CLI command documentation coverage against `pyproject.toml` entries
+- Track documentation verification coverage across different project modules
+- Prioritize verification for high-impact or frequently-used components
+- Monitor source code change frequency and documentation update lag
+
+## Component-Specific Guidelines
+
+### For CLI Commands
+- **Always Check pyproject.toml First**: Before documenting any CLI command, verify it exists in `[project.scripts]`
+- **Verify Script Paths**: Ensure the console script paths point to existing files
+- **Test Command Execution**: Run CLI commands with documented examples to ensure they work
+- **Check Argument Parsing**: Verify documented arguments match actual script argument parsing
+
+### For Project Modules
+Adapt these guidelines based on your specific project structure and components:
+- **Core Functionality**: Always validate against main project modules
+- **Utilities**: Verify examples work with utility modules and helper functions
+- **Configuration**: Check configuration examples against actual config classes
+- **Extensions**: Verify extension or plugin examples against implementations
+- **APIs**: Check API documentation against actual endpoints and schemas
+
+### For Configuration Examples
+- **Configuration Files**: Validate YAML/JSON configs against actual implementations
+- **Environment Configs**: Check environment-specific examples work with documented parameters
+- **Deployment Configs**: Verify deployment examples against actual deployment implementations
+
+### For Dependencies and Installation
+- **Package Dependencies**: Verify all documented dependencies exist in `pyproject.toml`
+- **Optional Dependencies**: Check optional dependency groups match documentation
+- **Version Requirements**: Ensure documented version constraints match `pyproject.toml`
+- **Installation Instructions**: Test installation commands work with current project configuration
+
+Use these verification guidelines to maintain the highest level of accuracy between source code implementation, project configuration, and documentation, ensuring users can successfully execute workflows and use the project as documented. 

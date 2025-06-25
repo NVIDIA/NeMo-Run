@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+When a user provides one of the following commands, perform its associated task.
+
+- **Commands**:
+  - "::a": check the article against the source code in the project's main source directory using the [docs-info-verification.mdc](mdc:.cursor/rules/docs-info-verification.mdc)
+  - "::r": revise the article using the [docs-style-guide.mdc](mdc:.cursor/rules/docs-style-guide.mdc)
+  - "::f": format the article using the [docs-tooling.mdc](mdc:.cursor/rules/docs-tooling.mdc)
+  - "::bv": bump project version using [docs-bump-version.mdc](mdc:.cursor/rules/docs-bump-version.mdc)
+  - "::h-mr": help resolve a merge conflict using [docs-assist-merge-conflict-resolution.mdc](mdc:.cursor/rules/docs-assist-merge-conflict-resolution.mdc)

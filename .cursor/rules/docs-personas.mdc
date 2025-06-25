@@ -1,0 +1,57 @@
+---
+description: Documentation guidelines for addressing specific audience personas including data scientists, MLEs, cluster administrators, and DevOps professionals.
+globs: 
+alwaysApply: false
+---
+# Documentation Personas
+
+Our documentation is for enterprise AI products and features consumed by personas like data scientists, machine learning engineers, cluster administrators, and devops professionals. Common tools include: Kubernetes, notebooks, python, AI models.
+
+## Persona-Specific Guidelines
+
+### For Data Scientists
+- Include details on data formats and schemas
+- Document model validation methodologies clearly
+- Specify computational requirements for processing
+- Provide notebook examples with clear annotations
+- Include metrics for model performance evaluation
+- Document data preprocessing and feature engineering steps
+- Explain hyperparameter tuning approaches
+
+### For Machine Learning Engineers
+- Document model training pipelines completely
+- Include details on environment setup and dependencies
+- Provide testing and validation methodologies
+- Explain model deployment workflows
+- Document CI/CD integration for ML pipelines
+- Include performance optimization techniques
+- Provide examples of model serving configurations
+
+### For Cluster Administrators
+- Include complete deployment architectures
+- Document security considerations thoroughly
+- Provide detailed monitoring and maintenance procedures
+- Include troubleshooting guides for common issues
+- Document resource allocation recommendations
+- Provide scaling guidelines for different workloads
+- Include backup and disaster recovery procedures
+
+### For DevOps Professionals
+- Document infrastructure-as-code implementations
+- Include automation workflows and templates
+- Provide observability and monitoring setup
+- Document CI/CD pipeline integrations
+- Include security best practices for deployments
+- Explain high availability configurations
+- Document canary deployment and rollback procedures
+
+## Writing Style by Persona
+
+When writing for different personas, adjust your style:
+
+- **Data Scientists**: Focus on analytical concepts and model behavior
+- **ML Engineers**: Emphasize implementation details and pipeline architecture
+- **Cluster Admins**: Prioritize operational stability and system interactions
+- **DevOps**: Focus on automation, reliability, and maintainability
+
+Keep these personas in mind when drafting and evaluating documentation.

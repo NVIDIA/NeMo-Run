@@ -1,0 +1,132 @@
+---
+description: Specialized MyST/Sphinx markdown directives for documentation files. Apply when drafting or editing documentation that uses directives, grids, tabs, admonitions, or other Sphinx extensions.
+globs: 
+alwaysApply: false
+---
+# Sphinx/MyST Documentation Tooling Rule
+
+Our documentation uses Sphinx with MyST markdown and sphinx-design. Follow these rules for all files in `docs/`:
+
+- **Headers:**  
+  - Every header (including subheaders) must have a unique relref label above it in the format `(section-article-header)=`.  
+  - Example: `(evaluate-jobs-create)=`  
+  - Use lowercase, hyphens, and abbreviate as needed.  
+  - Avoid duplicate labels across the project.
+  - **Example:**
+    ```markdown
+    (evaluate-jobs-create)=
+    # Create Evaluation Job
+
+    (evaluate-jobs-create-prereqs)=
+    ## Prerequisites
+    ```
+
+- **Code Samples:**  
+  - Use dropdowns for code blocks longer than 10 lines or for any code that may distract from the main flow.  
+  - Title dropdowns meaningfully (e.g., “Python Example”, “Full YAML Config”).
+  - **Example:**
+    ```markdown
+    :::{dropdown} Python Example
+    :icon: code-square
+
+    ```python
+    def hello():
+        print("Hello, world!")
+    # ...more code...
+    ```
+    :::
+    ```
+
+- **Tabs:**  
+  - Use tab-sets for alternative options (e.g., curl vs. python, CLI vs. UI).  
+  - Each tab should have a clear, descriptive title.
+  - Use the `:sync:` attribute for tab-sets to synchronize tab selection across the page.
+  - **Example:**
+    ```markdown
+    :::: {tab-set}
+   
+    ::: {tab-item} Python
+    :sync: sync-pyth
+    `requests.get("https://api.example.com")`
+    :::
+    ::: {tab-item} curl
+    :sync: sync-cli
+    `curl https://api.example.com`
+    :::
+    ::::
+    ```
+
+- **Cards:**  
+  - Use grid card links for parent/overview pages with multiple links to subtopics or guides.  
+  - Each card should have a short title and a 1–2 sentence description.
+  - **Example:**
+    ```markdown
+    :::: {grid} 1 2 2 2
+    :gutter: 1 1 1 2
+
+    ::: {grid-item-card} Getting Started
+    :link: get-started-index
+    :link-type: ref
+
+    
+
+    Learn how to get started with the platform.
+    :::
+    ::::
+    ```
+
+- **Lists/Tables:**  
+  - Use lists or tables for short, related items, steps, or comparisons.  
+  - Prefer tables for side-by-side feature or parameter comparisons.
+  - **Example (Table):**
+    ```markdown
+    | Feature | Supported |
+    |---------|-----------|
+    | Tabs    | Yes       |
+    | Cards   | Yes       |
+    ```
+  - **Example (List):**
+    ```markdown
+    - Step 1: Do this
+    - Step 2: Do that
+    ```
+  - Prefer myst list tables for advanced tables over markdown tables
+
+- **Admonitions:**  
+  - Use admonitions sparingly because they interrupt the flow of information.
+    - Use a note to identify surprising or unexpected behavior.
+    - Use a warning to identify risk of physical injury or data loss.
+    - Use a tip to reveal a positive behavior in the software that someone might not discover on their own.
+  - Example:  
+    - `note` for general info  
+    - `warning` for risks  
+    - `tip` for best practices  
+  - **Example:**
+    ```markdown
+    :::{note}
+    You must have an API key before proceeding.
+    :::
+    ```
+
+- **References:**  
+  - Use `{ref}` for internal links, referencing the relref label.  
+  - Check for existing relref labels before creating new ones.
+  - **Example:**
+    ```markdown
+    Refer to the {ref}`customization job <ft-create-customization-job>` guide.
+    ```
+
+- **Accessibility:**  
+  - Add alt text to images.  
+  - Use descriptive tab and dropdown titles.  
+  - Ensure tables and lists are readable by screen readers.
+  - Avoid abelist language like "see", "above", "below".
+
+- **Style & Consistency:**  
+  - Follow the style guide for tone, terminology, and formatting.  
+  - Use consistent abbreviations and naming conventions.
+
+- **If Unsure:**  
+  - Check existing docs for examples.  
+  - Ask for clarification if a rule or pattern is unclear.
+

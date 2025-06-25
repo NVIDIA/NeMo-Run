@@ -1,70 +1,168 @@
 ---
-description: "Learn about our platform's core concepts, key features, and fundamental architecture to understand how it works."
-tags: ["overview", "concepts", "architecture", "features"]
-categories: ["concepts"]
+description: "Learn about NeMo Run's core concepts, key features, and fundamental architecture for ML experiment management and distributed computing."
+tags: ["overview", "concepts", "architecture", "features", "ml", "distributed-computing"]
+categories: ["about"]
 ---
 
 (about-overview)=
-# About {{ product_name_short }}
-This Documentation Template is an open-source, comprehensive showcase for scalable, modern documentation structures across multiple product areas and content types.
 
-This template helps you create high-quality, well-structured documentation for complex software products and enterprise platforms. Whether you work with web documentation, internal knowledge bases, or public-facing product docs, this template supports your workflow.
+# About NeMo Run
 
-(about-overview-target-users)=
+NeMo Run is a comprehensive Python framework for configuring, executing, and managing machine learning experiments across diverse computing environments. Built with a focus on reproducibility, flexibility, and scalability, NeMo Run decouples experiment configuration from execution, enabling researchers and ML engineers to seamlessly transition between local development, cloud platforms, and high-performance computing clusters.
+
+## What is NeMo Run?
+
+NeMo Run provides a unified interface for ML experiment lifecycle management, addressing the common challenges of:
+
+- **Configuration Management**: Complex, nested configurations for models, data, and training parameters
+- **Execution Orchestration**: Running experiments across different environments (local, Docker, Slurm, Kubernetes, cloud)
+- **Experiment Tracking**: Managing, monitoring, and reproducing experiments with full metadata preservation
+
+The framework is built on three core pillars:
+
+::::{grid} 1 1 1 3
+:gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`settings;1.5em;sd-mr-1` Configuration
+:link: configuration
+:link-type: ref
+:link-alt: Configuration guide
+
+Python-based configuration using Fiddle, supporting complex nested structures and type safety
+:::
+
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
+:link: execution
+:link-type: ref
+:link-alt: Execution guide
+
+Multi-environment execution with executors for local, Docker, Slurm, Kubernetes, and cloud platforms
+:::
+
+:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
+:link: management
+:link-type: ref
+:link-alt: Management guide
+
+Experiment lifecycle management with metadata tracking, logging, and reproducibility
+:::
+
+::::
+
+## Why Use NeMo Run?
+
+NeMo Run addresses critical pain points in ML experiment management through its unique approach:
+
+### 🔧 **Configuration Flexibility**
+
+NeMo Run's Python-based configuration system provides unprecedented flexibility:
+
+- **Type-Safe Configurations**: Automatic validation using Python's type annotations
+- **Nested Configuration Support**: Intuitive dot notation for complex parameter hierarchies
+- **Fiddle Integration**: Built on Google's Fiddle framework for robust configuration management
+- **YAML Interoperability**: Support for external configuration files with seamless Python integration
+
+### 🚀 **Execution Modularity**
+
+The framework's execution system enables true environment independence:
+
+- **Executor Abstraction**: Mix and match tasks with different execution environments
+- **Multi-Platform Support**: Local, Docker, Slurm, Kubernetes, and cloud platforms
+- **Code Packaging**: Intelligent packaging strategies (Git archive, pattern-based, hybrid)
+- **Launcher Integration**: Support for torchrun, fault tolerance, and custom launchers
+
+### 📊 **Experiment Management**
+
+Comprehensive experiment tracking and management capabilities:
+
+- **Metadata Preservation**: Automatic capture of configurations, logs, and artifacts
+- **Reproducibility**: One-command experiment reconstruction from metadata
+- **Status Monitoring**: Real-time experiment status and log access
+- **Dependency Management**: Complex workflow orchestration with task dependencies
+
 ## Target Users
 
-- **Technical writers and documentation engineers**: Build and maintain comprehensive documentation systems for complex products.
-- **Documentation managers and information architects**: Deploy and scale documentation projects across teams and product lines.
-- **Open source maintainers**: Create professional documentation structures for community projects and developer tools.
-- **Enterprise teams**: Ensure documentation consistency, accessibility, and quality for production software systems.
+NeMo Run is designed for ML practitioners who need robust experiment management:
 
-(about-overview-how-it-works)=
-## How It Works
+- **ML Researchers**: Conducting experiments across multiple environments with full reproducibility
+- **ML Engineers**: Building production ML pipelines with consistent configuration management
+- **DevOps Engineers**: Managing ML infrastructure across diverse computing platforms
+- **Data Scientists**: Prototyping and scaling ML experiments with minimal infrastructure overhead
 
-This template accelerates documentation development by using modern Sphinx extensions and proven content architecture patterns. You can structure content efficiently—from a single product to multi-product ecosystems. With modular layouts, advanced navigation, and seamless integration with modern documentation tools, this template is trusted by technical writing teams.
+## Key Technologies
 
-- **Product A Workflows**: Content flows through structured sections (loading, processing, reporting), organized with clear navigation hierarchies and cross-references.
-- **Product B Integration**: Uses grid layouts, card-based navigation, and modular content organization for complex integration scenarios.
-- **Product C Analytics**: Built with advanced Sphinx features, conditional content rendering, and scalable information architecture patterns.
+NeMo Run leverages modern Python ecosystem technologies:
 
-For more details, see the [Core Concepts](about-concepts) and [Key Features](about-key-features) sections below.
+- **Fiddle**: Google's configuration framework for type-safe, composable configurations
+- **TorchX**: PyTorch's job submission framework for distributed execution
+- **Docker**: Container-based execution for consistent environments
+- **Ray**: Distributed computing framework integration for scalable ML workloads
+- **Typer**: Modern CLI framework for rich command-line interfaces
 
-(about-overview-key-technologies)=
-### Key Technologies
+## Core Architecture
 
-- **Sphinx Documentation**: Modern documentation generation with powerful extensions and themes.
-- **MyST Markdown**: Advanced markdown parsing with rich directive support and cross-referencing.
-- **Grid Layouts**: Responsive, card-based content organization for complex product documentation.
-- **Conditional Content**: Dynamic content rendering based on build configuration and target audiences.
-
-(about-overview-core-concepts)=
-## Core Concepts
-
-Explore the foundational concepts and organizational patterns used across this documentation template.
+NeMo Run's architecture follows a clean separation of concerns:
 
 ::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
 
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Product A Concepts
-:link: about-concepts-product-a
+:::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` Configuration Layer
+:link: configuration
 :link-type: ref
+:link-alt: Configuration guide
 
-Explore key concepts for Product A workflows, including scalable data loading, processing (transformation, validation, filtering), and report generation.
+Fiddle-based configuration system with type safety and validation
 :::
 
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Execution Layer
+:link: execution
+:link-type: ref
+:link-alt: Execution guide
 
+Executor abstraction with multi-platform support and intelligent packaging
+:::
+
+:::{grid-item-card} {octicon}`database;1.5em;sd-mr-1` Management Layer
+:link: management
+:link-type: ref
+:link-alt: Management guide
+
+Experiment lifecycle management with metadata tracking and reproducibility
+:::
+
+:::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` Interface Layer
+:link: reference/cli
+:link-type: ref
+:link-alt: CLI reference
+
+Rich CLI interface with type-safe argument parsing and configuration overrides
+:::
 
 ::::
 
-(about-overview-about-template)=
-## About This Template
+## Getting Started
 
-This template demonstrates advanced Sphinx documentation patterns including:
+Ready to start using NeMo Run? Begin with these essential guides:
 
-- **Complex Navigation**: Multi-level toctrees with conditional content
-- **Rich Content Layout**: Grid systems, cards, and responsive design
-- **Cross-Reference Systems**: Comprehensive linking and reference management
-- **Extension Integration**: Custom Sphinx extensions and advanced features
-- **Scalable Architecture**: Patterns that work from small projects to enterprise-scale documentation
+::::{grid} 1 1 1 2
+:gutter: 1 1 1 2
 
-Perfect for teams who need to create sophisticated, maintainable documentation systems.
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
+:link: get-started/index
+:link-type: ref
+:link-alt: Get started guide
+
+Set up your first NeMo Run experiment in minutes
+:::
+
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Core Concepts
+:link: about/concepts
+:link-type: ref
+:link-alt: Core concepts
+
+Understand the fundamental concepts and patterns
+:::
+
+::::
+
+For detailed information about specific features, explore the [Configuration](configuration), [Execution](execution), and [Management](management) guides.

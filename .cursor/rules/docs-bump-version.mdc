@@ -1,0 +1,13 @@
+---
+description: Version Bump Instructions for Docs Publishing
+globs: 
+alwaysApply: false
+---
+
+1. Update the [versions1.json](mdc:docs/versions1.json) file with the user's provided version by adding a new entry at the top and updating preferred to false for the previous entry.
+2. Update the [repo.toml](mdc:repo.toml) `version` to the latest version provided by the user.
+2. Create a tag for the latest commit on the `main` branch in the format of "git tag docs-v{}.{}.{}`.
+3. Push the tag.
+4. Recap everything you did to prepare for the release.
+
+If a user asks you to bump the version but hasn't provided a full version number, ask for clarification on the version number.

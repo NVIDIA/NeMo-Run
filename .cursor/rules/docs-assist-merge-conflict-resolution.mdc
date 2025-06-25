@@ -1,0 +1,71 @@
+---
+description: Resolve the merge conflicts using a "manual rebase" approach
+globs: 
+alwaysApply: false
+---
+# LLM-Assisted Merge Conflict Resolution
+
+When documentation branches fall behind main, use this "smart rebase" approach with LLM assistance to resolve conflicts safely and accurately.
+
+## Prerequisites
+- Identify the current branch name (`user/example-branch`) that contains your changes
+- Ensure you have no uncommitted changes in your working directory
+
+## Resolution Steps
+
+1. Create a backup of your current branch:
+   ```bash
+   git branch backup/user-branch-$(date +%Y-%m-%d) user/example-branch
+   ```
+
+2. Get the latest main branch:
+   ```bash
+   git checkout main
+   git pull origin main
+   ```
+
+3. Create a new resolution branch:
+   ```bash
+   git checkout -b conflict-resolution/example-branch
+   ```
+
+4. Bring in changes from your original branch:
+   ```bash
+   git merge --squash user/example-branch
+   ```
+
+5. LLM-Assisted Conflict Resolution:
+   a. For each conflict marker (`<<<<<<<`), the LLM will:
+      - Analyze and explain the conflict context
+      - Show the semantic differences between versions
+      - Provide a recommended resolution with rationale
+      - Wait for user approval before proceeding
+   
+   b. After each resolution:
+      - LLM verifies the resolved content maintains technical accuracy
+      - LLM checks for documentation consistency
+      - LLM ensures cross-references remain valid
+
+6. Final Validation:
+   - LLM performs comprehensive review of all resolved files
+   - Verifies all conflict markers are removed
+   - Checks documentation structure remains intact
+   - Ensures all technical content is accurate
+   - Validates all internal references and links
+
+7. Commit the resolved changes:
+   ```bash
+   git add .
+   git commit -m "Resolve conflicts from user/example-branch
+
+   - List major conflicts resolved
+   - Note any significant decisions made
+   - Reference relevant documentation updates"
+   ```
+
+## Post-Resolution
+You now have a clean branch based on latest main with your changes properly integrated. The backup branch can be deleted once you've verified everything is correct:
+```bash
+git branch -D backup/user-branch-YYYY-MM-DD
+```
+

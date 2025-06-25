@@ -1,7 +1,7 @@
 (admin-integrations)=
 # Integrations
 
-Use the following Admin guides to set up integrations for NeMo Curator in a production environment.
+Use the following Admin guides to set up integrations for NeMo Run in a production environment.
 
 ## Prerequisites
 
@@ -11,8 +11,18 @@ Use the following Admin guides to set up integrations for NeMo Curator in a prod
 
 ## Integration Options
 
-::::{grid} 1 1 1 2
+::::{grid} 1 1 1 3
 :gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray
+:link: admin-integrations-ray
+:link-type: ref
+Integrate NeMo Run with Ray clusters for distributed computing
++++
+{bdg-secondary}`distributed`
+{bdg-secondary}`kubernetes`
+{bdg-secondary}`slurm`
+:::
 
 :::{grid-item-card} {octicon}`database;1.5em;sd-mr-1` Spark
 :link: admin-integrations-spark
@@ -41,6 +51,7 @@ Enable semantic search for your documentation using Pinecone's hosted embeddings
 :titlesonly:
 :hidden:
 
+Ray <ray>
 Spark <spark>
 Pinecone <pinecone>
 

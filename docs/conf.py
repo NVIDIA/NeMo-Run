@@ -26,7 +26,7 @@ import sys
 # Add custom extensions directory to Python path
 sys.path.insert(0, os.path.abspath('_extensions'))
 
-project = "NVIDIA-Docs-Template"
+project = "NeMo Run"
 copyright = "2025, NVIDIA Corporation"
 author = "NVIDIA Corporation"
 release = "0.0.1"
@@ -43,7 +43,7 @@ extensions = [
     "sphinx_copybutton",  # For copy button in code blocks,
     "sphinx_design",  # For grid layout
     "sphinx.ext.ifconfig",  # For conditional content
-    "content_gating",  # Unified content gating extension 
+    "content_gating",  # Unified content gating extension
     "myst_codeblock_substitutions",  # Our custom MyST substitutions in code blocks
     "json_output",  # Generate JSON output for each page
     "search_assets",  # Enhanced search assets extension
@@ -54,8 +54,8 @@ extensions = [
 
 templates_path = ["_templates"]
 exclude_patterns = [
-    "_build", 
-    "Thumbs.db", 
+    "_build",
+    "Thumbs.db",
     ".DS_Store",
     "_extensions/*/README.md",     # Exclude README files in extension directories
     "_extensions/README.md",       # Exclude main extensions README
@@ -111,8 +111,8 @@ myst_heading_anchors = 5  # Generates anchor links for headings up to level 5
 
 # MyST substitutions for reusable variables across documentation
 myst_substitutions = {
-    "product_name": "NVIDIA Docs Starter Kit",
-    "product_name_short": "Docs Starter Kit",
+    "product_name": "NVIDIA NeMo Run",
+    "product_name_short": "NeMo Run",
     "company": "NVIDIA",
     "version": release,
     "current_year": "2025",
@@ -164,7 +164,7 @@ for pkg_path in autodoc2_packages_list:
 if autodoc2_packages:
     if "autodoc2" not in extensions:
         extensions.append("autodoc2")
-    
+
     autodoc2_render_plugin = "myst"  # Use MyST for rendering docstrings
     autodoc2_output_dir = "apidocs"  # Output directory for autodoc2 (relative to docs/)
     # This is a workaround that uses the parser located in autodoc2_docstrings_parser.py to allow autodoc2 to
@@ -215,10 +215,10 @@ html_theme_options = {
     },
 }
 
-# Add our static files directory  
+# Add our static files directory
 # html_static_path = ["_static"]
 
 html_extra_path = ["project.json", "versions1.json"]
 
-# Note: JSON output configuration has been moved to the consolidated 
+# Note: JSON output configuration has been moved to the consolidated
 # json_output_settings dictionary above for better organization and new features!

@@ -1,0 +1,8 @@
+---
+description: Where to find source code for drafting details.
+globs: 
+alwaysApply: false
+---
+- You can find the source code used to draft docs in the project's main source directory.
+
+- Make sure the main branch is up to date when verifying this information, as that represents the current development state.

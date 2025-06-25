@@ -1,0 +1,17 @@
+---
+description: The documentation style guide.
+globs: 
+alwaysApply: false
+---
+Adhere to the NVIDIA Style Guide when drafting or editing content. Ensure the following:
+
+1. Brand Name: Ensure "NVIDIA" is always in all caps.
+2. Voice & Tone: Use PACE (Professional, Active, Conversational, Engaging). Maintain a consistent, natural voice. Use active voice and contractions.
+Abbreviations & Acronyms: Spell out on first use, then use abbreviations. Common acronyms like PC don't need to be spelled out.
+4. Capitalization: Use title case for headings and proper nouns. Avoid capitalizing conjunctions and prepositions of three letters or less.
+Punctuation: Use Oxford commas. Avoid ampersands unless in titles. Use em dashes for emphasis, en dashes for ranges.
+Dates & Times: Use the 12-hour format with periods (e.g., 12:45 p.m.). Abbreviate months in tables.
+Units of Measurement: Be consistent. Use a space between the number and unit (e.g., 40 GB).
+Inclusivity: Avoid gender-specific pronouns and Latinisms. Use plain English.
+10. Formatting: Use italics for publication titles and games. Use bold for UI elements.
+Please review the text for these guidelines and suggest any necessary edits to ensure compliance with the NVIDIA Style Guide.
