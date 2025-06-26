@@ -6,7 +6,7 @@ categories: ["core"]
 
 (management-guide)=
 
-# Management
+# Manage NeMo Run Experiments
 
 The central component for management of tasks in NeMo-Run is the `Experiment` class. It allows you to define, launch, and manage complex workflows consisting of multiple tasks. This guide provides an overview of the `Experiment` class, its methods, and how to use it effectively.
 
@@ -37,6 +37,7 @@ You can add tasks to an experiment using the `add` method. This method supports 
 with exp:
     exp.add(task_1, executor=run.LocalExecutor())
 ```
+
 ::::
 
 - A list of tasks, each of which is an instance of either `run.Partial` or `run.Script`, along with a single executor or a list of executors for each task in the group. Currently, all tasks in the group will be executed in parallel.
@@ -48,6 +49,7 @@ with exp:
 with exp:
     exp.add([task_2, task_3], executor=run.DockerExecutor(...))
 ```
+
 ::::
 
 You can specify a descriptive name for the task using the `name` keyword argument.
@@ -70,6 +72,7 @@ with run.Experiment("dag-experiment", log_level="INFO") as exp:
        dependencies=[id1, id2], # task-3 will only run after task-1 and task-2 have completed
    )
 ```
+
 ::::
 
 ## Launching an Experiment
@@ -121,6 +124,7 @@ Task 2: simple.add.add_object
 - Job id: simple.add.add_object-s1543tt3f7dcm
 - Local Directory: /home/your_user/.nemo_run/experiments/experiment_with_scripts/experiment_with_scripts_1730761155/simple.add.add_object
 ```
+
 ::::
 
 ## Canceling a Task
@@ -156,6 +160,7 @@ experiment.status() # Gets the overall status
 experiment.logs("echo.sh") # Gets the log for the provided task
 experiment.cancel("echo.sh") # Cancels the provided task if still running
 ```
+
 :::
 
 :::{tab-item} CLI
@@ -167,6 +172,7 @@ nemorun experiment status experiment_with_scripts_1720556256
 nemorun experiment logs experiment_with_scripts_1720556256 0
 nemorun experiment cancel experiment_with_scripts_1720556256 0
 ```
+
 :::
 
 ::::

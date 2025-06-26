@@ -6,12 +6,12 @@ categories: ["admin"]
 
 (ray-guide)=
 
-# Ray Clusters & Jobs
+# Distribute NeMo Run Jobs with Ray
 
 :::{note}
 **Audience**: You already know how to configure executors with NeMo-Run and want distributed *Ray* on either Kubernetes **or** Slurm.
 
-**TL;DR**: `RayCluster` manages the _cluster_; `RayJob` submits a job with an ephemeral cluster. Everything else is syntactic sugar.
+**TL;DR**: `RayCluster` manages the *cluster*; `RayJob` submits a job with an ephemeral cluster. Everything else is syntactic sugar.
 :::
 
 ## RayCluster vs. RayJob – which one do I need?
@@ -117,6 +117,7 @@ job.logs(follow=True)
 # 5) Clean-up
 cluster.stop()
 ```
+
 ::::
 
 ### Notes
@@ -196,6 +197,7 @@ job.logs(follow=True)
 # 6) Tear everything down (or just let the wall-time expire)
 cluster.stop()
 ```
+
 ::::
 
 ### Tips for Slurm Users
