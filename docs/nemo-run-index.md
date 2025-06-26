@@ -43,10 +43,49 @@ This is the typical order Nemo Run users will follow to setup and launch experim
 
 ---
 
+## About
+
+::::{grid} 1 1 1 2
+:gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`info;1.5em;sd-mr-1` About NeMo Run
+:link: about-overview
+:link-type: ref
+:link-alt: About NeMo Run
+
+Overview of NeMo Run's core concepts and architecture.
+:::
+
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Key Features
+:link: key-features
+:link-type: ref
+:link-alt: Key features
+
+Explore the technical capabilities and implementation details.
+:::
+
+:::{grid-item-card} {octicon}`star;1.5em;sd-mr-1` Why Choose NeMo Run
+:link: why-nemo-run
+:link-type: ref
+:link-alt: Why choose NeMo Run
+
+Learn why NeMo Run is the preferred choice for ML experiment management.
+:::
+
+::::
+
 ::::{toctree}
 :hidden:
-Home <self>
+:caption: About
+:maxdepth: 2
+about/index
+about/key-features
+about/why-nemo-run
 ::::
+
+---
+
+## Get Started
 
 ::::{toctree}
 :hidden:
@@ -64,18 +103,9 @@ get-started/tutorials
 guides/configuration
 guides/execution
 guides/management
+guides/ray
 guides/packaging
 guides/cli
-guides/ray
-::::
-
-::::{toctree}
-:hidden:
-:caption: About
-:maxdepth: 2
-about/index
-about/key-features
-about/why-nemo-run
 ::::
 
 ::::{toctree}
@@ -84,5 +114,4 @@ about/why-nemo-run
 :maxdepth: 2
 faqs
 troubleshooting
-versions1
-:::
+::::

@@ -4,7 +4,7 @@ tags: ["installation", "setup", "dependencies", "skypilot", "lepton"]
 categories: ["get-started"]
 ---
 
-(install-guide)=
+(install)=
 
 # Installation
 

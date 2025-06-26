@@ -6,7 +6,7 @@ categories: ["help"]
 
 (troubleshooting-overview)=
 
-# Troubleshoot Guide
+# Troubleshooting Guide
 
 This guide helps you diagnose and resolve common issues when using NeMo Run. It covers error messages, debugging techniques, and solutions for various scenarios.
 
@@ -41,6 +41,7 @@ python -c "import nemo_run as run; print(dir(run))"
 ### UnserializableValueError
 
 **Error:**
+
 ```
 fiddle._src.experimental.serialization.UnserializableValueError:
 Unserializable value .tmp of type <class 'pathlib.PosixPath'>.
@@ -50,6 +51,7 @@ Error occurred at path '<root>.something'
 **Cause:** Non-serializable objects in configuration
 
 **Solution:**
+
 ```python
 # ❌ Wrong: Direct path object
 partial = run.Partial(some_function, something=Path("/tmp"))
@@ -61,6 +63,7 @@ partial = run.Partial(some_function, something=run.Config(Path, "/tmp"))
 ### Deserialization Error
 
 **Error:**
+
 ```
 ValueError: Using the Buildable constructor to convert a buildable to a new type
 or to override arguments is forbidden; please use either `fdl.cast(new_type, buildable)`
@@ -70,6 +73,7 @@ or to override arguments is forbidden; please use either `fdl.cast(new_type, bui
 **Cause:** Mixed configuration types
 
 **Solution:**
+
 ```python
 # Ensure only Config or Partial objects in nested configuration
 from nemo_run.config import ZlibJSONSerializer
@@ -84,6 +88,7 @@ serializer.deserialize(serializer.serialize(partial)) == partial
 ### Control Flow in autoconvert
 
 **Error:**
+
 ```
 UnsupportedLanguageConstructError: Control flow (ListComp) is unsupported by auto_config.
 ```
@@ -91,6 +96,7 @@ UnsupportedLanguageConstructError: Control flow (ListComp) is unsupported by aut
 **Cause:** Complex control flow in autoconvert decorator
 
 **Solution:**
+
 ```python
 # ❌ Wrong: Control flow in autoconvert
 @run.autoconvert
@@ -120,12 +126,14 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Commit Git Changes:**
+
    ```bash
    git add .
    git commit -m "Update configuration"
    ```
 
 2. **Check Packaging Strategy:**
+
    ```python
    # Use GitArchivePackager for version-controlled code
    packager = run.GitArchivePackager(subpath="src")
@@ -135,6 +143,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 3. **Verify Working Directory:**
+
    ```python
    # Check what gets packaged
    executor = run.LocalExecutor(packager=packager)
@@ -147,6 +156,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Check Slurm Configuration:**
+
    ```python
    executor = run.SlurmExecutor(
        account="your_account",      # Verify account
@@ -159,6 +169,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 2. **Verify SSH Tunnel:**
+
    ```python
    # For remote execution
    ssh_tunnel = run.SSHTunnel(
@@ -173,6 +184,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 3. **Check Resource Availability:**
+
    ```bash
    # Check Slurm status
    sinfo
@@ -187,12 +199,14 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Verify Docker Installation:**
+
    ```bash
    docker --version
    docker ps
    ```
 
 2. **Check Image Availability:**
+
    ```python
    executor = run.DockerExecutor(
        container_image="pytorch/pytorch:latest",  # Verify image exists
@@ -202,6 +216,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 3. **Verify Volume Mounts:**
+
    ```python
    executor = run.DockerExecutor(
        container_image="pytorch/pytorch:latest",
@@ -217,17 +232,20 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Install Skypilot:**
+
    ```bash
    pip install "nemo_run[skypilot]"
    ```
 
 2. **Configure Cloud:**
+
    ```bash
    sky check
    sky status
    ```
 
 3. **Check Cloud Configuration:**
+
    ```python
    executor = run.SkypilotExecutor(
        cluster_name="my-cluster",
@@ -246,6 +264,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Causes and Solutions:**
 
 1. **NeMo Run Home Changed:**
+
    ```bash
    # Check current home
    echo $NEMORUN_HOME
@@ -255,12 +274,14 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 2. **Home Directory Deleted:**
+
    ```bash
    # Recreate home directory
    mkdir -p ~/.nemorun
    ```
 
 3. **Remote Logs Unavailable:**
+
    ```python
    # For Kubernetes/Skypilot, logs may be lost if cluster is terminated
    # Use persistent storage for important logs
@@ -279,17 +300,20 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Check Experiment Status:**
+
    ```python
    experiment = run.Experiment.from_id("experiment_id")
    experiment.status()
    ```
 
 2. **Cancel Stuck Jobs:**
+
    ```python
    experiment.cancel("task_name")
    ```
 
 3. **Check Job Dependencies:**
+
    ```python
    # Verify dependency configuration
    exp.add(task1, name="task1")
@@ -305,11 +329,13 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Check Installation:**
+
    ```bash
    pip list | grep nemo-run
    ```
 
 2. **Verify Entrypoint Registration:**
+
    ```python
    @run.cli.entrypoint
    def my_command():
@@ -320,6 +346,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 3. **Check Python Path:**
+
    ```bash
    python -c "import sys; print(sys.path)"
    ```
@@ -331,6 +358,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Use Correct Syntax:**
+
    ```bash
    # ✅ Correct
    python script.py model=resnet50 learning_rate=0.001
@@ -340,6 +368,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 2. **Check Type Hints:**
+
    ```python
    @run.cli.entrypoint
    def train_model(
@@ -351,6 +380,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 3. **Use Factory Functions:**
+
    ```python
    @run.cli.factory
    def create_model(name: str, hidden_size: int = 512):
@@ -370,6 +400,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Optimize Package Size:**
+
    ```python
    # Use specific subpaths
    packager = run.GitArchivePackager(subpath="src/models")
@@ -382,12 +413,14 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 2. **Use Local Testing:**
+
    ```python
    # Test locally first
    executor = run.LocalExecutor()
    ```
 
 3. **Check Network Connectivity:**
+
    ```bash
    # Test SSH connection
    ssh user@remote-host "echo 'Connection successful'"
@@ -400,6 +433,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Adjust Resource Requests:**
+
    ```python
    executor = run.SlurmExecutor(
        mem="64G",           # Request more memory
@@ -408,6 +442,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 2. **Optimize Code:**
+
    ```python
    # Use generators for large datasets
    def data_generator():
@@ -416,6 +451,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 3. **Monitor Resource Usage:**
+
    ```bash
    # Check memory usage
    htop
@@ -431,6 +467,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Verify SSH Configuration:**
+
    ```bash
    # Test SSH connection
    ssh -i ~/.ssh/id_ed25519 user@host
@@ -440,6 +477,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 2. **Configure SSH Tunnel:**
+
    ```python
    ssh_tunnel = run.SSHTunnel(
        host="your-host",
@@ -450,6 +488,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 3. **Check Firewall Settings:**
+
    ```bash
    # Test port connectivity
    telnet host 22
@@ -462,6 +501,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
 **Solutions:**
 
 1. **Increase Timeouts:**
+
    ```python
    # Configure longer timeouts
    executor = run.SlurmExecutor(
@@ -471,6 +511,7 @@ def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
    ```
 
 2. **Use Retry Logic:**
+
    ```python
    # Implement retry logic in your code
    import time

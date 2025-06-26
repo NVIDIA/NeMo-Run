@@ -6,13 +6,15 @@ categories: ["guides"]
 
 (ray)=
 
-# Ray Clusters & Jobs
+# Deploy Ray Clusters and Jobs
 
 > **Audience**: You already know how to configure executors with NeMo Run and want distributed *Ray* on either Kubernetes **or** Slurm.
 >
-> **TL;DR**: `RayCluster` manages the _cluster_; `RayJob` submits a job with an ephemeral cluster.  Everything else is syntactic sugar.
+> **TL;DR**: `RayCluster` manages the *cluster*; `RayJob` submits a job with an ephemeral cluster. Everything else is syntactic sugar.
 
-## RayCluster vs. RayJob – which one do I need?
+## Understanding RayCluster vs. RayJob
+
+NeMo Run provides two main approaches for working with Ray: **RayCluster** for interactive, long-lived clusters and **RayJob** for batch processing with ephemeral clusters.
 
 | Aspect | RayCluster (interactive) | RayJob (batch) |
 |--------|--------------------------|----------------|
@@ -23,20 +25,31 @@ categories: ["guides"]
 | Best for | Debugging, notebooks, iterative dev, hyper-param sweeps that reuse workers | CI/CD pipelines, scheduled training/eval, one-off runs |
 | Resource efficiency | Great when you launch many jobs interactively | Great when you just need results & want resources freed asap |
 
-**Rules of thumb**
+### When to Use Each Approach
 
-• Pick **RayCluster** when you want a long-lived playground: start it once, poke around with the Ray CLI or a Jupyter notebook, submit multiple Ray Jobs yourself, and tear it down when you're done.
+**Choose RayCluster when you want:**
 
-• Pick **RayJob** when you simply need *"run this script with N GPUs and tell me when you're done"* – the backend spins up a transient cluster, runs the entrypoint, collects logs/status, and cleans everything up automatically.
+- A long-lived playground for interactive development
+- To start once, explore with Ray CLI or Jupyter notebooks
+- To submit multiple Ray jobs manually
+- To tear down when you're completely done
 
-## 1.  Mental model
+**Choose RayJob when you need:**
+
+- Simple "run this script with N GPUs and tell me when you're done"
+- Automatic cluster lifecycle management
+- Results collection and cleanup without manual intervention
+
+## Core Concepts
+
+NeMo Run abstracts Ray cluster and job management through two main classes:
 
 | Object      | What it abstracts | Back-ends supported |
 |-------------|-------------------|---------------------|
 | `run.ray.cluster.RayCluster` | Lifecycle of a Ray **cluster** (create ⇒ wait ⇢ status ⇢ port-forward ⇢ delete). | `KubeRayExecutor`, `SlurmExecutor` |
 | `run.ray.job.RayJob`         | Lifecycle of a Ray **job**   (submit ⇒ monitor ⇢ logs ⇢ cancel). | same |
 
-The two helpers share a uniform API; the chosen *Executor* decides whether we talk to the **KubeRay** operator (K8s) or a **Slurm** job under the hood.
+Both helpers share a uniform API, with the chosen *Executor* determining whether we communicate with the **KubeRay** operator (Kubernetes) or a **Slurm** job under the hood.
 
 ```mermaid
 classDiagram
@@ -46,7 +59,11 @@ classDiagram
     RayJob     <|-- SlurmRayJob
 ```
 
-## 2.  KubeRay quick-start
+## Kubernetes with KubeRay
+
+KubeRay provides native Ray support on Kubernetes, making it ideal for cloud-native environments and containerized workloads.
+
+### Quick Start Example
 
 ```python
 from nemo_run.core.execution.kuberay import KubeRayExecutor, KubeRayWorkerGroup
@@ -99,7 +116,7 @@ cluster = RayCluster(name="demo-kuberay-cluster", executor=executor)
 cluster.start(timeout=900, pre_ray_start_commands=pre_ray_start)
 cluster.port_forward(port=8265, target_port=8265, wait=False)  # dashboard → http://localhost:8265
 
-# 4) Submit a Ray Job that runs inside that cluster
+# 4) Submit a RayJob that runs inside that cluster
 job = RayJob(name="demo-kuberay-job", executor=executor)
 job.start(
     command="uv run python examples/train.py --config cfgs/train.yaml",
@@ -113,11 +130,19 @@ job.logs(follow=True)
 cluster.stop()
 ```
 
-### Notes
-1. `workdir` is rsync'ed into the first declared `volume_mounts` on the executor, so relative imports *just work*.
-2. Add `pre_ray_start_commands=["apt-get update && …"]` to inject shell snippets that run inside the **head** and **worker** containers **before** Ray starts.
+### Key Points for KubeRay
 
-## 3.  Slurm quick-start
+1. **Volume Management**: The `workdir` is automatically rsync'ed into the first declared `volume_mounts` on the executor, ensuring relative imports work seamlessly.
+
+2. **Pre-start Commands**: Use `pre_ray_start_commands=["apt-get update && …"]` to inject shell snippets that run inside both **head** and **worker** containers **before** Ray starts.
+
+3. **Dashboard Access**: The Ray dashboard is accessible via port forwarding, providing real-time monitoring of your cluster.
+
+## Slurm Integration
+
+Slurm integration enables Ray clusters on traditional HPC systems, leveraging existing job scheduling infrastructure.
+
+### Quick Start Example
 
 ```python
 import os
@@ -169,12 +194,12 @@ pre_ray_start = [
     "pip install uv",
 ]
 
-# 4) Bring up the Ray cluster (Slurm array job under the hood)
+# 4) Bring up the RayCluster (Slurm array job under the hood)
 cluster = RayCluster(name="demo-slurm-ray", executor=executor)
 cluster.start(timeout=1800, pre_ray_start_commands=pre_ray_start)
 cluster.port_forward(port=8265, target_port=8265)  # dashboard → http://localhost:8265
 
-# 5) Submit a Ray job that runs inside the cluster
+# 5) Submit a RayJob that runs inside the cluster
 job = RayJob(name="demo-slurm-job", executor=executor)
 job.start(
     command="uv run python train.py --config cfgs/train.yaml cluster.num_nodes=2",
@@ -187,19 +212,25 @@ job.logs(follow=True)
 cluster.stop()
 ```
 
-### Tips for Slurm users
-* `executor.packager = run.GitArchivePackager()` if you prefer packaging a git tree instead of rsync.
-* `cluster.port_forward()` opens an SSH tunnel from *your laptop* to the Ray dashboard running on the head node.
+### Slurm-Specific Tips
 
-## 4.  API reference cheat-sheet
+- **Git Packaging**: Use `executor.packager = run.GitArchivePackager()` if you prefer packaging a git tree instead of rsync.
+- **Dashboard Access**: `cluster.port_forward()` creates an SSH tunnel from your laptop to the Ray dashboard running on the head node.
+- **Resource Management**: Leverage Slurm's native resource allocation and job scheduling capabilities.
+
+## API Reference
+
+Here's a quick reference for the most commonly used methods:
 
 ```python
+# Cluster Management
 cluster = RayCluster(name, executor)
 cluster.start(wait_until_ready=True, timeout=600, pre_ray_start_commands=["pip install -r …"])
 cluster.status(display=True)
 cluster.port_forward(port=8265, target_port=8265, wait=False)
 cluster.stop()
 
+# Job Management
 job = RayJob(name, executor)
 job.start(command, workdir, runtime_env_yaml=None, pre_ray_start_commands=None)
 job.status()
@@ -207,11 +238,11 @@ job.logs(follow=True)
 job.stop()
 ```
 
-All methods are synchronous and **return immediately** when their work is done; the helpers hide the messy details (kubectl, squeue, ssh, …).
+All methods are synchronous and **return immediately** when their work is complete, abstracting away the complexity of underlying operations (kubectl, squeue, ssh, etc.).
 
-## 5. Roll your own CLI
+## Building Custom CLIs
 
-Because `RayCluster` and `RayJob` are plain Python, you can compose them inside **argparse**, **Typer**, **Click** – anything. Here is a minimal **argparse** script:
+Since `RayCluster` and `RayJob` are plain Python classes, you can easily integrate them into any CLI framework. Here's a minimal example using **argparse**:
 
 ```python
 import argparse
@@ -221,7 +252,7 @@ from nemo_run.run.ray.job import RayJob
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Submit a Ray job via NeMo Run")
+    parser = argparse.ArgumentParser(description="Submit a RayJob via NeMo Run")
     parser.add_argument("--name", default="demo", help="Base name for cluster + job")
     parser.add_argument(
         "--image",
@@ -231,7 +262,7 @@ def main() -> None:
     parser.add_argument(
         "--command",
         default="python script.py",
-        help="Entrypoint to execute inside Ray job",
+        help="Entrypoint to execute inside RayJob",
     )
     args = parser.parse_args()
 
@@ -262,8 +293,8 @@ if __name__ == "__main__":
     main()
 ```
 
-From there you can wrap the script with `uvx`, bake it into a Docker image, or integrate it into a larger orchestration system – the underlying NeMo Run APIs stay the same.
+This pattern can be extended to work with **Typer**, **Click**, or any other CLI framework. You can wrap the script with `uvx`, package it into a Docker image, or integrate it into larger orchestration systems while keeping the underlying NeMo Run APIs consistent.
 
 ---
 
-Happy distributed hacking! 🚀
+Happy distributed computing! 🚀

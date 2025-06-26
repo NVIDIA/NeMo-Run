@@ -4,7 +4,7 @@ tags: ["guides", "configuration", "execution", "management", "ray", "tutorials"]
 categories: ["guides"]
 ---
 
-(guides-overview)=
+(guides)=
 
 # NeMo Run Guides
 
@@ -90,15 +90,15 @@ Each guide provides:
 
 Before diving into these guides, make sure you have:
 
-- NeMo Run installed (see [Installation Guide](../get-started/install))
+- NeMo Run installed (see [Installation Guide](install))
 - Basic Python knowledge
 - Access to computing resources (local, cloud, or cluster)
 
 ## Need Help?
 
-- Check the [FAQs](../faqs) for common questions
-- Explore the [About section](../about) for conceptual information
-- Review the [tutorials](../get-started/tutorials) for hands-on examples
+- Check the [FAQs](faqs) for common questions
+- Explore the [About section](about-overview) for conceptual information
+- Review the [tutorials](tutorials) for hands-on examples
 
 ```{toctree}
 :hidden:
