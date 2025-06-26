@@ -4,7 +4,7 @@ tags: ["cli", "command-line", "entrypoints", "factories", "arguments"]
 categories: ["guides"]
 ---
 
-(cli-overview)=
+(cli)=
 
 # Command-Line Interface
 

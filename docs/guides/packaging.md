@@ -4,7 +4,7 @@ tags: ["packaging", "git", "deployment", "code", "archives"]
 categories: ["guides"]
 ---
 
-(packaging-overview)=
+(packaging)=
 
 # Packaging Strategies
 
@@ -47,6 +47,7 @@ executor = run.DockerExecutor(
 ```
 
 **Use Cases:**
+
 - When your code is already available in the container
 - For simple scripts that don't require complex packaging
 - When using pre-built images with your code
@@ -83,6 +84,7 @@ executor = run.SlurmExecutor(
 ### Directory Structure Examples
 
 **Repository Structure:**
+
 ```
 my_project/
 ├── docs/
@@ -96,11 +98,13 @@ my_project/
 ```
 
 **With `subpath="src"`:**
+
 ```python
 packager = run.GitArchivePackager(subpath="src")
 ```
 
 **Working directory on remote:**
+
 ```
 models/
 data/
@@ -108,11 +112,13 @@ utils/
 ```
 
 **With `subpath=""` (default):**
+
 ```python
 packager = run.GitArchivePackager()  # or subpath=""
 ```
 
 **Working directory on remote:**
+
 ```
 docs/
 src/
@@ -142,6 +148,7 @@ packager = run.GitArchivePackager(
 ### Best Practices
 
 1. **Commit Your Changes**
+
    ```bash
    # Always commit before running remote jobs
    git add .
@@ -149,6 +156,7 @@ packager = run.GitArchivePackager(
    ```
 
 2. **Use Meaningful Subpaths**
+
    ```python
    # Good: Clear subpath
    packager = run.GitArchivePackager(subpath="experiments/transformer")
@@ -158,6 +166,7 @@ packager = run.GitArchivePackager(
    ```
 
 3. **Handle Large Repositories**
+
    ```python
    # Package only necessary components
    packager = run.GitArchivePackager(subpath="src/models")
@@ -262,6 +271,7 @@ packager = run.PatternPackager(
 ### Use Cases
 
 1. **Non-Git Projects**
+
    ```python
    # Package code not under version control
    packager = run.PatternPackager(
@@ -271,6 +281,7 @@ packager = run.PatternPackager(
    ```
 
 2. **Selective Packaging**
+
    ```python
    # Package only specific components
    packager = run.PatternPackager(
@@ -280,6 +291,7 @@ packager = run.PatternPackager(
    ```
 
 3. **Generated Code**
+
    ```python
    # Package generated artifacts
    packager = run.PatternPackager(
@@ -325,6 +337,7 @@ executor = run.SlurmExecutor(
 ### Directory Structure
 
 **Local Structure:**
+
 ```
 project/
 ├── src/
@@ -339,6 +352,7 @@ project/
 ```
 
 **Hybrid Packager Configuration:**
+
 ```python
 hybrid_packager = run.HybridPackager(
     sub_packagers={
@@ -356,6 +370,7 @@ hybrid_packager = run.HybridPackager(
 ```
 
 **Remote Working Directory:**
+
 ```
 code/
 ├── models/
@@ -402,6 +417,7 @@ hybrid_packager = run.HybridPackager(
 ### Use Cases
 
 1. **Mixed Version Control**
+
    ```python
    # Some code in Git, some not
    hybrid_packager = run.HybridPackager(
@@ -416,6 +432,7 @@ hybrid_packager = run.HybridPackager(
    ```
 
 2. **Different Packaging Strategies**
+
    ```python
    # Git for code, pattern for configs and data
    hybrid_packager = run.HybridPackager(
@@ -434,6 +451,7 @@ hybrid_packager = run.HybridPackager(
    ```
 
 3. **Generated Code with Source**
+
    ```python
    # Source code from Git, generated code from patterns
    hybrid_packager = run.HybridPackager(
@@ -498,6 +516,7 @@ executor = run.LocalExecutor(packager=packager)
 ### Common Issues
 
 1. **Git Archive Issues**
+
    ```bash
    # Error: Not a git repository
    # Solution: Ensure you're in a git repository
@@ -507,6 +526,7 @@ executor = run.LocalExecutor(packager=packager)
    ```
 
 2. **Pattern Matching Issues**
+
    ```python
    # Error: No files found
    # Solution: Check pattern and relative path
@@ -517,6 +537,7 @@ executor = run.LocalExecutor(packager=packager)
    ```
 
 3. **Large Archive Issues**
+
    ```python
    # Solution: Use more specific patterns
    packager = run.PatternPackager(
@@ -528,18 +549,21 @@ executor = run.LocalExecutor(packager=packager)
 ### Debug
 
 1. **Check Package Contents**
+
    ```python
    # Use LocalExecutor to inspect packaging
    executor = run.LocalExecutor(packager=packager)
    ```
 
 2. **Verify Patterns**
+
    ```bash
    # Test patterns locally
    find . -name "*.py" -path "src/**"
    ```
 
 3. **Check Archive Size**
+
    ```python
    # Monitor archive size for large projects
    packager = run.GitArchivePackager(subpath="src")

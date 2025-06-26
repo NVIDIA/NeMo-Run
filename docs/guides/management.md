@@ -1,3 +1,11 @@
+---
+description: "Manage and monitor NeMo Run experiments with metadata tracking, logging, and reproducibility features."
+tags: ["management", "experiments", "monitoring", "metadata", "reproducibility"]
+categories: ["guides"]
+---
+
+(management)=
+
 # Manage NeMo Run Experiments
 
 The central component for management of tasks in NeMo Run is the `Experiment` class. It allows you to define, launch, and manage complex workflows consisting of multiple tasks. This guide provides an overview of the `Experiment` class, its methods, and how to use it effectively.
@@ -73,7 +81,7 @@ You can check the status of an experiment using the `status` method:
 exp.status()
 ```
 
-This method will display information the status of each task in the experiment. The following is a sample output from the status of experiment in [hello_scripts.py](../../../examples/hello-world/hello_scripts.py):
+This method will display information the status of each task in the experiment. The following is a sample output from the status of an experiment:
 
 ```bash
 Experiment Status for experiment_with_scripts_1730761155

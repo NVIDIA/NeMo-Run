@@ -145,6 +145,6 @@ For teams managing ML infrastructure:
 
 ## Getting Started
 
-Ready to experience the benefits of NeMo Run? Start with our [installation guide](../get-started/install) and [tutorials](../get-started/tutorials) to see how NeMo Run can transform your ML workflows.
+Ready to experience the benefits of NeMo Run? Start with our [installation guide](install) and [tutorials](tutorials) to see how NeMo Run can transform your ML workflows.
 
 For more detailed information about specific features, explore our [Configuration](configuration), [Execution](execution), and [Management](management) guides.

@@ -1,3 +1,11 @@
+---
+description: "Configure NeMo Run experiments using Python-based configuration with Fiddle or raw scripts and commands."
+tags: ["configuration", "fiddle", "python", "yaml", "scripts"]
+categories: ["guides"]
+---
+
+(configuration)=
+
 # Configure NeMo Run
 
 NeMo Run supports two different configuration systems:

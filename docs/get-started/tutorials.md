@@ -4,7 +4,7 @@ tags: ["tutorials", "examples", "hello-world", "notebooks"]
 categories: ["get-started"]
 ---
 
-(tutorials-guide)=
+(tutorials)=
 
 # Tutorials
 

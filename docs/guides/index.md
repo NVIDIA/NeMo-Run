@@ -10,7 +10,7 @@ categories: ["guides"]
 
 Welcome to the NeMo Run guides. These comprehensive guides will help you master the core features and capabilities of NeMo Run for ML experiment management.
 
-## Core Feature Guides
+## Guides
 
 ::::{grid} 1 1 2 2
 :gutter: 1 1 1 2
@@ -65,7 +65,7 @@ Deploy your code using Git archives, pattern matching, or hybrid packaging strat
 
 ::::
 
-## Getting Started
+## Get Started
 
 If you're new to NeMo Run, we recommend following these guides in order:
 

@@ -1,3 +1,11 @@
+---
+description: "Guide to using Ray clusters and jobs with NeMo Run for distributed computing on Kubernetes and Slurm."
+tags: ["ray", "distributed", "kubernetes", "slurm", "clusters", "jobs"]
+categories: ["guides"]
+---
+
+(ray)=
+
 # Ray Clusters & Jobs
 
 > **Audience**: You already know how to configure executors with NeMo Run and want distributed *Ray* on either Kubernetes **or** Slurm.

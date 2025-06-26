@@ -4,7 +4,7 @@ tags: ["quickstart", "setup", "beginner", "onboarding"]
 categories: ["getting-started"]
 ---
 
-(gs-overview)=
+(get-started)=
 # Get Started with NeMo Run
 
 Welcome to NeMo Run! This guide will help you get up and running quickly with ML experiment management.

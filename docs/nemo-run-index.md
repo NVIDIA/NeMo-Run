@@ -14,7 +14,7 @@ NeMo Run is a powerful tool designed to streamline the configuration, execution 
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
-:link: guides/configuration
+:link: configuration
 :link-type: ref
 :link-alt: Configuration guide
 
@@ -22,7 +22,7 @@ Learn how to configure your ML experiments and environments.
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
-:link: guides/execution
+:link: execution
 :link-type: ref
 :link-alt: Execution guide
 
@@ -30,7 +30,7 @@ Execute your configured experiments across various computing environments.
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-:link: guides/management
+:link: management
 :link-type: ref
 :link-alt: Management guide
 
@@ -59,11 +59,13 @@ get-started/tutorials
 
 ::::{toctree}
 :hidden:
-:caption: Core Features
+:caption: Guides
 :maxdepth: 2
 guides/configuration
 guides/execution
 guides/management
+guides/packaging
+guides/cli
 guides/ray
 ::::
 

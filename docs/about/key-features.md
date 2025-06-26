@@ -4,8 +4,9 @@ tags: ["features", "capabilities", "technical", "implementation", "ml", "experim
 categories: ["about"]
 ---
 
-(about-key-features)=
-# Technical Capabilities
+(key-features)=
+
+# Key Features
 
 NeMo Run provides a comprehensive set of technical capabilities designed for modern ML experiment management. This document outlines the specific features and implementation details that power NeMo Run's functionality.
 
@@ -14,18 +15,21 @@ NeMo Run provides a comprehensive set of technical capabilities designed for mod
 ### Core Configuration Classes
 
 **`run.Config`** - Direct configuration objects that build to instances
+
 - Type-safe configuration with automatic validation
 - Nested configuration support with dot notation access
 - Integration with Python dataclasses and type hints
 - Configuration broadcasting and transformation capabilities
 
 **`run.Partial`** - Partial configurations that build to callable objects
+
 - Lazy evaluation and configuration
 - CLI parameter exposure with automatic argument parsing
 - Factory function support for complex object creation
 - Configuration composition and inheritance
 
 **`run.Script`** - Script-based execution configurations
+
 - External script execution with parameter passing
 - Environment variable management
 - Working directory and path configuration
@@ -67,6 +71,7 @@ train_fn = run.Partial(train_model, model=ModelConfig(), training=TrainingConfig
 
 # CLI usage: python train.py model.hidden_size=1024 training.learning_rate=2e-4
 ```
+
 ::::
 
 ## Execution Backends
@@ -74,6 +79,7 @@ train_fn = run.Partial(train_model, model=ModelConfig(), training=TrainingConfig
 ### Local Execution
 
 **`run.LocalExecutor`** - Local process execution
+
 - Process isolation and resource management
 - Environment variable configuration
 - Working directory and path management
@@ -82,6 +88,7 @@ train_fn = run.Partial(train_model, model=ModelConfig(), training=TrainingConfig
 ### Container Execution
 
 **`run.DockerExecutor`** - Docker container execution
+
 - Custom container images with GPU support
 - Volume mounting and file sharing
 - Network configuration and port forwarding
@@ -90,12 +97,14 @@ train_fn = run.Partial(train_model, model=ModelConfig(), training=TrainingConfig
 ### Cluster Execution
 
 **`run.SlurmExecutor`** - HPC cluster execution
+
 - Slurm job submission and management
 - Multi-node and multi-GPU support
 - Resource allocation and scheduling
 - SSH tunnel support for remote access
 
 **`run.SkypilotExecutor`** - Cloud platform execution
+
 - Multi-cloud support (AWS, GCP, Azure)
 - Automatic resource provisioning
 - Cost optimization and spot instances
@@ -104,12 +113,14 @@ train_fn = run.Partial(train_model, model=ModelConfig(), training=TrainingConfig
 ### Cloud Execution
 
 **`run.DGXCloudExecutor`** - NVIDIA DGX Cloud execution
+
 - DGX Cloud cluster management
 - Lepton integration and authentication
 - GPU resource allocation
 - Cloud-native optimizations
 
 **`run.LeptonExecutor`** - Lepton cloud execution
+
 - Lepton cluster deployment
 - Automatic scaling and resource management
 - Cost tracking and optimization
@@ -148,6 +159,7 @@ slurm_exec = run.SlurmExecutor(
 config = run.Partial(train_model, model_size=1024)
 run.run(config, executor=local_exec)  # or docker_exec, slurm_exec
 ```
+
 ::::
 
 ## Experiment Management System
@@ -155,6 +167,7 @@ run.run(config, executor=local_exec)  # or docker_exec, slurm_exec
 ### Experiment Lifecycle
 
 **`run.Experiment`** - Main experiment management class
+
 - Experiment creation and initialization
 - Task addition and dependency management
 - Execution orchestration and monitoring
@@ -212,6 +225,7 @@ exp = run.Experiment.from_id("hyperparameter-sweep_20241201_123456")
 exp.status()
 exp.logs("large-model")
 ```
+
 ::::
 
 ## CLI System
@@ -219,6 +233,7 @@ exp.logs("large-model")
 ### Command-Line Interface
 
 **`run.cli.entrypoint`** - CLI entry point decorator
+
 - Automatic parameter exposure to CLI
 - Type-safe argument parsing and validation
 - Nested configuration overrides with dot notation
@@ -254,6 +269,7 @@ python train.py --dryrun model.size=512
 # Export configuration
 python train.py --to-yaml config.yaml model.size=512
 ```
+
 ::::
 
 ## Packaging System
@@ -261,18 +277,21 @@ python train.py --to-yaml config.yaml model.size=512
 ### Packaging Strategies
 
 **`run.GitArchivePackager`** - Git-based packaging
+
 - Package committed code using git archive
 - Version control integration
 - Automatic dependency resolution
 - Clean, reproducible packages
 
 **`run.PatternPackager`** - Pattern-based packaging
+
 - Selective file inclusion with glob patterns
 - Custom inclusion/exclusion rules
 - File filtering and transformation
 - Flexible packaging strategies
 
 **`run.HybridPackager`** - Combined packaging
+
 - Multiple packaging strategy combination
 - Custom packaging logic
 - Conditional packaging rules
@@ -302,6 +321,7 @@ hybrid_packager = run.HybridPackager([
 # Use with executor
 executor = run.SlurmExecutor(packager=hybrid_packager)
 ```
+
 ::::
 
 ## Ray Integration
@@ -309,6 +329,7 @@ executor = run.SlurmExecutor(packager=hybrid_packager)
 ### Ray Cluster Management
 
 **`run.ray.cluster.RayCluster`** - Ray cluster lifecycle management
+
 - Cluster creation and initialization
 - Resource allocation and configuration
 - Port forwarding and dashboard access
@@ -317,6 +338,7 @@ executor = run.SlurmExecutor(packager=hybrid_packager)
 ### Ray Job Management
 
 **`run.ray.job.RayJob`** - Ray job submission and monitoring
+
 - Job submission to Ray clusters
 - Runtime environment configuration
 - Log streaming and monitoring
@@ -354,6 +376,7 @@ job.logs(follow=True)
 # Clean up
 cluster.stop()
 ```
+
 ::::
 
 ## Plugin System
@@ -361,6 +384,7 @@ cluster.stop()
 ### Plugin Architecture
 
 **`run.Plugin`** - Base plugin class for extensibility
+
 - Task and executor modification
 - Configuration injection and transformation
 - Environment setup and cleanup
@@ -393,6 +417,7 @@ class LoggingPlugin(run.Plugin):
 plugin = LoggingPlugin()
 run.run(config, executor=executor, plugins=[plugin])
 ```
+
 ::::
 
 ## Tunneling System
@@ -400,6 +425,7 @@ run.run(config, executor=executor, plugins=[plugin])
 ### SSH Tunneling
 
 **`run.SSHTunnel`** - SSH tunnel management
+
 - Secure remote access to clusters
 - Port forwarding and connection management
 - Authentication and key management
@@ -408,6 +434,7 @@ run.run(config, executor=executor, plugins=[plugin])
 ### Local Tunneling
 
 **`run.LocalTunnel`** - Local tunnel management
+
 - Local port forwarding
 - Service discovery and connection
 - Network configuration
@@ -431,6 +458,7 @@ ssh_tunnel = run.SSHTunnel(
 executor = run.SlurmExecutor(tunnel=ssh_tunnel)
 run.run(config, executor=executor)
 ```
+
 ::::
 
 These technical capabilities provide the foundation for NeMo Run's comprehensive ML experiment management system, enabling users to build sophisticated, scalable, and reproducible ML workflows across diverse computing environments.

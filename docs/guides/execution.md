@@ -1,3 +1,11 @@
+---
+description: "Execute NeMo Run experiments across different environments using various executors and launchers."
+tags: ["execution", "executors", "docker", "slurm", "kubernetes", "cloud"]
+categories: ["guides"]
+---
+
+(execution)=
+
 # Execute NeMo Run
 
 After configuring NeMo Run, the next step is to execute it. NeMo Run decouples configuration from execution, allowing you to configure a function or task once and then execute it across multiple environments. With NeMo Run, you can choose to execute a single task or multiple tasks simultaneously on different remote clusters, managing them under an experiment. This brings us to the core building blocks for execution: `run.Executor` and `run.Experiment`.
@@ -178,7 +186,7 @@ Use the SSH Tunnel when launching from your local machine, or the Local Tunnel i
 
 ##### Job Dependencies
 
-`SlurmExecutor` supports defining dependencies between [jobs](management.md#adding-tasks), allowing you to create workflows where jobs run in a specific order. Additionally, you can specify the `dependency_type` parameter:
+`SlurmExecutor` supports defining dependencies between [jobs](management), allowing you to create workflows where jobs run in a specific order. Additionally, you can specify the `dependency_type` parameter:
 
 ```python
 executor = run.SlurmExecutor(

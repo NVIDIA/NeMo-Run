@@ -34,6 +34,9 @@ release = "0.0.1"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
+# Set the master document to our markdown index file
+master_doc = "nemo-run-index"
+
 extensions = [
     "myst_parser",  # For our markdown docs
     # "autodoc2" - Added conditionally below based on package availability
