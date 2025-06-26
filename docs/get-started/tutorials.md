@@ -19,7 +19,7 @@ The `hello_world` tutorial series provides a comprehensive introduction to NeMo 
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Part 1: Hello World
-:link: ../../../NeMo-Run/examples/hello-world/hello_world.ipynb
+:link: ../../../NeMo Run/examples/hello-world/hello_world.ipynb
 :link-type: url
 :link-alt: Hello World tutorial part 1
 
@@ -27,7 +27,7 @@ Basic configuration and execution setup.
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Part 2: Hello Experiments
-:link: ../../../NeMo-Run/examples/hello-world/hello_experiments.ipynb
+:link: ../../../NeMo Run/examples/hello-world/hello_experiments.ipynb
 :link-type: url
 :link-alt: Hello World tutorial part 2
 
@@ -35,7 +35,7 @@ Experiment management and tracking.
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Part 3: Hello Scripts
-:link: ../../../NeMo-Run/examples/hello-world/hello_scripts.py
+:link: ../../../NeMo Run/examples/hello-world/hello_scripts.py
 :link-type: url
 :link-alt: Hello World tutorial part 3
 

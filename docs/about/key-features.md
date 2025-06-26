@@ -1,29 +1,45 @@
 ---
-description: "Explore NeMo Run's key features and capabilities for ML experiment management, including configuration, execution, and experiment tracking."
-tags: ["features", "capabilities", "ml", "experiment-management", "distributed-computing"]
+description: "Explore NeMo Run's technical capabilities and implementation features for ML experiment management, including configuration systems, execution backends, and experiment tracking."
+tags: ["features", "capabilities", "technical", "implementation", "ml", "experiment-management"]
 categories: ["about"]
 ---
 
 (about-key-features)=
-# Key Features
+# Technical Capabilities
 
-NeMo Run provides a comprehensive suite of features designed to streamline ML experiment management across diverse computing environments. Here are the key capabilities that make NeMo Run an essential tool for modern ML workflows.
+NeMo Run provides a comprehensive set of technical capabilities designed for modern ML experiment management. This document outlines the specific features and implementation details that power NeMo Run's functionality.
 
-## 🔧 Configuration Management
+## Configuration System
 
-### Type-Safe Python Configurations
-- **Automatic Type Validation**: Leverage Python's type annotations for runtime validation
-- **Nested Configuration Support**: Intuitive dot notation for complex parameter hierarchies
-- **Fiddle Integration**: Built on Google's Fiddle framework for robust configuration management
-- **YAML Interoperability**: Seamless integration with external YAML, TOML, and JSON files
+### Core Configuration Classes
 
-### Advanced Configuration Features
-- **Configuration Broadcasting**: Apply changes across nested configuration trees
+**`run.Config`** - Direct configuration objects that build to instances
+- Type-safe configuration with automatic validation
+- Nested configuration support with dot notation access
+- Integration with Python dataclasses and type hints
+- Configuration broadcasting and transformation capabilities
+
+**`run.Partial`** - Partial configurations that build to callable objects
+- Lazy evaluation and configuration
+- CLI parameter exposure with automatic argument parsing
+- Factory function support for complex object creation
+- Configuration composition and inheritance
+
+**`run.Script`** - Script-based execution configurations
+- External script execution with parameter passing
+- Environment variable management
+- Working directory and path configuration
+- Script validation and preprocessing
+
+### Configuration Features
+
+- **Type Validation**: Runtime type checking using Python's type system
 - **Configuration Walking**: Transform configurations with custom functions
-- **Configuration Visualization**: Built-in graph visualization for complex configurations
 - **Configuration Diffing**: Compare and visualize configuration changes
+- **Configuration Export**: Export to YAML, TOML, JSON, or Python code
+- **Configuration Broadcasting**: Apply changes across nested structures
 
-::::{dropdown} Configuration Example
+::::{dropdown} Configuration System Example
 :icon: code-square
 
 ```python
@@ -42,74 +58,121 @@ class TrainingConfig:
     batch_size: int = 32
     epochs: int = 100
 
-@run.cli.entrypoint
-def train(model: ModelConfig, training: TrainingConfig):
-    # All parameters automatically validated and accessible via CLI
-    print(f"Training model with {model.hidden_size} hidden units")
-    print(f"Learning rate: {training.learning_rate}")
+# Direct configuration
+config = run.Config(ModelConfig, hidden_size=1024, num_layers=24)
+model = config.build()  # Returns ModelConfig instance
+
+# Partial configuration
+train_fn = run.Partial(train_model, model=ModelConfig(), training=TrainingConfig())
 
 # CLI usage: python train.py model.hidden_size=1024 training.learning_rate=2e-4
 ```
 ::::
 
-## 🚀 Multi-Environment Execution
+## Execution Backends
 
-### Executor Abstraction
-- **Local Execution**: Run experiments locally with process isolation
-- **Docker Execution**: Containerized execution with GPU support
-- **Slurm Integration**: High-performance computing cluster support
-- **Kubernetes Support**: Cloud-native execution with KubeRay
-- **Cloud Platforms**: Integration with Skypilot, Lepton, and DGX Cloud
+### Local Execution
 
-### Intelligent Code Packaging
-- **Git Archive Packaging**: Package committed code using git archive
-- **Pattern-Based Packaging**: Selective file inclusion with glob patterns
-- **Hybrid Packaging**: Combine multiple packaging strategies
-- **Dependency Management**: Automatic Python path configuration
+**`run.LocalExecutor`** - Local process execution
+- Process isolation and resource management
+- Environment variable configuration
+- Working directory and path management
+- Log capture and redirection
 
-::::{dropdown} Multi-Environment Example
+### Container Execution
+
+**`run.DockerExecutor`** - Docker container execution
+- Custom container images with GPU support
+- Volume mounting and file sharing
+- Network configuration and port forwarding
+- Resource limits and constraints
+
+### Cluster Execution
+
+**`run.SlurmExecutor`** - HPC cluster execution
+- Slurm job submission and management
+- Multi-node and multi-GPU support
+- Resource allocation and scheduling
+- SSH tunnel support for remote access
+
+**`run.SkypilotExecutor`** - Cloud platform execution
+- Multi-cloud support (AWS, GCP, Azure)
+- Automatic resource provisioning
+- Cost optimization and spot instances
+- Cloud-specific optimizations
+
+### Cloud Execution
+
+**`run.DGXCloudExecutor`** - NVIDIA DGX Cloud execution
+- DGX Cloud cluster management
+- Lepton integration and authentication
+- GPU resource allocation
+- Cloud-native optimizations
+
+**`run.LeptonExecutor`** - Lepton cloud execution
+- Lepton cluster deployment
+- Automatic scaling and resource management
+- Cost tracking and optimization
+- Integration with Lepton services
+
+::::{dropdown} Execution Backend Example
 :icon: code-square
 
 ```python
 import nemo_run as run
 
-# Same configuration, different environments
-config = run.Partial(train_model, model_size=1024, epochs=100)
-
 # Local execution
-run.run(config, executor=run.LocalExecutor())
+local_exec = run.LocalExecutor(
+    env_vars={"CUDA_VISIBLE_DEVICES": "0,1"},
+    working_dir="/path/to/project"
+)
 
 # Docker execution
 docker_exec = run.DockerExecutor(
     container_image="pytorch/pytorch:2.0.0",
     num_gpus=4,
-    volumes=["/data:/data"]
+    volumes=["/data:/data", "/models:/models"],
+    ports=[8080:8080]
 )
-run.run(config, executor=docker_exec)
 
 # Slurm execution
 slurm_exec = run.SlurmExecutor(
     nodes=2,
     gpus_per_node=8,
-    time="04:00:00"
+    time="04:00:00",
+    account="gpu-dept",
+    partition="a100"
 )
-run.run(config, executor=slurm_exec)
+
+# Use with any configuration
+config = run.Partial(train_model, model_size=1024)
+run.run(config, executor=local_exec)  # or docker_exec, slurm_exec
 ```
 ::::
 
-## 📊 Experiment Management
+## Experiment Management System
 
-### Comprehensive Experiment Tracking
-- **Metadata Preservation**: Automatic capture of configurations, logs, and artifacts
-- **Experiment Reconstruction**: One-command experiment reproduction from metadata
-- **Status Monitoring**: Real-time experiment status and log access
-- **Dependency Management**: Complex workflow orchestration with task dependencies
+### Experiment Lifecycle
 
-### Advanced Management Features
-- **Experiment Cataloging**: Browse and search past experiments
-- **Log Streaming**: Real-time log access with filtering and search
-- **Artifact Management**: Automatic artifact collection and synchronization
-- **Experiment Comparison**: Side-by-side comparison of experiment configurations
+**`run.Experiment`** - Main experiment management class
+- Experiment creation and initialization
+- Task addition and dependency management
+- Execution orchestration and monitoring
+- Metadata capture and storage
+
+### Task Management
+
+- **Task Addition**: Add individual tasks or task groups
+- **Dependency Management**: Define complex task dependencies
+- **Parallel Execution**: Concurrent execution of independent tasks
+- **Status Tracking**: Real-time task status monitoring
+
+### Metadata Management
+
+- **Configuration Capture**: Automatic configuration serialization
+- **Log Management**: Centralized log collection and storage
+- **Artifact Tracking**: Automatic artifact collection and synchronization
+- **Experiment Reconstruction**: Full experiment reproduction from metadata
 
 ::::{dropdown} Experiment Management Example
 :icon: code-square
@@ -117,40 +180,59 @@ run.run(config, executor=slurm_exec)
 ```python
 import nemo_run as run
 
-# Create and manage experiments
+# Create experiment
 with run.Experiment("hyperparameter-sweep") as exp:
-    # Add multiple tasks with different configurations
-    exp.add(train_model, model_size=512, executor=slurm_exec, name="small-model")
-    exp.add(train_model, model_size=1024, executor=slurm_exec, name="large-model")
+    # Add tasks with different configurations
+    task1 = exp.add(
+        train_model,
+        model_size=512,
+        executor=slurm_exec,
+        name="small-model"
+    )
 
-    # Run with dependency management
-    exp.add(evaluate_model, dependencies=["small-model", "large-model"])
+    task2 = exp.add(
+        train_model,
+        model_size=1024,
+        executor=slurm_exec,
+        name="large-model"
+    )
 
-    # Launch and monitor
-    exp.run(tail_logs=True)
+    # Add dependent task
+    exp.add(
+        evaluate_models,
+        dependencies=[task1, task2],
+        name="evaluation"
+    )
 
-# Later, reconstruct and inspect
+    # Launch experiment
+    exp.run(tail_logs=True, sequential=False)
+
+# Later reconstruction
 exp = run.Experiment.from_id("hyperparameter-sweep_20241201_123456")
 exp.status()
 exp.logs("large-model")
 ```
 ::::
 
-## 🎯 Rich CLI Interface
+## CLI System
 
-### Type-Safe Command Line
-- **Automatic Parameter Exposure**: All function parameters automatically available via CLI
-- **Nested Configuration Overrides**: Intuitive dot notation for complex configurations
-- **Error Correction**: Intelligent suggestions for typos and invalid parameters
-- **Configuration Export**: Export configurations to YAML, TOML, or JSON
+### Command-Line Interface
 
-### Advanced CLI Features
-- **Factory Functions**: Create complex objects via CLI with factory functions
-- **Configuration Files**: Load configurations from external files with `@` syntax
-- **Dry Run Mode**: Preview execution without actually running
-- **Rich Output**: Beautiful, formatted output with tables and syntax highlighting
+**`run.cli.entrypoint`** - CLI entry point decorator
+- Automatic parameter exposure to CLI
+- Type-safe argument parsing and validation
+- Nested configuration overrides with dot notation
+- Error correction and intelligent suggestions
 
-::::{dropdown} CLI Features Example
+### CLI Features
+
+- **Factory Functions**: Create complex objects via CLI
+- **Configuration Files**: Load configurations with `@` syntax
+- **Dry Run Mode**: Preview execution without running
+- **Configuration Export**: Export to various formats
+- **Rich Output**: Formatted tables and syntax highlighting
+
+::::{dropdown} CLI System Example
 :icon: code-square
 
 ```bash
@@ -163,6 +245,9 @@ python train.py --factory @configs/base.yaml model.layers=24
 # Nested configuration with operations
 python train.py model.size*=2 training.batch_size+=16
 
+# Factory function usage
+python train.py --factory executor=@executors/slurm.yaml
+
 # Dry run to preview
 python train.py --dryrun model.size=512
 
@@ -171,18 +256,77 @@ python train.py --to-yaml config.yaml model.size=512
 ```
 ::::
 
-## 🔌 Integration Ecosystem
+## Packaging System
 
-### Ray Integration
-- **RayCluster Management**: Long-lived Ray clusters for interactive development
-- **RayJob Submission**: Ephemeral Ray jobs for batch processing
-- **KubeRay Support**: Kubernetes-based Ray cluster management
-- **Slurm Ray Integration**: Ray clusters on HPC systems
+### Packaging Strategies
 
-### Framework Integrations
-- **PyTorch Integration**: Native support for PyTorch Lightning and torchrun
-- **NeMo 2.0 Integration**: Seamless integration with NVIDIA NeMo framework
-- **Custom Framework Support**: Extensible architecture for any ML framework
+**`run.GitArchivePackager`** - Git-based packaging
+- Package committed code using git archive
+- Version control integration
+- Automatic dependency resolution
+- Clean, reproducible packages
+
+**`run.PatternPackager`** - Pattern-based packaging
+- Selective file inclusion with glob patterns
+- Custom inclusion/exclusion rules
+- File filtering and transformation
+- Flexible packaging strategies
+
+**`run.HybridPackager`** - Combined packaging
+- Multiple packaging strategy combination
+- Custom packaging logic
+- Conditional packaging rules
+- Advanced packaging workflows
+
+::::{dropdown} Packaging System Example
+:icon: code-square
+
+```python
+import nemo_run as run
+
+# Git archive packaging
+git_packager = run.GitArchivePackager()
+
+# Pattern-based packaging
+pattern_packager = run.PatternPackager(
+    include=["*.py", "*.yaml", "*.json"],
+    exclude=["__pycache__", "*.pyc", "tests/"]
+)
+
+# Hybrid packaging
+hybrid_packager = run.HybridPackager([
+    git_packager,
+    pattern_packager
+])
+
+# Use with executor
+executor = run.SlurmExecutor(packager=hybrid_packager)
+```
+::::
+
+## Ray Integration
+
+### Ray Cluster Management
+
+**`run.ray.cluster.RayCluster`** - Ray cluster lifecycle management
+- Cluster creation and initialization
+- Resource allocation and configuration
+- Port forwarding and dashboard access
+- Cluster cleanup and resource management
+
+### Ray Job Management
+
+**`run.ray.job.RayJob`** - Ray job submission and monitoring
+- Job submission to Ray clusters
+- Runtime environment configuration
+- Log streaming and monitoring
+- Job status tracking and management
+
+### Backend Support
+
+- **KubeRay**: Kubernetes-based Ray cluster management
+- **Slurm Ray**: Ray clusters on HPC systems
+- **Local Ray**: Local Ray cluster for development
 
 ::::{dropdown} Ray Integration Example
 :icon: code-square
@@ -190,16 +334,20 @@ python train.py --to-yaml config.yaml model.size=512
 ```python
 from nemo_run.run.ray import RayCluster, RayJob
 
-# Create a Ray cluster
-cluster = RayCluster(name="ml-cluster", executor=kuberay_executor)
+# Create Ray cluster
+cluster = RayCluster(
+    name="ml-cluster",
+    executor=kuberay_executor
+)
 cluster.start(timeout=900)
 cluster.port_forward(port=8265)  # Ray dashboard
 
-# Submit jobs to the cluster
+# Submit job to cluster
 job = RayJob(name="training-job", executor=kuberay_executor)
 job.start(
     command="python train.py --config config.yaml",
-    workdir="/path/to/project"
+    workdir="/path/to/project",
+    runtime_env_yaml="/path/to/runtime_env.yaml"
 )
 job.logs(follow=True)
 
@@ -208,32 +356,81 @@ cluster.stop()
 ```
 ::::
 
-## 🛡️ Production Features
+## Plugin System
 
-### Reliability and Fault Tolerance
-- **Fault Tolerant Launchers**: NVIDIA's fault tolerance framework integration
-- **Automatic Retries**: Configurable retry policies for failed experiments
-- **Resource Management**: Intelligent resource allocation and cleanup
-- **Security**: SSH tunnel support for secure remote execution
+### Plugin Architecture
 
-### Scalability
-- **Distributed Execution**: Support for multi-node, multi-GPU experiments
-- **Parallel Processing**: Concurrent execution of independent experiments
-- **Resource Optimization**: Efficient resource utilization across platforms
-- **Load Balancing**: Intelligent workload distribution
+**`run.Plugin`** - Base plugin class for extensibility
+- Task and executor modification
+- Configuration injection and transformation
+- Environment setup and cleanup
+- Custom functionality integration
 
-## 🎨 Developer Experience
+### Plugin Features
 
-### Rich Development Tools
-- **Configuration Visualization**: Interactive configuration graphs
-- **Experiment Dashboard**: Web-based experiment monitoring (future)
-- **Debugging Support**: Comprehensive logging and error reporting
-- **IDE Integration**: Full IDE support with autocomplete and type hints
+- **Setup Hooks**: Modify tasks and executors before execution
+- **Configuration Injection**: Add configuration parameters
+- **Environment Management**: Set up execution environments
+- **Custom Logic**: Implement custom experiment logic
 
-### Documentation and Learning
-- **Comprehensive Documentation**: Detailed guides and API references
-- **Example Gallery**: Rich collection of working examples
-- **Community Support**: Active community and support channels
-- **Best Practices**: Proven patterns and recommendations
+::::{dropdown} Plugin System Example
+:icon: code-square
 
-These features work together to provide a complete solution for ML experiment management, from initial prototyping to production deployment, across any computing environment.
+```python
+import nemo_run as run
+
+class LoggingPlugin(run.Plugin):
+    def setup(self, task, executor):
+        # Add logging configuration
+        if hasattr(executor, 'env_vars'):
+            executor.env_vars['LOG_LEVEL'] = 'DEBUG'
+
+        # Modify task configuration
+        if hasattr(task, 'config'):
+            task.config.logging = True
+
+# Use plugin
+plugin = LoggingPlugin()
+run.run(config, executor=executor, plugins=[plugin])
+```
+::::
+
+## Tunneling System
+
+### SSH Tunneling
+
+**`run.SSHTunnel`** - SSH tunnel management
+- Secure remote access to clusters
+- Port forwarding and connection management
+- Authentication and key management
+- Connection monitoring and health checks
+
+### Local Tunneling
+
+**`run.LocalTunnel`** - Local tunnel management
+- Local port forwarding
+- Service discovery and connection
+- Network configuration
+- Tunnel lifecycle management
+
+::::{dropdown} Tunneling System Example
+:icon: code-square
+
+```python
+import nemo_run as run
+
+# SSH tunnel to remote cluster
+ssh_tunnel = run.SSHTunnel(
+    host="login.cluster.com",
+    user="username",
+    identity="~/.ssh/id_rsa",
+    job_dir="/scratch/username/runs"
+)
+
+# Use with executor
+executor = run.SlurmExecutor(tunnel=ssh_tunnel)
+run.run(config, executor=executor)
+```
+::::
+
+These technical capabilities provide the foundation for NeMo Run's comprehensive ML experiment management system, enabling users to build sophisticated, scalable, and reproducible ML workflows across diverse computing environments.

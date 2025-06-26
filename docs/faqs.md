@@ -1,6 +1,10 @@
-# Frequently Asked Questions
+---
+description: "Frequently asked questions about NeMo Run"
+tags: ["faqs", "troubleshooting", "help"]
+categories: ["help"]
+---
 
-This section provides answers to common questions organized by Nemo-Run functions.
+This section provides answers to common questions organized by NeMo Run functions.
 
 - [Frequently Asked Questions](#frequently-asked-questions)
   - [Configuration](#configuration)
@@ -125,6 +129,6 @@ executor = run.SlurmExecutor(
 
 **A**: There could be a few reasons for this, described below:
 
-- The Nemo-Run home has changed. By default home is at `~/.nemorun`, but you can overwrite it using `NEMORUN_HOME`. Retrieving logs can be difficult if there's a discrepancy in the home between when you launched the experiment and when you try to retrieve it.
-- Nemo-Run home is deleted or overwritten from the time when you ran the experiment.
-- Logs are not available on the remote cluster. For example, if launching on Kubernetes using the `SkypilotExecutor`, and the Skypilot cluster is terminated or the pod is deleted, the logs won’t be available.
+- The NeMo Run home has changed. By default home is at `~/.nemorun`, but you can overwrite it using `NEMORUN_HOME`. Retrieving logs can be difficult if there's a discrepancy in the home between when you launched the experiment and when you try to retrieve it.
+- NeMo Run home is deleted or overwritten from the time when you ran the experiment.
+- Logs are not available on the remote cluster. For example, if launching on Kubernetes using the `SkypilotExecutor`, and the Skypilot cluster is terminated or the pod is deleted, the logs won't be available.

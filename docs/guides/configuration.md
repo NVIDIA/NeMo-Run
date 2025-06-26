@@ -1,17 +1,9 @@
----
-description: "Learn how to configure NeMo Run experiments using Python-based configuration systems with Fiddle, including model, trainer, and data configurations."
-tags: ["configuration", "fiddle", "python", "setup"]
-categories: ["core"]
----
+# Configure NeMo Run
 
-(configuration-guide)=
+NeMo Run supports two different configuration systems:
 
-# Configure NeMo-Run
-
-Nemo-Run supports two different configuration systems:
-
-1. **Python-based configuration**: This system is supported by Fiddle
-2. **Raw scripts and commands**: These can also be used for configuration
+1. Python-based configuration: This system is supported by Fiddle.
+1. Raw scripts and commands: These can also be used for configuration.
 
 In the future, we may add a YAML/Hydra-based system and aim to achieve interoperability between Python and YAML if requested.
 
@@ -21,10 +13,7 @@ Let's break down the process of configuring a Llama3 pre-training run using Nemo
 
 ### Configure in Python
 
-First, let's discuss the Pythonic configuration system in Nemo-Run. The pretraining recipe for Llama3 appears as follows:
-
-::::{dropdown} Python Configuration Example
-:icon: code-square
+First, let's discuss the Pythonic configuration system in NeMo Run. The pretraining recipe for Llama3 appears as follows:
 
 ```python
 from nemo.collections import llm
@@ -50,9 +39,8 @@ partial = run.Partial(
      resume=default_resume(),
  )
 ```
-::::
 
-The `partial` object is an instance of `run.Partial`. In turn, `run.Partial` serves a configuration object that ties together the function `llm.pretrain` with the provided args, creating a `functools.partial` object when built. Args like `llama3_8b.model` are python functions in NeMo that return `run.Config` objects for the underlying class:
+The `partial` object is an instance of `run.Partial`. In turn,`run.Partial` serves a configuration object that ties together the function `llm.pretrain` with the provided args, creating a `functools.partial` object when built. Args like `llama3_8b.model` are python functions in NeMo that return `run.Config` objects for the underlying class:
 
 ```python
 def model() -> run.Config[pl.LightningModule]:
@@ -71,9 +59,6 @@ def automodel() -> pl.LightningModule:
 
 A `run.Config` instance is similar to `run.Partial`. However, `run.Partial` returns a `functools.partial` object whereas `run.Config` directly calls the configured entity. Functionally, this means that `run.Config` provides a more direct execution path.
 
-::::{dropdown} Config vs Partial Comparison
-:icon: code-square
-
 ```python
 partial = run.Partial(
     LlamaModel,
@@ -91,7 +76,6 @@ config = run.Config(
 )
 fdl.build(partial)() == fdl.build(config)
 ```
-::::
 
 Building is equivalent to instantiating the underlying Python object in case of `run.Config` or building a `functools.partial` with the specified args in case of `run.Partial`.
 
@@ -110,9 +94,7 @@ def llama3_8b_model_conf(seq_len: int) -> run.Config[LlamaModel]
 llama3_8b_model_conf(seq_len=4096)
 ```
 
-:::{tip}
-If you want to incorporate complex control flow, the preferred approach is to define a function that directly returns a `run.Config`. You can then use this function just like any regular Python function.
-:::
+**As shown above, if you want to incorporate complex control flow, the preferred approach is to define a function that directly returns a run.Config. You can then use this function just like any regular Python function.**
 
 This paradigm can be a bit too opinionated when it comes to defining configurations. If you're accustomed to YAML-based configurations, transitioning to this paradigm might feel a bit tricky. Let's explore how we can draw parallels between the two to build a better understanding.
 
@@ -133,15 +115,13 @@ config = run.Config(
 In our context, this is equivalent to:
 
 ```yaml
-_target_: nemo.collections.llm.gpt.model.llama.LlamaModel
-config:
-    _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
-    seq_length: 16384
+ _target_: nemo.collections.llm.gpt.model.llama.LlamaModel
+ config:
+     _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
+     seq_length: 16384
 ```
 
-:::{note}
-We've used the [Hydra instantiation](https://hydra.cc/docs/advanced/instantiate_objects/overview/) syntax here.
-:::
+> Note: we've used the [Hydra instantiation](https://hydra.cc/docs/advanced/instantiate_objects/overview/) syntax here.
 
 Python operations are performed on the config rather than directly on the class. For example:
 
@@ -149,19 +129,16 @@ Python operations are performed on the config rather than directly on the class.
 config.config.seq_length *= 2
 ```
 
-translates to:
+translates to
 
 ```yaml
-_target_: nemo.collections.llm.gpt.model.llama.LlamaModel
-config:
-    _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
-    seq_length: 32768
+ _target_: nemo.collections.llm.gpt.model.llama.LlamaModel
+ config:
+     _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
+     seq_length: 32768
 ```
 
 We also provide `.broadcast` and `.walk` helper methods as part of `run.Config` and `run.Partial`. They can also be equated to yaml via the following example:
-
-::::{dropdown} Broadcast and Walk Examples
-:icon: code-square
 
 ```python
 config = run.Config(
@@ -195,13 +172,35 @@ b:
     _target_: SomeObject
     a: 40
 ```
-::::
 
 A `run.Partial` can also be understood in this context. For example, if config were a `run.Partial` instance, it would relate to:
 
 ```yaml
-_target_: nemo.collections.llm.gpt.model.llama.LlamaModel
-_partial_: true
-config:
-    _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
+ _target_: nemo.collections.llm.gpt.model.llama.LlamaModel
+ _partial_: true
+ config:
+     _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
+     seq_length: 16384
 ```
+
+We hope this provides a clearer, more intuitive understanding of the Pythonic config system and how it corresponds to a YAML-based config system.
+
+Of course, you are entitled to choose either option. Our goal is to make the interoperability as seamless and robust as possible, and we aim to achieve this in future versions. In the meantime, please report any issues to us via GitHub.
+
+## Raw Scripts
+
+As an alternative, you can also configure pre-training using NeMo Run with raw scripts and commands. This is quite straightforward, as shown in the examples below:
+
+```python
+script = run.Script("./scripts/run_pretraining.sh")
+inline_script = run.Script(
+        inline="""
+env
+export DATA_PATH="/some/tmp/path"
+bash ./scripts/run_pretraining.sh
+"""
+    )
+```
+
+You can take a configured instance and then run it on any supported environments via executors.
+See [execution](./execution.md) to read more about how to define executors.

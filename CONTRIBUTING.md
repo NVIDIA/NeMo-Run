@@ -30,10 +30,10 @@ Not all steps are necessary for some contributions, so read the linked sections 
 We use [uv](https://docs.astral.sh/uv/) to develop NeMo Run. The following steps should get you started with the dev environment:
 
 1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
-2. Clone NeMo-Run
+2. Clone NeMo Run
 3. Sanity check with `uv sync --extra skypilot && uv run -- pytest test/` (This will create a venv and run all unit tests)
 
-If all tests passed, then you should be good to get started with the development of NeMo-Run.
+If all tests passed, then you should be good to get started with the development of NeMo Run.
 
 ## Code Structure
 

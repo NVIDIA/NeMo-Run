@@ -1,44 +1,54 @@
 ---
-description: "Get started quickly with our platform by following these essential setup steps and choosing the right feature set for your needs."
+description: "Get started quickly with NeMo Run by following these essential setup steps and tutorials."
 tags: ["quickstart", "setup", "beginner", "onboarding"]
 categories: ["getting-started"]
 ---
 
 (gs-overview)=
-# Get Started with Product
+# Get Started with NeMo Run
 
-Intro section
+Welcome to NeMo Run! This guide will help you get up and running quickly with ML experiment management.
 
 ## Before You Start
 
-- Link
-- Stuff A
-- Stuff B
+- Ensure you have Python 3.8+ installed
+- Have pip configured for package installation
+- Access to computing resources (local, cloud, or cluster)
 
 ---
 
 ## Quickstart Options
 
-Intro sentence.
+Choose your path to get started with NeMo Run:
 
 ::::{grid} 1 1 1 2
 :gutter: 1 1 1 2
 
-:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Feature Set A Quickstart
-:link: gs-feature-set-a
+:::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
+:link: install
 :link-type: ref
-:link-alt: screenreader alt for link 
-Get started with ...
+:link-alt: Installation guide
+Install NeMo Run and optional dependencies for your environment
 
 +++
-{bdg-secondary}`tag`
+{bdg-primary}`Essential`
 :::
 
-:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Feature Set B Quickstart
-:link: gs-feature-set-b
-:only: not ga
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Tutorials
+:link: tutorials
 :link-type: ref
-:link-alt: screenreader alt for link 
-Get started with ... no tags example
+:link-alt: Tutorial collection
+Learn NeMo Run with hands-on tutorials and examples
+
++++
+{bdg-secondary}`Recommended`
 :::
 ::::
+
+```{toctree}
+:hidden:
+:maxdepth: 2
+
+install
+tutorials
+```

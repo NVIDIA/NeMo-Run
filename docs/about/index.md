@@ -23,8 +23,8 @@ The framework is built on three core pillars:
 ::::{grid} 1 1 1 3
 :gutter: 1 1 1 2
 
-:::{grid-item-card} {octicon}`settings;1.5em;sd-mr-1` Configuration
-:link: configuration
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
+:link: guides/configuration
 :link-type: ref
 :link-alt: Configuration guide
 
@@ -32,7 +32,7 @@ Python-based configuration using Fiddle, supporting complex nested structures an
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
-:link: execution
+:link: guides/execution
 :link-type: ref
 :link-alt: Execution guide
 
@@ -40,7 +40,7 @@ Multi-environment execution with executors for local, Docker, Slurm, Kubernetes,
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-:link: management
+:link: guides/management
 :link-type: ref
 :link-alt: Management guide
 
@@ -107,7 +107,7 @@ NeMo Run's architecture follows a clean separation of concerns:
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` Configuration Layer
-:link: configuration
+:link: guides/configuration
 :link-type: ref
 :link-alt: Configuration guide
 
@@ -115,7 +115,7 @@ Fiddle-based configuration system with type safety and validation
 :::
 
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Execution Layer
-:link: execution
+:link: guides/execution
 :link-type: ref
 :link-alt: Execution guide
 
@@ -123,7 +123,7 @@ Executor abstraction with multi-platform support and intelligent packaging
 :::
 
 :::{grid-item-card} {octicon}`database;1.5em;sd-mr-1` Management Layer
-:link: management
+:link: guides/management
 :link-type: ref
 :link-alt: Management guide
 
@@ -131,9 +131,9 @@ Experiment lifecycle management with metadata tracking and reproducibility
 :::
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` Interface Layer
-:link: reference/cli
+:link: faqs
 :link-type: ref
-:link-alt: CLI reference
+:link-alt: Reference
 
 Rich CLI interface with type-safe argument parsing and configuration overrides
 :::
@@ -155,14 +155,22 @@ Ready to start using NeMo Run? Begin with these essential guides:
 Set up your first NeMo Run experiment in minutes
 :::
 
-:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Core Concepts
-:link: about/concepts
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Key Features
+:link: key-features
 :link-type: ref
-:link-alt: Core concepts
+:link-alt: Key features
 
-Understand the fundamental concepts and patterns
+Explore the technical capabilities and implementation details
 :::
 
 ::::
 
-For detailed information about specific features, explore the [Configuration](configuration), [Execution](execution), and [Management](management) guides.
+For detailed information about specific features, explore the [Configuration](guides/configuration), [Execution](guides/execution), and [Management](guides/management) guides.
+
+```{toctree}
+:hidden:
+:maxdepth: 2
+
+key-features
+why-nemo-run
+```
