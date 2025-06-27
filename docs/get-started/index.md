@@ -44,11 +44,3 @@ Learn NeMo Run with hands-on tutorials and examples
 {bdg-secondary}`Recommended`
 :::
 ::::
-
-```{toctree}
-:hidden:
-:maxdepth: 2
-
-install
-tutorials
-```

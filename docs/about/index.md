@@ -166,11 +166,3 @@ Explore the technical capabilities and implementation details
 ::::
 
 For detailed information about specific features, explore the [Configuration](configuration), [Execution](execution), and [Management](management) guides.
-
-```{toctree}
-:hidden:
-:maxdepth: 2
-
-key-features
-why-nemo-run
-```
