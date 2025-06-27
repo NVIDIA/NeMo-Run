@@ -668,8 +668,8 @@ nemo-run debug --collect --output debug-info.tar.gz
 
 #### Documentation
 
-- **User Guide**: [Configuration](configuration), [Execution](execution), [Management](management)
-- **API Reference**: [CLI Interface](cli), [Ray Integration](ray)
+- **User Guide**: {doc}`Configuration Guide <configuration>`, {doc}`Execution Guide <execution>`, {doc}`Management Guide <management>`
+- **API Reference**: {doc}`CLI Interface Guide <cli>`, {doc}`Ray Integration Guide <ray>`
 - **Troubleshooting**: [FAQs](../../faqs), [Troubleshooting Guide](../../troubleshooting)
 
 #### Community Support
