@@ -25,7 +25,7 @@ NeMo Run's Ray integration provides a unified interface for distributed computin
 
 ### Execution Model
 
-```mermaid
+```text
 graph TB
     A[NeMo Run API] --> B[RayCluster/RayJob]
     B --> C{KubeRay Executor}

@@ -670,7 +670,7 @@ nemo-run debug --collect --output debug-info.tar.gz
 
 - **User Guide**: [Configuration](configuration), [Execution](execution), [Management](management)
 - **API Reference**: [CLI Interface](cli), [Ray Integration](ray)
-- **Troubleshooting**: [FAQs](faqs), [Troubleshooting Guide](troubleshooting)
+- **Troubleshooting**: [FAQs](../../faqs), [Troubleshooting Guide](../../troubleshooting)
 
 #### Community Support
 

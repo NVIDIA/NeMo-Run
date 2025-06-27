@@ -24,24 +24,24 @@ The framework is built on three core pillars:
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
-:link: guides/configuration
-:link-type: ref
+:link: ../guides/configuration
+:link-type: doc
 :link-alt: Configuration guide
 
 Python-based configuration using Fiddle, supporting complex nested structures and type safety
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
-:link: guides/execution
-:link-type: ref
+:link: ../guides/execution
+:link-type: doc
 :link-alt: Execution guide
 
 Multi-environment execution with executors for local, Docker, Slurm, Kubernetes, and cloud platforms
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-:link: guides/management
-:link-type: ref
+:link: ../guides/management
+:link-type: doc
 :link-alt: Management guide
 
 Experiment lifecycle management with metadata tracking, logging, and reproducibility
@@ -107,32 +107,32 @@ NeMo Run's architecture follows a clean separation of concerns:
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` Configuration Layer
-:link: guides/configuration
-:link-type: ref
+:link: ../guides/configuration
+:link-type: doc
 :link-alt: Configuration guide
 
 Fiddle-based configuration system with type safety and validation
 :::
 
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Execution Layer
-:link: guides/execution
-:link-type: ref
+:link: ../guides/execution
+:link-type: doc
 :link-alt: Execution guide
 
 Executor abstraction with multi-platform support and intelligent packaging
 :::
 
 :::{grid-item-card} {octicon}`database;1.5em;sd-mr-1` Management Layer
-:link: guides/management
-:link-type: ref
+:link: ../guides/management
+:link-type: doc
 :link-alt: Management guide
 
 Experiment lifecycle management with metadata tracking and reproducibility
 :::
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` Interface Layer
-:link: faqs
-:link-type: ref
+:link: ../faqs
+:link-type: doc
 :link-alt: Reference
 
 Rich CLI interface with type-safe argument parsing and configuration overrides
@@ -148,8 +148,8 @@ Ready to start using NeMo Run? Begin with these essential guides:
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
-:link: get-started/index
-:link-type: ref
+:link: ../get-started/index
+:link-type: doc
 :link-alt: Get started guide
 
 Set up your first NeMo Run experiment in minutes
@@ -157,7 +157,7 @@ Set up your first NeMo Run experiment in minutes
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Key Features
 :link: key-features
-:link-type: ref
+:link-type: doc
 :link-alt: Key features
 
 Explore the technical capabilities and implementation details
@@ -165,4 +165,4 @@ Explore the technical capabilities and implementation details
 
 ::::
 
-For detailed information about specific features, explore the [Configuration](guides/configuration), [Execution](guides/execution), and [Management](guides/management) guides.
+For detailed information about specific features, explore the [Configuration](../guides/configuration), [Execution](../guides/execution), and [Management](../guides/management) guides.

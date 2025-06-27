@@ -17,7 +17,7 @@ Welcome to the NeMo Run guides. These comprehensive guides will help you master 
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
 :link: configuration
-:link-type: ref
+:link-type: doc
 :link-alt: Configuration guide
 
 Learn how to configure your ML experiments with type-safe, flexible configuration management.
@@ -25,7 +25,7 @@ Learn how to configure your ML experiments with type-safe, flexible configuratio
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
 :link: execution
-:link-type: ref
+:link-type: doc
 :link-alt: Execution guide
 
 Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud environments.
@@ -33,7 +33,7 @@ Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud envi
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
 :link: management
-:link-type: ref
+:link-type: doc
 :link-alt: Management guide
 
 Manage and monitor your experiments with comprehensive tracking and reproducibility.
@@ -41,7 +41,7 @@ Manage and monitor your experiments with comprehensive tracking and reproducibil
 
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
 :link: ray
-:link-type: ref
+:link-type: doc
 :link-alt: Ray integration guide
 
 Distribute NeMo Run jobs with Ray clusters for scalable distributed computing.
@@ -49,7 +49,7 @@ Distribute NeMo Run jobs with Ray clusters for scalable distributed computing.
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Interface
 :link: cli
-:link-type: ref
+:link-type: doc
 :link-alt: CLI guide
 
 Create command-line interfaces with rich argument parsing and factory functions.
@@ -57,7 +57,7 @@ Create command-line interfaces with rich argument parsing and factory functions.
 
 :::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
 :link: packaging
-:link-type: ref
+:link-type: doc
 :link-alt: Packaging guide
 
 Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
@@ -65,7 +65,7 @@ Deploy your code using Git archives, pattern matching, or hybrid packaging strat
 
 :::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Administration
 :link: admin
-:link-type: ref
+:link-type: doc
 :link-alt: Administration guide
 
 Deploy, maintain, and operate NeMo Run in production environments with comprehensive administrative procedures.
@@ -99,7 +99,7 @@ Each guide provides:
 
 Before diving into these guides, make sure you have:
 
-- NeMo Run installed (see [Installation Guide](get-started/install))
+- NeMo Run installed (see [Installation Guide](../get-started/install))
 - Basic Python knowledge
 - Access to computing resources (local, cloud, or cluster)
 
@@ -107,7 +107,7 @@ Before diving into these guides, make sure you have:
 
 - Check the [FAQs](../faqs) for common questions
 - Explore the [About section](../about/index) for conceptual information
-- Review the [tutorials](get-started/tutorials) for hands-on examples
+- Review the [tutorials](../get-started/tutorials) for hands-on examples
 
 ```{toctree}
 :hidden:
