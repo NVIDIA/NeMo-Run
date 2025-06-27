@@ -1,4 +1,4 @@
-revision ch---
+---
 description: "Comprehensive installation guide for NeMo Run with optional dependencies for different computing environments, cloud platforms, and execution backends."
 tags: ["installation", "setup", "dependencies", "skypilot", "lepton", "kubernetes", "cloud"]
 categories: ["get-started"]
