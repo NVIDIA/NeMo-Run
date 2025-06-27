@@ -131,7 +131,7 @@ Experiment lifecycle management with metadata tracking and reproducibility
 :::
 
 :::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` Interface Layer
-:link: ../faqs
+:link: ../reference/faqs
 :link-type: doc
 :link-alt: Reference
 

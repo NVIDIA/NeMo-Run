@@ -1,6 +1,6 @@
 ---
-description: "Comprehensive guides for NeMo Run features including configuration, execution, management, and Ray integration."
-tags: ["guides", "configuration", "execution", "management", "ray", "tutorials"]
+description: "Comprehensive guides for NeMo Run features including configuration, execution, and management."
+tags: ["guides", "configuration", "execution", "management", "tutorials"]
 categories: ["guides"]
 ---
 
@@ -39,30 +39,6 @@ Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud envi
 Manage and monitor your experiments with comprehensive tracking and reproducibility.
 :::
 
-:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Deploy Ray Clusters and Jobs
-:link: ray
-:link-type: doc
-:link-alt: Deploy Ray Clusters and Jobs
-
-Deploy and manage Ray clusters and jobs for scalable distributed computing.
-:::
-
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` NeMo Run Packaging Strategies
-:link: packaging
-:link-type: doc
-:link-alt: NeMo Run Packaging Strategies guide
-
-Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
-:::
-
-:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy and Manage NeMo Run
-:link: admin
-:link-type: doc
-:link-alt: Deploy and Manage NeMo Run
-
-Deploy, configure, and maintain NeMo Run in production environments with comprehensive administrative procedures.
-:::
-
 ::::
 
 ## Get Started
@@ -72,9 +48,8 @@ If you're new to NeMo Run, we recommend following these guides in order:
 1. **Configuration** - Start here to understand how to configure your experiments
 2. **Execution** - Learn how to run your configured experiments
 3. **Management** - Discover how to track and manage your experiments
-4. **NeMo Run Packaging Strategies** - Understand how to deploy your code to remote environments
-5. **Deploy Ray Clusters and Jobs** - Scale up with distributed Ray clusters
-6. **Deploy and Manage NeMo Run** - Deploy and maintain NeMo Run in production environments
+
+For deployment-related topics, see the [Deploy section](../deploy/index).
 
 ## What You'll Learn
 
@@ -96,7 +71,7 @@ Before diving into these guides, make sure you have:
 
 ## Need Help?
 
-- Check the [FAQs](../faqs) for common questions
+- Check the [FAQs](../reference/faqs) for common questions
 - Explore the [About section](../about/index) for conceptual information
 - Review the [tutorials](../get-started/tutorials) for hands-on examples
 
@@ -107,7 +82,4 @@ Before diving into these guides, make sure you have:
 configuration
 execution
 management
-ray
-packaging
-admin
 ```

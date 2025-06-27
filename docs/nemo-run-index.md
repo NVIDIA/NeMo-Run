@@ -104,29 +104,36 @@ guides/index
 guides/configuration
 guides/execution
 guides/management
-guides/ray
-guides/packaging
-guides/admin
+::::
+
+::::{toctree}
+:hidden:
+:caption: Deploy
+:maxdepth: 2
+deploy/index
+deploy/admin
+deploy/packaging
+deploy/ray
 ::::
 
 ::::{toctree}
 :hidden:
 :caption: Reference
 :maxdepth: 2
-faqs
-troubleshooting
-cli
+reference/cli
+reference/faqs
+reference/troubleshooting
 ::::
 
 ---
 
-## Guides
+## Deploy
 
 ::::{grid} 1 1 2 2
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Deploy Ray Clusters and Jobs
-:link: guides/ray
+:link: deploy/ray
 :link-type: doc
 :link-alt: Deploy Ray Clusters and Jobs
 
@@ -134,7 +141,7 @@ Deploy and manage Ray clusters and jobs for scalable distributed computing.
 :::
 
 :::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` NeMo Run Packaging Strategies
-:link: guides/packaging
+:link: deploy/packaging
 :link-type: doc
 :link-alt: NeMo Run Packaging Strategies guide
 
@@ -142,7 +149,7 @@ Deploy your code using Git archives, pattern matching, or hybrid packaging strat
 :::
 
 :::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy and Manage NeMo Run
-:link: guides/admin
+:link: deploy/admin
 :link-type: doc
 :link-alt: Deploy and Manage NeMo Run
 
