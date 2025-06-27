@@ -27,7 +27,7 @@ NeMo Run provides a unified execution framework that abstracts away the complexi
 
 > **Important**: NeMo Run requires Docker for remote execution. All remote executors use containerized environments to ensure reproducibility and dependency isolation.
 
-> **Note**: Experiment metadata is stored in `NEMORUN_HOME` (default: `~/.nemorun`). Configure this environment variable to control where experiment data is stored.
+> **Note**: Experiment metadata is stored in `NEMORUN_HOME` (default: `~/.nemo_run`). Configure this environment variable to control where experiment data is stored.
 
 ## Core Concepts
 

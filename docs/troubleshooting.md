@@ -1,645 +1,501 @@
 ---
 description: "Comprehensive troubleshooting guide for NeMo Run covering common issues, error messages, debugging techniques, and solutions."
-tags: ["troubleshooting", "debugging", "errors", "help", "support"]
+tags: ["troubleshooting", "debugging", "errors", "solutions", "help", "support"]
 categories: ["help"]
 ---
 
-(troubleshooting-overview)=
+(troubleshooting)=
 
-# Troubleshooting Guide
+# Troubleshooting NeMo Run
 
 This guide helps you diagnose and resolve common issues when using NeMo Run. It covers error messages, debugging techniques, and solutions for various scenarios.
 
-## Quick Diagnosis
+## Quick Diagnostic Commands
 
 ### Check NeMo Run Status
+
+Run these commands to quickly assess your NeMo Run installation:
 
 ```bash
 # Check NeMo Run installation
 python -c "import nemo_run; print(nemo_run.__version__)"
 
-# Check environment
+# Check environment variables
 echo $NEMORUN_HOME
-echo $PYTHONPATH
 
-# Check available executors
+# Check Python environment
 python -c "import nemo_run as run; print(dir(run))"
 ```
 
-### Common Error Patterns
+## Common Issues and Solutions
 
-| Error Pattern | Likely Cause | Quick Fix |
-|---------------|--------------|-----------|
-| `ModuleNotFoundError` | Missing dependencies | Install required packages |
-| `PermissionError` | File/directory permissions | Check file permissions |
-| `ConnectionError` | Network/SSH issues | Verify connectivity |
-| `ConfigError` | Configuration issues | Validate configuration |
-| `ExecutorError` | Execution environment | Check executor setup |
+### Installation Issues
 
-## Configuration Issues
+#### Package Installation Problems
 
-### UnserializableValueError
+**Problem**: Unable to install NeMo Run from GitHub
 
-**Error:**
+**Solution**: Use the correct installation method:
 
-```
-fiddle._src.experimental.serialization.UnserializableValueError:
-Unserializable value .tmp of type <class 'pathlib.PosixPath'>.
-Error occurred at path '<root>.something'
+```bash
+# ✅ Correct installation
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
+
+# ❌ Incorrect (this package doesn't exist)
+pip install nemo-run
 ```
 
-**Cause:** Non-serializable objects in configuration
+**Problem**: Git installation fails
 
-**Solution:**
+**Solution**: Ensure Git is available and use HTTPS:
+
+```bash
+# Check Git installation
+git --version
+
+# Use HTTPS instead of SSH
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
+
+# Or install manually
+git clone https://github.com/NVIDIA-NeMo/Run.git
+cd Run
+pip install .
+```
+
+#### Dependency Conflicts
+
+**Problem**: Version conflicts with dependencies
+
+**Solution**: Install with compatible versions:
+
+```bash
+# Install with --no-deps and resolve manually
+pip install git+https://github.com/NVIDIA-NeMo/Run.git --no-deps
+
+# Install core dependencies
+pip install inquirerpy catalogue fabric fiddle torchx typer rich jinja2 cryptography networkx omegaconf leptonai packaging toml
+
+# Install optional dependencies
+pip install "skypilot[kubernetes]>=0.9.2"
+pip install "ray[kubernetes]"
+```
+
+### Configuration Issues
+
+#### Serialization Errors
+
+**Problem**: Configuration serialization fails
+
+**Solution**: Wrap non-serializable objects in `run.Config`:
 
 ```python
-# ❌ Wrong: Direct path object
+# ❌ This will fail
 partial = run.Partial(some_function, something=Path("/tmp"))
 
 # ✅ Correct: Wrap in run.Config
 partial = run.Partial(some_function, something=run.Config(Path, "/tmp"))
 ```
 
-### Deserialization Error
+**Problem**: Complex object serialization
 
-**Error:**
-
-```
-ValueError: Using the Buildable constructor to convert a buildable to a new type
-or to override arguments is forbidden; please use either `fdl.cast(new_type, buildable)`
-(for casting) or `fdl.copy_with(buildable, **kwargs)` (for overriding arguments).
-```
-
-**Cause:** Mixed configuration types
-
-**Solution:**
+**Solution**: Use factory functions or `run.Partial`:
 
 ```python
-# Ensure only Config or Partial objects in nested configuration
 from nemo_run.config import ZlibJSONSerializer
 
+# Test serialization
 serializer = ZlibJSONSerializer()
 partial = run.Partial(some_function, something=run.Config(Path, "/tmp"))
 
-# Test serialization
-serializer.deserialize(serializer.serialize(partial)) == partial
+try:
+    serialized = serializer.serialize(partial)
+    print("✅ Configuration serializes successfully")
+except Exception as e:
+    print(f"❌ Serialization failed: {e}")
 ```
 
-### Control Flow in autoconvert
+#### Control Flow Issues
 
-**Error:**
+**Problem**: Control flow constructs in `@run.autoconvert`
 
-```
-UnsupportedLanguageConstructError: Control flow (ListComp) is unsupported by auto_config.
-```
-
-**Cause:** Complex control flow in autoconvert decorator
-
-**Solution:**
+**Solution**: Use `run.Config` directly or factory functions:
 
 ```python
-# ❌ Wrong: Control flow in autoconvert
+# ❌ This will fail
 @run.autoconvert
-def control_flow() -> llm.PreTrainingDataModule:
-    return llm.PreTrainingDataModule(
-        paths=[Path(f"some_doc_{i}") for i in range(10)],
-        weights=[1 for i in range(10)]
+def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
+    return run.Config(
+        llm.PreTrainingDataModule,
+        paths=[Path(f"some_doc_{i}") for i in range(10)],  # List comprehension
+        weights=[1.0 for _ in range(10)]
     )
 
-# ✅ Correct: Direct config return
+# ✅ Correct: Use run.Config directly
 def control_flow_config() -> run.Config[llm.PreTrainingDataModule]:
     return run.Config(
         llm.PreTrainingDataModule,
         paths=[run.Config(Path, f"some_doc_{i}") for i in range(10)],
-        weights=[1 for i in range(10)]
+        weights=[1.0 for _ in range(10)]
     )
 ```
 
-## Execution Issues
+### Execution Issues
 
-### Local Changes Not Reflected
+#### Packager Problems
 
-**Problem:** Local changes not appearing in remote jobs
+**Problem**: Code not packaged correctly
 
-**Cause:** Uncommitted changes or wrong packaging strategy
+**Solution**: Check packager configuration:
 
-**Solutions:**
+```python
+# Test packager
+packager = run.GitArchivePackager(subpath="src")
+executor = run.LocalExecutor(packager=packager)
 
-1. **Commit Git Changes:**
+# Verify Git repository
+git status
+git add .
+git commit -m "Test commit"
+```
 
-   ```bash
-   git add .
-   git commit -m "Update configuration"
-   ```
+**Problem**: Files missing from package
 
-2. **Check Packaging Strategy:**
+**Solution**: Use appropriate packager:
 
-   ```python
-   # Use GitArchivePackager for version-controlled code
-   packager = run.GitArchivePackager(subpath="src")
+```python
+# For non-Git repositories
+packager = run.PatternPackager(
+    include_pattern="src/**",
+    relative_path=os.getcwd()
+)
+executor = run.DockerExecutor(packager=packager)
+```
 
-   # Use PatternPackager for non-git code
-   packager = run.PatternPackager(include_pattern="src/**")
-   ```
+#### Executor Configuration Issues
 
-3. **Verify Working Directory:**
+**Problem**: Slurm executor fails
 
-   ```python
-   # Check what gets packaged
-   executor = run.LocalExecutor(packager=packager)
-   ```
+**Solution**: Check Slurm configuration:
 
-### Slurm Execution Issues
+```python
+executor = run.SlurmExecutor(
+    partition="gpu",
+    nodes=1,
+    gpus_per_node=4,
+    time="02:00:00"
+)
 
-**Problem:** Jobs not starting or failing on Slurm
+# Test with dry run
+experiment = run.submit(config, executor)
+experiment.dryrun = True
+```
 
-**Solutions:**
+**Problem**: Docker executor fails
 
-1. **Check Slurm Configuration:**
+**Solution**: Check Docker configuration:
 
-   ```python
-   executor = run.SlurmExecutor(
-       account="your_account",      # Verify account
-       partition="your_partition",  # Verify partition
-       time="02:00:00",            # Set appropriate time limit
-       nodes=1,                    # Check node requirements
-       ntasks_per_node=8,          # Verify task count
-       gpus_per_node=8             # Verify GPU count
-   )
-   ```
+```python
+executor = run.DockerExecutor(
+    container_image="nvidia/pytorch:24.05-py3",
+    gpus="all"
+)
 
-2. **Verify SSH Tunnel:**
+# Test Docker daemon
+import docker
+client = docker.from_env()
+client.ping()
+```
 
-   ```python
-   # For remote execution
-   ssh_tunnel = run.SSHTunnel(
-       host="your-slurm-host",
-       user="your-user",
-       job_dir="/scratch/your-user/runs",
-       identity="~/.ssh/id_ed25519"  # Verify SSH key
-   )
+**Problem**: SkyPilot executor fails
 
-   # For local execution on cluster
-   local_tunnel = run.LocalTunnel()
-   ```
+**Solution**: Check SkyPilot configuration:
 
-3. **Check Resource Availability:**
+```python
+executor = run.SkypilotExecutor(
+    cluster_name="my-cluster",
+    region="us-west1"
+)
 
-   ```bash
-   # Check Slurm status
-   sinfo
-   squeue
-   scontrol show partition your_partition
-   ```
+# Verify SkyPilot installation
+pip list | grep skypilot
+```
 
-### Docker Execution Issues
+### Logging and Monitoring Issues
 
-**Problem:** Docker containers failing to start
+#### Log Retrieval Problems
 
-**Solutions:**
+**Problem**: Cannot retrieve experiment logs
 
-1. **Verify Docker Installation:**
+**Solution**: Check experiment status and home directory:
 
-   ```bash
-   docker --version
-   docker ps
-   ```
+```python
+# Check experiment status
+experiment = run.get_experiment(experiment_id)
+print(f"Status: {experiment.status}")
 
-2. **Check Image Availability:**
+# Check logs
+logs = run.get_logs(experiment)
+print(f"Exit code: {logs.exit_code}")
+print(f"Output: {logs.stdout}")
+```
 
-   ```python
-   executor = run.DockerExecutor(
-       container_image="pytorch/pytorch:latest",  # Verify image exists
-       num_gpus=1,                               # Check GPU requirements
-       runtime="nvidia"                          # For GPU support
-   )
-   ```
+**Problem**: NeMo Run home directory issues
 
-3. **Verify Volume Mounts:**
+**Solution**: Check and fix home directory:
 
-   ```python
-   executor = run.DockerExecutor(
-       container_image="pytorch/pytorch:latest",
-       volumes=["/local/path:/path/in/container"],  # Check paths
-       env_vars={"PYTHONUNBUFFERED": "1"}
-   )
-   ```
+```bash
+# Check current home
+echo $NEMORUN_HOME
 
-### Skypilot Execution Issues
+# Set correct home
+export NEMORUN_HOME=~/.nemo_run
 
-**Problem:** Skypilot jobs failing
+# Create directory if missing
+mkdir -p ~/.nemo_run
+```
 
-**Solutions:**
+### Network and Connectivity Issues
 
-1. **Install Skypilot:**
+#### SSH Tunnel Problems
 
-   ```bash
-   pip install "nemo_run[skypilot]"
-   ```
+**Problem**: SSH tunnel connection fails
 
-2. **Configure Cloud:**
+**Solution**: Check SSH configuration:
 
-   ```bash
-   sky check
-   sky status
-   ```
+```python
+from nemo_run.core.execution.slurm import SSHTunnel
 
-3. **Check Cloud Configuration:**
+tunnel = SSHTunnel(
+    host="cluster.example.com",
+    username="your_username",
+    port=22
+)
 
-   ```python
-   executor = run.SkypilotExecutor(
-       cluster_name="my-cluster",
-       region="us-west-2",           # Verify region
-       zone="us-west-2a",            # Verify zone
-       instance_type="g4dn.xlarge"   # Verify instance type
-   )
-   ```
+# Test SSH connection
+ssh -T your_username@cluster.example.com
+```
 
-## Management Issues
+**Problem**: Network timeout issues
 
-### Cannot Retrieve Logs
+**Solution**: Configure network timeouts:
 
-**Problem:** Unable to access experiment logs
+```bash
+# Set network timeouts
+export NEMORUN_NETWORK_TIMEOUT=60
+export NEMORUN_MAX_CONNECTIONS=50
+```
 
-**Causes and Solutions:**
+## Debugging Techniques
 
-1. **NeMo Run Home Changed:**
+### Enable Debug Mode
 
-   ```bash
-   # Check current home
-   echo $NEMORUN_HOME
+Enable comprehensive debugging:
 
-   # Set consistent home
-   export NEMORUN_HOME=~/.nemorun
-   ```
+```bash
+# Enable debug logging
+export NEMORUN_DEBUG=true
+export NEMORUN_LOG_LEVEL=DEBUG
 
-2. **Home Directory Deleted:**
+# Run with verbose output
+python -c "import nemo_run; print('Debug mode enabled')"
+```
 
-   ```bash
-   # Recreate home directory
-   mkdir -p ~/.nemorun
-   ```
+### Configuration Validation
 
-3. **Remote Logs Unavailable:**
+Validate configurations before execution:
 
-   ```python
-   # For Kubernetes/Skypilot, logs may be lost if cluster is terminated
-   # Use persistent storage for important logs
-   executor = run.SkypilotExecutor(
-       # ... other config ...
-       file_mounts={
-           "/logs": "s3://my-bucket/logs"  # Persistent storage
-       }
-   )
-   ```
+```python
+from nemo_run.config import ZlibJSONSerializer
 
-### Experiment Status Issues
+def validate_config(config):
+    """Validate configuration serialization."""
+    serializer = ZlibJSONSerializer()
 
-**Problem:** Experiments stuck or showing incorrect status
+    try:
+        serialized = serializer.serialize(config)
+        deserialized = serializer.deserialize(serialized)
 
-**Solutions:**
+        if config == deserialized:
+            print("✅ Configuration is valid")
+            return True
+        else:
+            print("❌ Configuration changed during serialization")
+            return False
 
-1. **Check Experiment Status:**
+    except Exception as e:
+        print(f"❌ Configuration validation failed: {e}")
+        return False
 
-   ```python
-   experiment = run.Experiment.from_id("experiment_id")
-   experiment.status()
-   ```
+# Usage
+validate_config(my_config)
+```
 
-2. **Cancel Stuck Jobs:**
+### CLI Debugging
 
-   ```python
-   experiment.cancel("task_name")
-   ```
+Debug CLI issues:
 
-3. **Check Job Dependencies:**
+```bash
+# Test CLI help
+python script.py --help
 
-   ```python
-   # Verify dependency configuration
-   exp.add(task1, name="task1")
-   exp.add(task2, name="task2", dependencies=["task1"])
-   ```
+# Test with dry run
+python script.py --dryrun param1=value1
 
-## CLI Issues
+# Test with verbose output
+python script.py --verbose param1=value1
+```
 
-### Command Not Found
+### Executor Testing
 
-**Problem:** CLI commands not recognized
+Test executor configurations:
 
-**Solutions:**
+```python
+# Test local executor
+executor = run.LocalExecutor()
+print("✅ Local executor created")
 
-1. **Check Installation:**
+# Test Docker executor
+executor = run.DockerExecutor(container_image="python:3.9")
+print("✅ Docker executor created")
 
-   ```bash
-   pip list | grep nemo-run
-   ```
-
-2. **Verify Entrypoint Registration:**
-
-   ```python
-   @run.cli.entrypoint
-   def my_command():
-       pass
-
-   if __name__ == "__main__":
-       my_command.main()
-   ```
-
-3. **Check Python Path:**
-
-   ```bash
-   python -c "import sys; print(sys.path)"
-   ```
-
-### Argument Parsing Errors
-
-**Problem:** CLI arguments not parsed correctly
-
-**Solutions:**
-
-1. **Use Correct Syntax:**
-
-   ```bash
-   # ✅ Correct
-   python script.py model=resnet50 learning_rate=0.001
-
-   # ❌ Wrong
-   python script.py --model resnet50 --learning-rate 0.001
-   ```
-
-2. **Check Type Hints:**
-
-   ```python
-   @run.cli.entrypoint
-   def train_model(
-       model: str,           # String type
-       learning_rate: float, # Float type
-       epochs: int          # Integer type
-   ):
-       pass
-   ```
-
-3. **Use Factory Functions:**
-
-   ```python
-   @run.cli.factory
-   def create_model(name: str, hidden_size: int = 512):
-       return {"name": name, "hidden_size": hidden_size}
-
-   @run.cli.entrypoint
-   def train(model=create_model(name="transformer")):
-       pass
-   ```
+# Test Slurm executor
+executor = run.SlurmExecutor(partition="cpu", time="00:10:00")
+print("✅ Slurm executor created")
+```
 
 ## Performance Issues
 
-### Slow Job Submission
+### Resource Optimization
 
-**Problem:** Jobs taking too long to submit
+**Problem**: High memory usage
 
-**Solutions:**
+**Solution**: Configure memory limits:
 
-1. **Optimize Package Size:**
+```bash
+# Set memory limits
+export NEMORUN_MAX_MEMORY=8GB
+export NEMORUN_MEMORY_POOL_SIZE=2GB
 
-   ```python
-   # Use specific subpaths
-   packager = run.GitArchivePackager(subpath="src/models")
+# Monitor memory usage
+free -h
+```
 
-   # Exclude unnecessary files
-   packager = run.PatternPackager(
-       include_pattern="src/**/*.py",
-       exclude_pattern="**/*_test.py **/__pycache__/**"
-   )
-   ```
+**Problem**: Slow execution
 
-2. **Use Local Testing:**
-
-   ```python
-   # Test locally first
-   executor = run.LocalExecutor()
-   ```
-
-3. **Check Network Connectivity:**
-
-   ```bash
-   # Test SSH connection
-   ssh user@remote-host "echo 'Connection successful'"
-   ```
-
-### Memory Issues
-
-**Problem:** Jobs running out of memory
-
-**Solutions:**
-
-1. **Adjust Resource Requests:**
-
-   ```python
-   executor = run.SlurmExecutor(
-       mem="64G",           # Request more memory
-       mem_per_cpu="8G"     # Or per CPU
-   )
-   ```
-
-2. **Optimize Code:**
-
-   ```python
-   # Use generators for large datasets
-   def data_generator():
-       for item in large_dataset:
-           yield process_item(item)
-   ```
-
-3. **Monitor Resource Usage:**
-
-   ```bash
-   # Check memory usage
-   htop
-   nvidia-smi  # For GPU memory
-   ```
-
-## Network and Connectivity Issues
-
-### SSH Connection Problems
-
-**Problem:** Cannot connect to remote clusters
-
-**Solutions:**
-
-1. **Verify SSH Configuration:**
-
-   ```bash
-   # Test SSH connection
-   ssh -i ~/.ssh/id_ed25519 user@host
-
-   # Check SSH key permissions
-   chmod 600 ~/.ssh/id_ed25519
-   ```
-
-2. **Configure SSH Tunnel:**
-
-   ```python
-   ssh_tunnel = run.SSHTunnel(
-       host="your-host",
-       user="your-user",
-       job_dir="/scratch/user/runs",
-       identity="~/.ssh/id_ed25519"
-   )
-   ```
-
-3. **Check Firewall Settings:**
-
-   ```bash
-   # Test port connectivity
-   telnet host 22
-   ```
-
-### Network Timeouts
-
-**Problem:** Network operations timing out
-
-**Solutions:**
-
-1. **Increase Timeouts:**
-
-   ```python
-   # Configure longer timeouts
-   executor = run.SlurmExecutor(
-       # ... other config ...
-       timeout=3600  # 1 hour timeout
-   )
-   ```
-
-2. **Use Retry Logic:**
-
-   ```python
-   # Implement retry logic in your code
-   import time
-   from functools import wraps
-
-   def retry_on_timeout(max_retries=3, delay=5):
-       def decorator(func):
-           @wraps(func)
-           def wrapper(*args, **kwargs):
-               for attempt in range(max_retries):
-                   try:
-                       return func(*args, **kwargs)
-                   except TimeoutError:
-                       if attempt == max_retries - 1:
-                           raise
-                       time.sleep(delay)
-           return wrapper
-       return decorator
-   ```
-
-## Debug Techniques
-
-### Enable Verbose Logging
+**Solution**: Optimize configuration:
 
 ```python
-import logging
+# Use efficient packager
+packager = run.GitArchivePackager(subpath="src")
 
-# Enable debug logging
-logging.basicConfig(level=logging.DEBUG)
-
-# Or use CLI verbose flag
-# python script.py --verbose
+# Configure resource limits
+executor = run.SlurmExecutor(
+    partition="gpu",
+    nodes=2,
+    gpus_per_node=4,
+    memory="64GB"
+)
 ```
 
-### Use Dry Run Mode
+### Network Optimization
+
+**Problem**: Slow network transfers
+
+**Solution**: Configure network settings:
 
 ```bash
-# Preview execution without running
-python script.py train_model --dryrun
+# Enable compression
+export NEMORUN_COMPRESSION=true
+export NEMORUN_CHUNK_SIZE=1MB
+
+# Configure timeouts
+export NEMORUN_NETWORK_TIMEOUT=30
+export NEMORUN_KEEPALIVE=true
 ```
 
-### Debug Interactively
+## Error Message Reference
 
+### Common Error Messages
+
+#### Import Errors
+
+```
+ModuleNotFoundError: No module named 'nemo_run'
+```
+**Solution**: Install NeMo Run correctly:
 ```bash
-# Enter interactive mode
-python script.py train_model --repl
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
-### Export Configurations
+#### Serialization Errors
 
-```bash
-# Export to inspect configuration
-python script.py train_model --to-yaml config.yaml
-python script.py train_model --to-json config.json
 ```
-
-### Check Experiment Metadata
-
+TypeError: Object of type Path is not JSON serializable
+```
+**Solution**: Wrap in `run.Config`:
 ```python
-# Inspect experiment details
-experiment = run.Experiment.from_id("experiment_id")
-print(experiment.metadata)
+config = run.Config(MyClass, path=run.Config(Path, "/tmp"))
 ```
 
-## Get Help
+#### Executor Errors
 
-### Self-Diagnosis Checklist
+```
+ExecutorError: Failed to submit job
+```
+**Solution**: Check executor configuration and connectivity.
 
-- [ ] Check NeMo Run version and installation
-- [ ] Verify environment variables
-- [ ] Test with minimal example
-- [ ] Check executor configuration
-- [ ] Verify network connectivity
-- [ ] Review error logs
-- [ ] Test with different executor
+#### Configuration Errors
 
-### Useful Commands
+```
+ConfigurationError: Invalid configuration
+```
+**Solution**: Validate configuration before execution.
+
+## Getting Help
+
+### Diagnostic Information
+
+When reporting issues, include this diagnostic information:
 
 ```bash
-# Check system information
-python -c "import nemo_run; print(nemo_run.__version__)"
+# System information
+python --version
+pip --version
 echo $NEMORUN_HOME
-echo $PYTHONPATH
 
-# Check available resources
-nvidia-smi  # GPU status
-sinfo       # Slurm status
-docker ps   # Docker status
+# NeMo Run information
+python -c "import nemo_run; print(f'Version: {nemo_run.__version__}')"
 
-# Test connectivity
-ssh user@host "echo 'SSH working'"
-ping host
-telnet host port
+# Environment information
+env | grep NEMORUN
 ```
 
-### Report Issues
+### Reporting Issues
 
-When reporting issues, include:
+When reporting issues to the NeMo Run team:
 
-1. **NeMo Run version**
-2. **Python version**
-3. **Operating system**
-4. **Error message and traceback**
-5. **Minimal reproduction example**
-6. **Environment configuration**
-7. **Steps to reproduce**
+1. **Include diagnostic information** (see above)
+2. **Provide error messages** and stack traces
+3. **Describe the steps** to reproduce the issue
+4. **Include configuration files** (if applicable)
+5. **Specify your environment** (OS, Python version, etc.)
 
 ### Example Issue Report
 
 ```
 NeMo Run Version: 1.0.0
-Python Version: 3.9.0
+Python Version: 3.9.7
 OS: Ubuntu 20.04
+NEMORUN_HOME: ~/.nemo_run
 
-Error:
-[Full error message and traceback]
+Error: Configuration serialization fails
+Steps to reproduce:
+1. Create configuration with Path object
+2. Attempt to serialize
+3. Get TypeError
 
-Reproduction Steps:
-1. Create configuration with run.Partial
-2. Use SlurmExecutor with SSH tunnel
-3. Submit job
-
-Configuration:
-[Minimal configuration that reproduces the issue]
-
-Environment:
-NEMORUN_HOME=~/.nemorun
-[Other relevant environment variables]
+Error message:
+TypeError: Object of type Path is not JSON serializable
 ```
 
 This troubleshooting guide should help you resolve most common issues with NeMo Run. If you continue to experience problems, please report them with the information requested above.

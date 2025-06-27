@@ -200,20 +200,20 @@ pip install pyslurm
 pip install paramiko
 ```
 
-#### Docker Support
+#### Ray Support
 
-For containerized execution:
+For Ray-based distributed computing:
 
 ```bash
-# Install Docker dependencies
-pip install docker
+# Install Ray with Kubernetes support
+pip install "ray[kubernetes]"
 ```
 
 ## Development Installation
 
-### From Source
+### Install from Source
 
-For development or custom modifications, install from source:
+For development or to use the latest features, install from source:
 
 ```bash
 # Clone the repository
@@ -227,109 +227,54 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
-### Development Dependencies
+### Build Documentation
 
-Install additional dependencies for development:
+To build the documentation locally:
 
 ```bash
-# Install all development dependencies
-pip install -e ".[dev,test,docs]"
+# Install documentation dependencies
+pip install -e ".[docs]"
 
-# Or install specific development packages
-pip install pytest pytest-cov black isort mypy
-pip install sphinx sphinx-rtd-theme myst-parser
+# Build HTML documentation
+cd docs
+make html
+
+# Serve locally
+python -m http.server 8000 -d _build/html
 ```
 
 ## Environment Configuration
 
-### Configuration Files
+### Set Up Environment Variables
 
-NeMo Run uses configuration files to manage execution settings:
+Configure NeMo Run environment variables:
 
 ```bash
-# Create configuration directory
-mkdir -p ~/.config/nemo-run
+# Set NeMo Run home directory (optional)
+export NEMORUN_HOME=~/.nemo_run
 
-# Create default configuration file
-cat > ~/.config/nemo-run/config.yaml << EOF
-# Default execution settings
-execution:
-  default_backend: local
-  timeout: 3600
-  retry_attempts: 3
+# Set log level (optional)
+export NEMORUN_LOG_LEVEL=INFO
 
-# Logging configuration
-logging:
-  level: INFO
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-# Resource limits
-resources:
-  max_memory: 32GB
-  max_cpus: 16
-EOF
+# Enable verbose logging (optional)
+export NEMORUN_VERBOSE_LOGGING=false
 ```
 
-### Environment Variables
+### Verify Installation
 
-Set environment variables for custom configurations:
+Test your installation with a simple example:
 
-```bash
-# Set default execution backend
-export NEMO_RUN_BACKEND=kubernetes
+```python
+import nemo_run as run
 
-# Configure logging level
-export NEMO_RUN_LOG_LEVEL=DEBUG
+# Test basic configuration
+config = run.Config(lambda x: x, x=42)
+result = config.build()
+print(f"Test result: {result}")
 
-# Set resource limits
-export NEMO_RUN_MAX_MEMORY=64GB
-export NEMO_RUN_MAX_CPUS=32
-```
-
-## Platform-Specific Instructions
-
-### Linux Installation
-
-On Linux systems, additional system packages may be required:
-
-```bash
-# Ubuntu/Debian
-sudo apt-get update
-sudo apt-get install -y python3-dev build-essential
-
-# CentOS/RHEL
-sudo yum groupinstall -y "Development Tools"
-sudo yum install -y python3-devel
-
-# Install NeMo Run
-pip install git+https://github.com/NVIDIA-NeMo/Run.git
-```
-
-### macOS Installation
-
-On macOS, use Homebrew for system dependencies:
-
-```bash
-# Install Homebrew (if not already installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install system dependencies
-brew install python git
-
-# Install NeMo Run
-pip install git+https://github.com/NVIDIA-NeMo/Run.git
-```
-
-### Windows Installation
-
-On Windows, use WSL2 for optimal compatibility:
-
-```bash
-# Install WSL2 (if not already installed)
-wsl --install
-
-# Install NeMo Run in WSL2
-pip install git+https://github.com/NVIDIA-NeMo/Run.git
+# Test executor creation
+executor = run.LocalExecutor()
+print(f"Executor created: {executor}")
 ```
 
 ## Troubleshooting
@@ -341,45 +286,47 @@ pip install git+https://github.com/NVIDIA-NeMo/Run.git
 If you encounter permission errors during installation:
 
 ```bash
-# Use user installation (recommended)
+# Use user installation
 pip install --user git+https://github.com/NVIDIA-NeMo/Run.git
 
-# Or use virtual environment
+# Or use a virtual environment
 python -m venv nemo-run-env
 source nemo-run-env/bin/activate
 pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
-#### Network Issues
+#### Dependency Conflicts
 
-For network-restricted environments:
+If you encounter dependency conflicts:
 
 ```bash
-# Use alternative package index
-pip install --index-url https://pypi.org/simple/ git+https://github.com/NVIDIA-NeMo/Run.git
+# Install with --no-deps and manually resolve
+pip install git+https://github.com/NVIDIA-NeMo/Run.git --no-deps
 
-# Or download and install locally
+# Then install dependencies manually
+pip install inquirerpy catalogue fabric fiddle torchx typer rich jinja2 cryptography networkx omegaconf leptonai packaging toml
+```
+
+#### Git Installation Issues
+
+If you have issues with Git installation:
+
+```bash
+# Ensure Git is installed
+git --version
+
+# Use HTTPS instead of SSH
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
+
+# Or download and install manually
 git clone https://github.com/NVIDIA-NeMo/Run.git
 cd Run
 pip install .
 ```
 
-#### Dependency Conflicts
-
-Resolve dependency conflicts:
-
-```bash
-# Upgrade conflicting packages
-pip install --upgrade pip setuptools wheel
-
-# Install with dependency resolution
-pip install --no-deps git+https://github.com/NVIDIA-NeMo/Run.git
-pip install -r requirements.txt
-```
-
 ### Verification Commands
 
-Verify your installation with these commands:
+Run these commands to verify your installation:
 
 ```bash
 # Check Python version
@@ -388,26 +335,29 @@ python --version
 # Check pip version
 pip --version
 
-# Verify NeMo Run installation
+# Check NeMo Run installation
 python -c "import nemo_run; print(f'NeMo Run version: {nemo_run.__version__}')"
 
-# Test basic functionality
-python -c "from nemo_run import run; print('Core functionality working')"
+# Check CLI availability
+python -c "from nemo_run.__main__ import app; print('CLI available')"
+
+# Check executor imports
+python -c "from nemo_run.core.execution import LocalExecutor, SlurmExecutor; print('Executors available')"
 ```
 
 ## Next Steps
 
 After successful installation:
 
-1. **Read the Quick Start Guide**: Learn basic usage patterns
-2. **Explore Configuration Options**: Customize execution settings
-3. **Try Example Workflows**: Run sample experiments
-4. **Join the Community**: Get help and share experiences
+1. **Read the Configuration Guide**: Learn about `run.Config` and `run.Partial`
+2. **Try the CLI Tutorial**: Create your first CLI entrypoint
+3. **Explore Execution Backends**: Test different execution environments
+4. **Check the Examples**: Review example configurations and workflows
 
-For additional support and resources, visit the [NeMo Run documentation](https://docs.nemo.run) or [GitHub repository](https://github.com/NVIDIA-NeMo/Run).
+For more detailed information, refer to the [Configuration Guide](configuration.md), [CLI Guide](cli.md), and [Execution Guide](execution.md).
 
 ---
 
-:::{note}
+::{note}
 **Important**: Ensure you have `pip` installed and configured properly before proceeding with the installation. For production deployments, consider using containerized environments for consistent execution across different platforms.
 :::

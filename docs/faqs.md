@@ -30,10 +30,10 @@ Use NeMo Run when you need to:
 
 ### **Q:** How do I install and set up NeMo Run?
 
-**A:** Install NeMo Run using pip:
+**A:** Install NeMo Run using pip from the GitHub repository:
 
 ```bash
-pip install nemo-run
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
 Basic setup involves:
@@ -41,7 +41,7 @@ Basic setup involves:
 1. **Configure your environment**:
 
    ```bash
-   export NEMORUN_HOME=~/.nemorun  # Optional: customize home directory
+   export NEMORUN_HOME=~/.nemo_run  # Optional: customize home directory
    ```
 
 2. **Initialize a project**:
@@ -198,519 +198,278 @@ def create_paths(num_files):
 def create_dataset_config():
     return run.Config(
         Dataset,
-        paths=run.Config(create_paths, 10),
-        weights=[1.0] * 10
+        paths=create_paths(10),
+        weights=[1.0 for _ in range(10)]
     )
 ```
 
-## Code Packaging and Deployment
+## Execution and Backends
 
 ### **Q:** How does NeMo Run package my code for remote execution?
 
 **A:** NeMo Run uses packagers to bundle your code and dependencies for remote execution:
 
-**GitArchivePackager** (default):
+- **`run.Packager`**: Pass-through packager (no modification)
+- **`run.GitArchivePackager`**: Packages Git repository using `git archive`
+- **`run.PatternPackager`**: Packages files based on pattern matching
+- **`run.HybridPackager`**: Combines multiple packagers
 
-- Creates a Git archive of your current repository
-- Includes only committed changes
-- Excludes files in `.gitignore`
-- Provides reproducible code snapshots
-
-**DockerPackager**:
-
-- Builds a Docker image with your code
-- Includes all dependencies
-- Provides isolated execution environment
-
-**HybridPackager**:
-
-- Combines Git archive with Docker image
-- Offers flexibility for different deployment scenarios
-
-### **Q:** Why aren't my local changes reflected in remote jobs?
-
-**A:** This is typically due to packaging behavior. Here are the common scenarios:
-
-**Scenario 1**: Uncommitted changes in Git repository
-
-```bash
-# ❌ Changes not committed
-git add my_changes.py
-# Missing: git commit -m "Add changes"
-
-# ✅ Commit changes first
-git add my_changes.py
-git commit -m "Add changes"
-```
-
-**Scenario 2**: Changes outside Git repository
+Example:
 
 ```python
-# ❌ Files outside repo aren't packaged
-external_file = "/path/to/external/data.csv"
+# Git-based packaging
+packager = run.GitArchivePackager(subpath="src")
+executor = run.SlurmExecutor(packager=packager)
 
-# ✅ Solutions:
-# 1. Move files into your repository
-# 2. Use DockerPackager with volume mounts
-# 3. Copy files to remote cluster manually
-```
-
-**Scenario 3**: Using wrong packager
-
-```python
-# For local development with frequent changes
-packager = run.DockerPackager(
-    dockerfile="Dockerfile.dev",
-    build_context="."
+# Pattern-based packaging
+packager = run.PatternPackager(
+    include_pattern="src/**",
+    relative_path=os.getcwd()
 )
-
-# For production with Git-based versioning
-packager = run.GitArchivePackager()
+executor = run.DockerExecutor(packager=packager)
 ```
 
-### **Q:** How do I include external dependencies or data files?
+### **Q:** What execution backends does NeMo Run support?
 
-**A:** Several approaches depending on your needs:
+**A:** NeMo Run supports multiple execution backends:
 
-**For Python dependencies**:
+- **`run.LocalExecutor`**: Local process execution
+- **`run.DockerExecutor`**: Docker container execution
+- **`run.SlurmExecutor`**: HPC cluster execution via Slurm
+- **`run.SkypilotExecutor`**: Multi-cloud execution with cost optimization
+- **`run.DGXCloudExecutor`**: NVIDIA DGX Cloud execution
+- **`run.LeptonExecutor`**: Lepton cloud execution
 
-```python
-# Use requirements.txt or pyproject.toml
-packager = run.GitArchivePackager(
-    requirements_file="requirements.txt"
-)
-```
+Each executor supports different packaging strategies and resource configurations.
 
-**For data files**:
+### **Q:** How do I configure Slurm execution?
 
-```python
-# Option 1: Include in repository
-# Add data/ directory to your Git repository
-
-# Option 2: Use Docker with volume mounts
-packager = run.DockerPackager(
-    volumes={
-        "/host/data": "/container/data"
-    }
-)
-
-# Option 3: Copy files during execution
-def setup_data():
-    import shutil
-    shutil.copy("/host/data", "/container/data")
-
-config = run.Config(MyJob, setup_fn=run.Config(setup_data))
-```
-
-## Execution and Scheduling
-
-### **Q:** How do I choose the right executor for my use case?
-
-**A:** Choose based on your compute environment and requirements:
-
-**LocalExecutor**: Development and testing
-
-```python
-executor = run.LocalExecutor()
-# Pros: Fast iteration, no setup required
-# Cons: Limited resources, no isolation
-```
-
-**SlurmExecutor**: HPC clusters
+**A:** Configure Slurm execution with the `run.SlurmExecutor`:
 
 ```python
 executor = run.SlurmExecutor(
     partition="gpu",
     nodes=2,
     gpus_per_node=4,
-    time_limit="24:00:00"
+    time="02:00:00",
+    job_name="my_experiment",
+    account="my_account"
 )
-# Pros: Resource management, job queuing
-# Cons: Requires Slurm cluster access
 ```
 
-**DockerExecutor**: Containerized execution
+For SSH tunnel access from your local machine:
 
 ```python
-executor = run.DockerExecutor(
-    image="nvidia/cuda:11.8-devel-ubuntu20.04",
-    gpus="all"
-)
-# Pros: Environment isolation, reproducibility
-# Cons: Build time, image size
-```
+from nemo_run.core.execution.slurm import SSHTunnel
 
-**KubernetesExecutor**: Cloud-native deployment
-
-```python
-executor = run.KubernetesExecutor(
-    namespace="ml-experiments",
-    resources={"gpu": 4}
-)
-# Pros: Scalability, resource efficiency
-# Cons: Kubernetes complexity
-```
-
-### **Q:** How do I execute Slurm jobs from different environments?
-
-**A:** NeMo Run supports multiple execution modes for Slurm:
-
-**From local machine via SSH**:
-
-```python
-ssh_tunnel = run.SSHTunnel(
-    host="cluster.login.node",
-    user="username",
-    job_dir="/home/username/nemo-run-experiments",
-    ssh_key_path="~/.ssh/id_rsa"
+tunnel = SSHTunnel(
+    host="cluster.example.com",
+    username="your_username",
+    port=22
 )
 
 executor = run.SlurmExecutor(
     partition="gpu",
-    nodes=1,
-    gpus_per_node=4,
-    tunnel=ssh_tunnel
+    tunnel=tunnel
 )
 ```
-
-**From login node directly**:
-
-```python
-executor = run.SlurmExecutor(
-    partition="gpu",
-    nodes=1,
-    gpus_per_node=4,
-    tunnel=run.LocalTunnel()  # Direct execution
-)
-```
-
-**From within a Slurm job**:
-
-```python
-# When running inside a Slurm allocation
-executor = run.SlurmExecutor(
-    partition="gpu",
-    nodes=1,
-    gpus_per_node=4,
-    tunnel=run.LocalTunnel(),
-    submit_from_allocated_job=True  # Submit from within allocation
-)
-```
-
-### **Q:** How do I handle resource requirements and constraints?
-
-**A:** Configure resources based on your workload:
-
-**Basic resource specification**:
-
-```python
-executor = run.SlurmExecutor(
-    partition="gpu",
-    nodes=2,
-    gpus_per_node=4,
-    cpus_per_node=32,
-    memory_per_node="128G",
-    time_limit="24:00:00"
-)
-```
-
-**Advanced resource management**:
-
-```python
-executor = run.SlurmExecutor(
-    partition="gpu",
-    nodes=2,
-    gpus_per_node=4,
-    exclusive=True,  # Exclusive node access
-    constraint="gpu_type:rtx6000",  # Specific GPU type
-    qos="high_priority",  # Quality of service
-    account="ml_research"  # Account/charge code
-)
-```
-
-**Dynamic resource allocation**:
-
-```python
-def adaptive_resources(batch_size):
-    """Calculate resources based on batch size."""
-    if batch_size <= 32:
-        return {"nodes": 1, "gpus_per_node": 2}
-    elif batch_size <= 128:
-        return {"nodes": 2, "gpus_per_node": 4}
-    else:
-        return {"nodes": 4, "gpus_per_node": 8}
-
-config = run.Config(MyJob, batch_size=64)
-resources = adaptive_resources(config.batch_size)
-executor = run.SlurmExecutor(**resources)
-```
-
-## Logging and Monitoring
 
 ### **Q:** How does NeMo Run handle logging and experiment tracking?
 
 **A:** NeMo Run provides centralized logging and experiment management:
 
-**Automatic log collection**:
+- **Automatic Log Capture**: All stdout/stderr is captured and stored
+- **Experiment Metadata**: Configuration, timestamps, and status are tracked
+- **Log Retrieval**: Access logs through the experiment interface
+- **Centralized Storage**: All data stored in `NEMORUN_HOME`
+
+Example:
 
 ```python
-# Logs are automatically captured and stored
-experiment = run.submit(config, executor)
+# Launch experiment
+experiment = run.submit(task_config, executor)
+
+# Monitor progress
+print(f"Status: {experiment.status}")
+print(f"Logs: {experiment.logs}")
 
 # Retrieve logs
 logs = run.get_logs(experiment)
-print(logs.stdout)
-print(logs.stderr)
-```
-
-**Custom logging configuration**:
-
-```python
-import logging
-
-def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('experiment.log'),
-            logging.StreamHandler()
-        ]
-    )
-
-config = run.Config(MyJob, setup_fn=run.Config(setup_logging))
-```
-
-**Experiment metadata**:
-
-```python
-# Add metadata to experiments
-experiment = run.submit(
-    config,
-    executor,
-    metadata={
-        "experiment_name": "transformer_finetuning",
-        "dataset": "wikitext-103",
-        "model_size": "1.3B"
-    }
-)
-```
-
-### **Q:** How do I retrieve and analyze experiment logs?
-
-**A:** Multiple ways to access and analyze logs:
-
-**Basic log retrieval**:
-
-```python
-# Get experiment by ID
-experiment = run.get_experiment("exp_123")
-
-# Get logs
-logs = run.get_logs(experiment)
 print(f"Exit code: {logs.exit_code}")
-print(f"Stdout: {logs.stdout}")
-print(f"Stderr: {logs.stderr}")
-```
-
-**Streaming logs during execution**:
-
-```python
-# Stream logs in real-time
-for log_entry in run.stream_logs(experiment):
-    print(log_entry.timestamp, log_entry.message)
-```
-
-**Log analysis and filtering**:
-
-```python
-import re
-
-def analyze_logs(experiment):
-    logs = run.get_logs(experiment)
-
-    # Extract metrics
-    loss_pattern = r"loss: (\d+\.\d+)"
-    losses = re.findall(loss_pattern, logs.stdout)
-
-    # Extract errors
-    error_pattern = r"ERROR: (.+)"
-    errors = re.findall(error_pattern, logs.stderr)
-
-    return {
-        "losses": [float(l) for l in losses],
-        "errors": errors,
-        "exit_code": logs.exit_code
-    }
+print(f"Output: {logs.stdout}")
 ```
 
 ## Troubleshooting
 
-### **Q:** Why can't I retrieve logs for my experiment?
+### **Q:** How do I debug configuration issues?
 
-**A:** Common causes and solutions:
+**A:** Use these debugging techniques:
 
-**NeMo Run home directory issues**:
+1. **Validate Configuration**:
+   ```python
+   from nemo_run.config import ZlibJSONSerializer
+   serializer = ZlibJSONSerializer()
 
-```bash
-# Check current home directory
-echo $NEMORUN_HOME
+   try:
+       serialized = serializer.serialize(config)
+       print("✅ Configuration is serializable")
+   except Exception as e:
+       print(f"❌ Serialization failed: {e}")
+   ```
 
-# Verify experiment exists
-ls ~/.nemorun/experiments/
+2. **Check Type Hints**:
+   ```python
+   import inspect
+   sig = inspect.signature(MyFunction)
+   print(sig.parameters)
+   ```
 
-# If home changed, set it correctly
-export NEMORUN_HOME=/path/to/original/home
-```
+3. **Test CLI Parsing**:
+   ```bash
+   python script.py --help
+   python script.py --dryrun param1=value1
+   ```
 
-**Remote cluster issues**:
+### **Q:** How do I resolve dependency conflicts?
 
-```python
-# Check if cluster is still running
-executor = run.SlurmExecutor(...)
-status = executor.get_cluster_status()
+**A:** Resolve dependency conflicts with these approaches:
 
-# For Kubernetes, check pod status
-executor = run.KubernetesExecutor(...)
-pods = executor.list_pods()
-```
+1. **Use Virtual Environment**:
+   ```bash
+   python -m venv nemo-run-env
+   source nemo-run-env/bin/activate
+   pip install git+https://github.com/NVIDIA-NeMo/Run.git
+   ```
 
-**Network connectivity issues**:
+2. **Install with --no-deps**:
+   ```bash
+   pip install git+https://github.com/NVIDIA-NeMo/Run.git --no-deps
+   pip install inquirerpy catalogue fabric fiddle torchx typer rich jinja2 cryptography networkx omegaconf leptonai packaging toml
+   ```
 
-```python
-# Test SSH connection
-ssh_tunnel = run.SSHTunnel(host="cluster", user="user")
-try:
-    ssh_tunnel.test_connection()
-    print("✅ SSH connection working")
-except Exception as e:
-    print(f"❌ SSH connection failed: {e}")
-```
+3. **Use Compatible Versions**:
+   ```bash
+   pip install "torchx>=0.7.0" "fiddle>=0.3.0" "omegaconf>=2.3.0"
+   ```
 
-### **Q:** How do I debug configuration and serialization issues?
+### **Q:** How do I recover from experiment failures?
 
-**A:** Systematic debugging approach:
+**A:** NeMo Run provides several recovery mechanisms:
 
-**Step 1: Validate configuration structure**:
+1. **Check Experiment Status**:
+   ```python
+   experiment = run.get_experiment(experiment_id)
+   print(f"Status: {experiment.status}")
+   print(f"Error: {experiment.error}")
+   ```
 
-```python
-def debug_config(config):
-    """Recursively inspect configuration for issues."""
-    def inspect(obj, path=""):
-        if hasattr(obj, '__dict__'):
-            for key, value in obj.__dict__.items():
-                current_path = f"{path}.{key}" if path else key
-                print(f"Checking {current_path}: {type(value)}")
+2. **Retrieve Logs**:
+   ```python
+   logs = run.get_logs(experiment)
+   print(f"Exit code: {logs.exit_code}")
+   print(f"Error output: {logs.stderr}")
+   ```
 
-                if not isinstance(value, (run.Config, run.Partial, str, int, float, bool, list, dict)):
-                    print(f"⚠️  Non-serializable object at {current_path}: {type(value)}")
+3. **Restart with Modified Config**:
+   ```python
+   # Modify configuration based on error
+   new_config = config.clone()
+   new_config.learning_rate = 0.0001
 
-                if isinstance(value, (run.Config, run.Partial)):
-                    inspect(value, current_path)
+   # Restart experiment
+   new_experiment = run.submit(new_config, executor)
+   ```
 
-    inspect(config)
-    print("✅ Configuration inspection complete")
+### **Q:** How do I manage NeMo Run home directory issues?
 
-# Usage
-debug_config(my_config)
-```
+**A:** NeMo Run home directory issues can be resolved by:
 
-**Step 2: Test serialization incrementally**:
+1. **Check Current Home**:
+   ```bash
+   echo $NEMORUN_HOME
+   ls ~/.nemo_run/experiments/
+   ```
 
-```python
-def test_serialization_incremental(config):
-    """Test serialization by building config incrementally."""
-    serializer = ZlibJSONSerializer()
+2. **Reset Home Directory**:
+   ```bash
+   export NEMORUN_HOME=~/.nemo_run
+   mkdir -p ~/.nemo_run
+   ```
 
-    # Test each component separately
-    for key, value in config.__dict__.items():
-        try:
-            test_config = run.Config(type(config), **{key: value})
-            serializer.serialize(test_config)
-            print(f"✅ {key} serializes successfully")
-        except Exception as e:
-            print(f"❌ {key} fails: {e}")
-```
+3. **Recover from Backup**:
+   ```bash
+   export NEMORUN_HOME=/path/to/original/home
+   cp -r ~/.nemo_run.backup ~/.nemo_run
+   ```
 
-**Step 3: Use minimal reproduction**:
+## Advanced Topics
 
-```python
-# Create minimal test case
-minimal_config = run.Config(MyClass, param1="test")
-try:
-    serializer.serialize(minimal_config)
-    print("✅ Minimal config works")
+### **Q:** How do I create custom executors?
 
-    # Add parameters one by one
-    for param, value in original_config.__dict__.items():
-        if param not in minimal_config.__dict__:
-            test_config = run.Config(MyClass, **{**minimal_config.__dict__, param: value})
-            serializer.serialize(test_config)
-            print(f"✅ Adding {param} works")
-
-except Exception as e:
-    print(f"❌ Issue found: {e}")
-```
-
-### **Q:** How do I handle executor-specific issues?
-
-**A:** Common executor problems and solutions:
-
-**SlurmExecutor issues**:
+**A:** Create custom executors by inheriting from `run.Executor`:
 
 ```python
-# Check Slurm configuration
-executor = run.SlurmExecutor(...)
+from nemo_run.core.execution.base import Executor
 
-# Verify partition exists
-partitions = executor.list_partitions()
-print(f"Available partitions: {partitions}")
+class CustomExecutor(Executor):
+    def __init__(self, custom_param: str):
+        self.custom_param = custom_param
 
-# Check queue status
-queue = executor.get_queue_status()
-print(f"Queue status: {queue}")
+    def submit(self, task_config, **kwargs):
+        # Custom submission logic
+        pass
 
-# Test job submission
-test_job = executor.submit_test_job()
-print(f"Test job ID: {test_job}")
+    def get_status(self, job_id):
+        # Custom status checking
+        pass
 ```
 
-**DockerExecutor issues**:
+### **Q:** How do I integrate with external experiment tracking?
+
+**A:** Integrate with external tracking systems using plugins:
 
 ```python
-# Check Docker daemon
-import docker
-client = docker.from_env()
-try:
-    client.ping()
-    print("✅ Docker daemon accessible")
-except Exception as e:
-    print(f"❌ Docker daemon issue: {e}")
+from nemo_run.run.plugin import ExperimentPlugin
 
-# Check image availability
-try:
-    client.images.get("nvidia/cuda:11.8-devel-ubuntu20.04")
-    print("✅ CUDA image available")
-except docker.errors.ImageNotFound:
-    print("❌ CUDA image not found, pulling...")
-    client.images.pull("nvidia/cuda:11.8-devel-ubuntu20.04")
+class WandBPlugin(ExperimentPlugin):
+    def on_experiment_start(self, experiment):
+        import wandb
+        wandb.init(project="my_project")
+
+    def on_experiment_end(self, experiment):
+        import wandb
+        wandb.finish()
+
+# Use plugin
+executor = run.LocalExecutor(plugins=[WandBPlugin()])
 ```
 
-**KubernetesExecutor issues**:
+### **Q:** How do I optimize performance for large-scale experiments?
 
-```python
-# Check cluster connectivity
-executor = run.KubernetesExecutor(...)
+**A:** Optimize performance with these strategies:
 
-# Verify namespace exists
-namespaces = executor.list_namespaces()
-print(f"Available namespaces: {namespaces}")
+1. **Use Efficient Packagers**:
+   ```python
+   # Use Git packager for large codebases
+   packager = run.GitArchivePackager(subpath="src")
+   ```
 
-# Check resource quotas
-quotas = executor.get_resource_quotas()
-print(f"Resource quotas: {quotas}")
+2. **Configure Resource Limits**:
+   ```python
+   executor = run.SlurmExecutor(
+       partition="gpu",
+       nodes=4,
+       gpus_per_node=8,
+       memory="64GB"
+   )
+   ```
 
-# Test pod creation
-test_pod = executor.create_test_pod()
-print(f"Test pod created: {test_pod}")
-```
+3. **Use Parallel Execution**:
+   ```python
+   experiment = run.Experiment()
+   for config in configs:
+       experiment.add_task(config, executor)
+   experiment.launch(sequential=False)
+   ```
+
+This FAQ covers the most common questions about NeMo Run. For more detailed information, refer to the specific guides for [Configuration](configuration.md), [CLI](cli.md), [Execution](execution.md), and [Management](management.md).

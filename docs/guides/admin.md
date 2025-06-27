@@ -1,7 +1,7 @@
 ---
 description: "Administrative guide for NeMo Run including deployment, maintenance, version management, and operational procedures."
-tags: ["administration", "deployment", "maintenance", "operations", "versioning", "monitoring"]
-categories: ["administration"]
+tags: ["administration", "deployment", "maintenance", "configuration", "monitoring", "troubleshooting"]
+categories: ["guides"]
 ---
 
 (admin)=
@@ -16,46 +16,54 @@ NeMo Run administration encompasses several key areas:
 
 - **Deployment Management**: Installing and configuring NeMo Run across different environments
 - **Version Management**: Upgrading, downgrading, and managing NeMo Run versions
-- **Maintenance Procedures**: Regular maintenance tasks and best practices
-- **Monitoring and Logging**: System monitoring and log management
-- **Security Management**: Security best practices and configuration
-- **Backup and Recovery**: Data backup and disaster recovery procedures
-- **Performance Optimization**: Tuning and optimization strategies
+- **Configuration Management**: Setting up environment-specific configurations
+- **Monitoring and Logging**: Implementing monitoring and log management
+- **Security**: Managing authentication, authorization, and security policies
+- **Performance Optimization**: Tuning for optimal performance and resource utilization
+- **Backup and Recovery**: Implementing backup strategies and disaster recovery procedures
 
-## Deployment Management
-
-### System Requirements
+## System Requirements
 
 Before deploying NeMo Run, ensure your system meets these requirements:
 
-#### Minimum Requirements
+### Hardware Requirements
 
+- **CPU**: Minimum 4 cores, recommended 8+ cores
+- **Memory**: Minimum 8GB RAM, recommended 16GB+ RAM
+- **Storage**: Minimum 10GB free space, recommended 50GB+ for experiment data
+- **Network**: Stable internet connection for package installation and updates
+
+### Software Requirements
+
+- **Operating System**: Linux (Ubuntu 20.04+, CentOS 8+), macOS 10.15+, or Windows 10+ with WSL2
 - **Python**: 3.8 or higher
-- **Memory**: 4GB RAM minimum, 8GB recommended
-- **Storage**: 10GB available disk space
-- **Network**: Internet access for package installation
+- **pip**: Latest version
+- **Git**: For source installation and version control
+- **Docker**: For containerized execution (optional but recommended)
 
-#### Recommended Requirements
+### Network Requirements
 
-- **Python**: 3.9 or higher
-- **Memory**: 16GB RAM or higher
-- **Storage**: 50GB+ available disk space (SSD recommended)
-- **Network**: High-speed internet connection
-- **GPU**: NVIDIA GPU with CUDA support (optional, for ML workloads)
+- **Internet Access**: For package installation and updates
+- **SSH Access**: For remote cluster management
+- **Firewall Configuration**: Open ports for cluster communication (if applicable)
 
-### Installation Methods
+## Installation and Deployment
 
-#### Standard Installation
+### Standard Installation
+
+Install NeMo Run using the standard method:
 
 ```bash
 # Install NeMo Run
-pip install nemo-run
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
 
 # Verify installation
 python -c "import nemo_run; print(nemo_run.__version__)"
 ```
 
-#### Development Installation
+### Source Installation
+
+For development or custom modifications:
 
 ```bash
 # Clone the repository
@@ -66,13 +74,15 @@ cd nemo-run
 pip install -e .
 
 # Install development dependencies
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 ```
 
-#### Containerized Installation
+### Containerized Deployment
+
+Deploy NeMo Run using Docker:
 
 ```bash
-# Pull the official Docker image
+# Pull the official image
 docker pull nvcr.io/nvidia/nemo-run:latest
 
 # Run NeMo Run in a container
@@ -81,507 +91,352 @@ docker run --rm -it nvcr.io/nvidia/nemo-run:latest
 
 ### Environment Configuration
 
-#### Environment Variables
-
-Configure these environment variables for optimal operation:
+Set up environment variables for NeMo Run:
 
 ```bash
 # NeMo Run home directory
-export NEMORUN_HOME=~/.nemorun
+export NEMORUN_HOME=~/.nemo_run
 
 # Logging configuration
 export NEMORUN_LOG_LEVEL=INFO
 export NEMORUN_LOG_FILE=/var/log/nemo-run.log
 
-# Execution configuration
+# Execution settings
 export NEMORUN_DEFAULT_EXECUTOR=local
 export NEMORUN_MAX_CONCURRENT_JOBS=10
 
-# Security configuration
+# Security settings
 export NEMORUN_SKIP_CONFIRMATION=false
 export NEMORUN_VERBOSE_LOGGING=false
 ```
 
-#### Configuration Files
+## Version Management
 
-Create configuration files for different environments:
+### Upgrading NeMo Run
 
-```yaml
-# config/production.yaml
-nemo_run:
-  home: /opt/nemo-run
-  logging:
-    level: INFO
-    file: /var/log/nemo-run/production.log
-    max_size: 100MB
-    backup_count: 5
-  execution:
-    default_executor: slurm
-    max_concurrent_jobs: 20
-    timeout: 3600
-  security:
-    skip_confirmation: false
-    require_authentication: true
+Upgrade to the latest version:
+
+```bash
+# Upgrade to latest version
+pip install --upgrade git+https://github.com/NVIDIA-NeMo/Run.git
+
+# Verify upgrade
+python -c "import nemo_run; print(nemo_run.__version__)"
 ```
 
-### Multi-Environment Deployment
+### Upgrading with Dependencies
+
+Upgrade with all optional dependencies:
+
+```bash
+# Upgrade with all optional dependencies
+pip install --upgrade git+https://github.com/NVIDIA-NeMo/Run.git[all]
+
+# Or upgrade specific optional dependencies
+pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot]
+pip install git+https://github.com/NVIDIA-NeMo/Run.git[ray]
+```
+
+### Downgrading NeMo Run
+
+Downgrade to a specific version:
+
+```bash
+# Downgrade to specific version
+pip install git+https://github.com/NVIDIA-NeMo/Run.git@v0.2.0
+
+# Or install specific commit
+pip install git+https://github.com/NVIDIA-NeMo/Run.git@commit-hash
+```
+
+### Version Compatibility
+
+Check version compatibility with dependencies:
+
+```bash
+# Check installed versions
+pip list | grep nemo-run
+pip list | grep torchx
+pip list | grep fiddle
+
+# Check for version conflicts
+pip check
+```
+
+## Configuration Management
+
+### Environment-Specific Configurations
+
+Set up different configurations for different environments:
 
 #### Development Environment
 
 ```bash
-# Development setup
+# Development settings
 export NEMORUN_ENV=development
 export NEMORUN_LOG_LEVEL=DEBUG
 export NEMORUN_DEFAULT_EXECUTOR=local
-
-# Install with development dependencies
-pip install -e .[dev]
 ```
 
 #### Staging Environment
 
 ```bash
-# Staging setup
+# Staging settings
 export NEMORUN_ENV=staging
 export NEMORUN_LOG_LEVEL=INFO
 export NEMORUN_DEFAULT_EXECUTOR=docker
-
-# Use staging configuration
-nemo-run --config config/staging.yaml
 ```
 
 #### Production Environment
 
 ```bash
-# Production setup
+# Production settings
 export NEMORUN_ENV=production
 export NEMORUN_LOG_LEVEL=WARNING
 export NEMORUN_DEFAULT_EXECUTOR=slurm
-
-# Use production configuration
-nemo-run --config config/production.yaml
 ```
 
-## Version Management
+### Configuration Files
 
-### Version Information
-
-#### Current Version
+Create configuration files for different environments:
 
 ```bash
-# Check current version
-python -c "import nemo_run; print(nemo_run.__version__)"
+# Create configuration directory
+mkdir -p ~/.config/nemo-run
 
-# Check version with dependencies
-pip show nemo-run
+# Development configuration
+cat > ~/.config/nemo-run/development.yaml << EOF
+execution:
+  default_backend: local
+  max_concurrent_jobs: 5
+  timeout: 1800
+
+logging:
+  level: DEBUG
+  file: /tmp/nemo-run-dev.log
+
+security:
+  skip_confirmation: true
+  verbose_logging: true
+EOF
+
+# Production configuration
+cat > ~/.config/nemo-run/production.yaml << EOF
+execution:
+  default_backend: slurm
+  max_concurrent_jobs: 50
+  timeout: 86400
+
+logging:
+  level: WARNING
+  file: /var/log/nemo-run.log
+
+security:
+  skip_confirmation: false
+  verbose_logging: false
+EOF
 ```
 
-#### Version History
-
-Track version changes and compatibility:
-
-| Version | Release Date | Python Support | Breaking Changes |
-|---------|--------------|----------------|------------------|
-| 0.1.0   | 2024-01-15   | 3.8+           | Initial release  |
-| 0.2.0   | 2024-03-01   | 3.8+           | CLI improvements |
-| 0.3.0   | 2024-06-01   | 3.9+           | Ray integration  |
-
-### Upgrade Procedures
-
-#### Minor Version Upgrades
-
-```bash
-# Backup current configuration
-cp -r ~/.nemorun ~/.nemorun.backup
-
-# Upgrade NeMo Run
-pip install --upgrade nemo-run
-
-# Verify upgrade
-python -c "import nemo_run; print(nemo_run.__version__)"
-
-# Test basic functionality
-nemo-run --help
-```
-
-#### Major Version Upgrades
-
-```bash
-# 1. Review release notes
-# 2. Backup all data
-cp -r ~/.nemorun ~/.nemorun.backup.$(date +%Y%m%d)
-
-# 3. Check compatibility
-python -c "import nemo_run; print('Compatibility check passed')"
-
-# 4. Upgrade with dependencies
-pip install --upgrade nemo-run[all]
-
-# 5. Run migration scripts (if any)
-nemo-run migrate --from-version 0.2.0
-
-# 6. Verify functionality
-nemo-run test --all
-```
-
-#### Rollback Procedures
-
-```bash
-# Rollback to previous version
-pip install nemo-run==0.2.0
-
-# Restore configuration
-rm -rf ~/.nemorun
-cp -r ~/.nemorun.backup ~/.nemorun
-
-# Verify rollback
-python -c "import nemo_run; print(nemo_run.__version__)"
-```
-
-### Dependency Management
-
-#### Core Dependencies
-
-```bash
-# List core dependencies
-pip list | grep nemo-run
-
-# Update dependencies
-pip install --upgrade -r requirements.txt
-
-# Check for security vulnerabilities
-pip-audit
-```
-
-#### Optional Dependencies
-
-```bash
-# Install optional dependencies
-pip install nemo-run[ray]      # Ray integration
-pip install nemo-run[docker]   # Docker support
-pip install nemo-run[slurm]    # Slurm support
-pip install nemo-run[all]      # All optional dependencies
-```
-
-## Maintenance Procedures
-
-### Regular Maintenance Tasks
-
-#### Daily Tasks
-
-```bash
-# Check system status
-nemo-run status
-
-# Review recent logs
-tail -f /var/log/nemo-run.log
-
-# Monitor resource usage
-nemo-run monitor --resources
-```
-
-#### Weekly Tasks
-
-```bash
-# Clean up old experiments
-nemo-run cleanup --older-than 30d
-
-# Backup experiment data
-nemo-run backup --output /backup/nemo-run-$(date +%Y%m%d).tar.gz
-
-# Update package dependencies
-pip install --upgrade nemo-run
-```
-
-#### Monthly Tasks
-
-```bash
-# Comprehensive system check
-nemo-run health-check --full
-
-# Archive old experiments
-nemo-run archive --older-than 90d
-
-# Review and rotate logs
-logrotate /etc/logrotate.d/nemo-run
-
-# Update system packages
-sudo apt update && sudo apt upgrade
-```
-
-### System Health Monitoring
-
-#### Health Check Commands
-
-```bash
-# Basic health check
-nemo-run health-check
-
-# Detailed health check
-nemo-run health-check --verbose
-
-# Check specific components
-nemo-run health-check --executors
-nemo-run health-check --storage
-nemo-run health-check --network
-```
-
-#### Performance Monitoring
-
-```bash
-# Monitor system performance
-nemo-run monitor --performance
-
-# Check resource usage
-nemo-run monitor --resources
-
-# Monitor active jobs
-nemo-run monitor --jobs
-```
+## Monitoring and Logging
 
 ### Log Management
 
-#### Log Configuration
-
-```yaml
-# logging.yaml
-version: 1
-formatters:
-  standard:
-    format: '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-handlers:
-  file:
-    class: logging.handlers.RotatingFileHandler
-    filename: /var/log/nemo-run/nemo-run.log
-    maxBytes: 10485760  # 10MB
-    backupCount: 5
-    formatter: standard
-  console:
-    class: logging.StreamHandler
-    formatter: standard
-root:
-  level: INFO
-  handlers: [file, console]
-```
-
-#### Log Analysis
+Configure comprehensive logging:
 
 ```bash
-# Search for errors
+# Set up log rotation
+sudo logrotate -f /etc/logrotate.d/nemo-run
+
+# Monitor logs in real-time
+tail -f /var/log/nemo-run.log
+
+# Search logs for errors
 grep -i error /var/log/nemo-run.log
+```
 
-# Search for warnings
-grep -i warning /var/log/nemo-run.log
+### System Monitoring
 
-# Monitor real-time logs
-tail -f /var/log/nemo-run.log | grep -E "(ERROR|WARNING)"
+Monitor system resources and NeMo Run performance:
 
-# Generate log summary
-nemo-run logs --summary --days 7
+```bash
+# Monitor disk usage
+df -h ~/.nemo_run
+
+# Monitor memory usage
+free -h
+
+# Monitor CPU usage
+top -p $(pgrep -f nemo-run)
+
+# Monitor network connections
+netstat -tulpn | grep nemo-run
+```
+
+### Health Checks
+
+Implement health checks for NeMo Run services:
+
+```bash
+# Check NeMo Run status
+python -c "import nemo_run; print('NeMo Run is healthy')"
+
+# Check CLI availability
+python -c "from nemo_run.__main__ import app; print('CLI is available')"
+
+# Check executor availability
+python -c "from nemo_run.core.execution import LocalExecutor; print('Executors are available')"
 ```
 
 ## Security Management
 
-### Security Best Practices
+### Authentication and Authorization
 
-#### Authentication and Authorization
+Configure security settings:
 
 ```bash
 # Enable authentication
 export NEMORUN_REQUIRE_AUTH=true
 export NEMORUN_AUTH_TOKEN=your-secure-token
 
-# Configure user permissions
-nemo-run auth --add-user admin --role administrator
-nemo-run auth --add-user user1 --role experimenter
+# Set up user permissions
+chmod 600 ~/.nemo_run/config.yaml
+chown $USER:$USER ~/.nemo_run
 ```
 
-#### Network Security
+### Network Security
+
+Configure network security for cluster environments:
 
 ```bash
 # Configure firewall rules
-sudo ufw allow 8080/tcp  # NeMo Run web interface
-sudo ufw allow 22/tcp    # SSH access
+sudo ufw allow 22/tcp  # SSH
+sudo ufw allow 8080/tcp  # Web interface (if applicable)
 
-# Enable SSL/TLS
-nemo-run config --ssl-cert /path/to/cert.pem
-nemo-run config --ssl-key /path/to/key.pem
+# Set up VPN access for remote clusters
+# Configure SSH key-based authentication
+ssh-keygen -t rsa -b 4096 -C "nemo-run-admin"
 ```
 
-#### Data Security
+### Data Security
+
+Implement data security measures:
 
 ```bash
 # Encrypt sensitive data
-nemo-run config --encrypt-secrets
+gpg --encrypt --recipient admin@company.com config.yaml
 
-# Secure storage configuration
-nemo-run config --storage-encryption
-
-# Backup encryption
-nemo-run backup --encrypt --key-file /path/to/backup.key
-```
-
-### Security Auditing
-
-#### Security Checks
-
-```bash
-# Run security audit
-nemo-run security-audit
-
-# Check for vulnerabilities
-pip-audit
-
-# Verify file permissions
-find ~/.nemorun -type f -exec ls -la {} \;
-```
-
-#### Compliance Monitoring
-
-```bash
-# Generate compliance report
-nemo-run compliance --report
-
-# Check data retention policies
-nemo-run compliance --data-retention
-
-# Audit access logs
-nemo-run audit --access-logs
+# Set up secure backups
+tar -czf nemo-run-backup-$(date +%Y%m%d).tar.gz ~/.nemo_run
+gpg --encrypt --recipient admin@company.com nemo-run-backup-$(date +%Y%m%d).tar.gz
 ```
 
 ## Backup and Recovery
 
 ### Backup Procedures
 
-#### Automated Backups
+Implement regular backup procedures:
 
 ```bash
-# Create backup script
-cat > /usr/local/bin/nemo-run-backup.sh << 'EOF'
-#!/bin/bash
-BACKUP_DIR="/backup/nemo-run"
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="$BACKUP_DIR/nemo-run-$DATE.tar.gz"
+# Create backup directory
+mkdir -p ~/nemo-run-backups
 
-# Create backup
-nemo-run backup --output "$BACKUP_FILE" --compress
+# Create daily backup
+cp -r ~/.nemo_run ~/nemo-run-backups/nemo-run-$(date +%Y%m%d)
 
-# Clean up old backups (keep last 7 days)
-find "$BACKUP_DIR" -name "nemo-run-*.tar.gz" -mtime +7 -delete
+# Create compressed backup
+tar -czf ~/nemo-run-backups/nemo-run-$(date +%Y%m%d).tar.gz ~/.nemo_run
 
-echo "Backup completed: $BACKUP_FILE"
-EOF
-
-chmod +x /usr/local/bin/nemo-run-backup.sh
-
-# Add to crontab for daily backups
-echo "0 2 * * * /usr/local/bin/nemo-run-backup.sh" | crontab -
-```
-
-#### Manual Backups
-
-```bash
-# Full system backup
-nemo-run backup --full --output /backup/nemo-run-full-$(date +%Y%m%d).tar.gz
-
-# Configuration backup
-nemo-run backup --config --output /backup/nemo-run-config-$(date +%Y%m%d).tar.gz
-
-# Experiment data backup
-nemo-run backup --experiments --output /backup/nemo-run-experiments-$(date +%Y%m%d).tar.gz
+# Clean up old backups (keep last 30 days)
+find ~/nemo-run-backups -name "nemo-run-*" -mtime +30 -delete
 ```
 
 ### Recovery Procedures
 
-#### System Recovery
+Implement recovery procedures:
 
 ```bash
 # Stop NeMo Run services
-nemo-run stop
+pkill -f nemo-run
 
 # Restore from backup
-nemo-run restore --from /backup/nemo-run-full-20240101.tar.gz
+rm -rf ~/.nemo_run
+cp -r ~/nemo-run-backups/nemo-run-20231201 ~/.nemo_run
 
 # Verify restoration
-nemo-run health-check
-
-# Start services
-nemo-run start
+python -c "import nemo_run; print('Recovery successful')"
 ```
 
-#### Partial Recovery
+### Disaster Recovery
+
+Plan for disaster recovery scenarios:
 
 ```bash
-# Restore only configuration
-nemo-run restore --config --from /backup/nemo-run-config-20240101.tar.gz
+# Create disaster recovery script
+cat > disaster-recovery.sh << 'EOF'
+#!/bin/bash
 
-# Restore specific experiments
-nemo-run restore --experiments --from /backup/nemo-run-experiments-20240101.tar.gz
+# Stop all NeMo Run processes
+pkill -f nemo-run
 
-# Restore user data
-nemo-run restore --users --from /backup/nemo-run-users-20240101.tar.gz
+# Restore from latest backup
+LATEST_BACKUP=$(ls -t ~/nemo-run-backups/nemo-run-*.tar.gz | head -1)
+tar -xzf $LATEST_BACKUP -C ~/
+
+# Verify restoration
+python -c "import nemo_run; print('Disaster recovery completed')"
+EOF
+
+chmod +x disaster-recovery.sh
 ```
 
 ## Performance Optimization
 
-### System Tuning
+### Resource Management
 
-#### Resource Optimization
+Optimize resource usage:
 
 ```bash
-# Optimize memory usage
+# Set memory limits
 export NEMORUN_MAX_MEMORY=8GB
 export NEMORUN_MEMORY_POOL_SIZE=2GB
 
-# Optimize CPU usage
+# Set CPU limits
 export NEMORUN_MAX_CPUS=8
 export NEMORUN_CPU_AFFINITY=true
 
-# Optimize storage
+# Configure caching
 export NEMORUN_CACHE_DIR=/tmp/nemo-run-cache
 export NEMORUN_CACHE_SIZE=5GB
 ```
 
-#### Network Optimization
+### Network Optimization
+
+Optimize network performance:
 
 ```bash
-# Configure network settings
+# Configure network timeouts
 export NEMORUN_NETWORK_TIMEOUT=30
 export NEMORUN_MAX_CONNECTIONS=100
 export NEMORUN_KEEPALIVE=true
 
-# Optimize for high-latency networks
+# Enable compression
 export NEMORUN_COMPRESSION=true
 export NEMORUN_CHUNK_SIZE=1MB
 ```
 
-### Monitoring and Tuning
+### Storage Optimization
 
-#### Performance Monitoring
-
-```bash
-# Monitor system performance
-nemo-run monitor --performance --interval 60
-
-# Monitor specific metrics
-nemo-run monitor --cpu --memory --disk --network
-
-# Generate performance report
-nemo-run report --performance --output performance-report.html
-```
-
-#### Bottleneck Identification
+Optimize storage usage:
 
 ```bash
-# Identify performance bottlenecks
-nemo-run profile --system
+# Clean up old experiment data
+find ~/.nemo_run/experiments -mtime +90 -delete
 
-# Profile specific operations
-nemo-run profile --operation experiment-creation
-nemo-run profile --operation job-execution
+# Compress old logs
+find ~/.nemo_run/logs -name "*.log" -mtime +30 -exec gzip {} \;
 
-# Generate profiling report
-nemo-run profile --report --output profiling-report.html
+# Monitor disk usage
+du -sh ~/.nemo_run
 ```
 
 ## Troubleshooting
@@ -594,99 +449,124 @@ nemo-run profile --report --output profiling-report.html
 # Check Python version
 python --version
 
-# Check pip installation
+# Check pip version
 pip --version
 
-# Verify package installation
-pip list | grep nemo-run
-
-# Reinstall if necessary
-pip uninstall nemo-run
-pip install nemo-run
+# Reinstall with clean environment
+pip uninstall nemo-run -y
+pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
-#### Configuration Issues
+#### Permission Issues
 
 ```bash
-# Validate configuration
-nemo-run config --validate
+# Fix permission issues
+sudo chown -R $USER:$USER ~/.nemo_run
+chmod -R 755 ~/.nemo_run
 
-# Check configuration syntax
-nemo-run config --check
-
-# Reset to defaults
-nemo-run config --reset
+# Check file permissions
+ls -la ~/.nemo_run
 ```
 
-#### Execution Issues
+#### Network Issues
 
 ```bash
-# Check executor status
-nemo-run executors --status
+# Test network connectivity
+ping github.com
 
-# Test executor connectivity
-nemo-run executors --test
+# Test SSH connectivity
+ssh -T git@github.com
 
-# Restart executors
-nemo-run executors --restart
+# Check firewall settings
+sudo ufw status
 ```
 
-### Diagnostic Tools
+### Debug Mode
 
-#### System Diagnostics
-
-```bash
-# Run comprehensive diagnostics
-nemo-run diagnose --full
-
-# Check specific components
-nemo-run diagnose --executors
-nemo-run diagnose --storage
-nemo-run diagnose --network
-
-# Generate diagnostic report
-nemo-run diagnose --report --output diagnostic-report.html
-```
-
-#### Debug Mode
+Enable debug mode for troubleshooting:
 
 ```bash
-# Enable debug mode
+# Enable debug logging
 export NEMORUN_DEBUG=true
 export NEMORUN_LOG_LEVEL=DEBUG
 
-# Run with debug output
-nemo-run --debug --verbose
-
-# Collect debug information
-nemo-run debug --collect --output debug-info.tar.gz
+# Run with verbose output
+python -c "import nemo_run; print('Debug mode enabled')"
 ```
 
-## Support and Resources
+### Diagnostic Commands
 
-### Getting Help
+Run diagnostic commands to identify issues:
 
-#### Documentation
+```bash
+# System diagnostics
+python -c "import nemo_run; print(nemo_run.__version__)"
+echo $NEMORUN_HOME
+ls ~/.nemo_run/experiments/
 
-- **User Guide**: {doc}`Configuration Guide <configuration>`, {doc}`Execution Guide <execution>`, {doc}`Management Guide <management>`
-- **API Reference**: {doc}`CLI Interface Guide <cli>`, {doc}`Ray Integration Guide <ray>`
-- **Troubleshooting**: [FAQs](../../faqs), [Troubleshooting Guide](../../troubleshooting)
+# Network diagnostics
+curl -I https://github.com
+ssh -T git@github.com
 
-#### Community Support
+# Resource diagnostics
+df -h
+free -h
+top -n 1
+```
 
-- **GitHub Issues**: Report bugs and request features
-- **Discussions**: Community discussions and Q&A
-- **Slack**: Real-time support and discussions
+## Maintenance Procedures
 
-#### Maintenance Schedule
+### Regular Maintenance
 
-| Task | Frequency | Description |
-|------|-----------|-------------|
-| Health Check | Daily | Basic system health verification |
-| Log Review | Daily | Review error logs and warnings |
-| Backup | Daily | Automated backup of critical data |
-| Performance Check | Weekly | Monitor system performance |
-| Security Audit | Weekly | Check for security vulnerabilities |
-| Dependency Update | Monthly | Update packages and dependencies |
-| Full System Check | Monthly | Comprehensive system diagnostics |
-| Configuration Review | Quarterly | Review and update configurations |
+Schedule regular maintenance tasks:
+
+```bash
+# Daily maintenance
+find ~/.nemo_run/logs -name "*.log" -mtime +7 -delete
+
+# Weekly maintenance
+find ~/.nemo_run/experiments -mtime +30 -delete
+pip list --outdated
+
+# Monthly maintenance
+pip install --upgrade git+https://github.com/NVIDIA-NeMo/Run.git
+tar -czf ~/nemo-run-backups/monthly-$(date +%Y%m).tar.gz ~/.nemo_run
+```
+
+### Update Procedures
+
+Follow proper update procedures:
+
+```bash
+# Create backup before update
+cp -r ~/.nemo_run ~/.nemo_run.backup.$(date +%Y%m%d)
+
+# Update NeMo Run
+pip install --upgrade git+https://github.com/NVIDIA-NeMo/Run.git
+
+# Verify update
+python -c "import nemo_run; print(f'Updated to version: {nemo_run.__version__}')"
+
+# Test functionality
+python -c "from nemo_run.core.execution import LocalExecutor; print('Update successful')"
+```
+
+### Cleanup Procedures
+
+Implement cleanup procedures:
+
+```bash
+# Remove old experiments
+find ~/.nemo_run/experiments -mtime +90 -exec rm -rf {} \;
+
+# Remove old logs
+find ~/.nemo_run/logs -name "*.log" -mtime +30 -delete
+
+# Remove old cache
+find /tmp/nemo-run-cache -mtime +7 -delete
+
+# Remove old backups
+find ~/nemo-run-backups -name "*.tar.gz" -mtime +365 -delete
+```
+
+This administrative guide provides comprehensive coverage of NeMo Run administration tasks. For specific deployment scenarios or advanced configurations, refer to the [Configuration Guide](configuration.md) and [Execution Guide](execution.md).
