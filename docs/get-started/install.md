@@ -1,12 +1,10 @@
----
+revision ch---
 description: "Comprehensive installation guide for NeMo Run with optional dependencies for different computing environments, cloud platforms, and execution backends."
 tags: ["installation", "setup", "dependencies", "skypilot", "lepton", "kubernetes", "cloud"]
 categories: ["get-started"]
 ---
 
-(install)=
-
-# Installation Guide
+# Install NeMo Run
 
 This guide covers the installation of NeMo Run and its optional dependencies for different computing environments and execution backends.
 
@@ -83,6 +81,7 @@ pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot]
 ```
 
 This includes:
+
 - SkyPilot core functionality
 - Kubernetes cluster management
 - Local Kubernetes support (Docker Desktop, minikube, kind)
@@ -99,6 +98,7 @@ pip install git+https://github.com/NVIDIA-NeMo/Run.git[skypilot-all]
 ```
 
 This includes:
+
 - All features from Kubernetes support
 - AWS EC2 and EKS support
 - Google Cloud Platform (GCP) support

@@ -26,7 +26,7 @@ Choose your path to get started with NeMo Run:
 
 :::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
 :link: install
-:link-type: ref
+:link-type: doc
 :link-alt: Installation guide
 Install NeMo Run and optional dependencies for your environment
 

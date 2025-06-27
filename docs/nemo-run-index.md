@@ -133,12 +133,12 @@ troubleshooting
 Create command-line interfaces with rich argument parsing and factory functions.
 :::
 
-:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Deploy Ray Clusters and Jobs
 :link: guides/ray
 :link-type: doc
-:link-alt: Ray integration guide
+:link-alt: Deploy Ray Clusters and Jobs
 
-Distribute NeMo Run jobs with Ray clusters for scalable distributed computing.
+Deploy and manage Ray clusters and jobs for scalable distributed computing.
 :::
 
 :::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
