@@ -24,7 +24,7 @@ The framework is built on three core pillars:
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
-:link: configuration
+:link: guides/configuration
 :link-type: ref
 :link-alt: Configuration guide
 
@@ -32,7 +32,7 @@ Python-based configuration using Fiddle, supporting complex nested structures an
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
-:link: execution
+:link: guides/execution
 :link-type: ref
 :link-alt: Execution guide
 
@@ -40,7 +40,7 @@ Multi-environment execution with executors for local, Docker, Slurm, Kubernetes,
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-:link: management
+:link: guides/management
 :link-type: ref
 :link-alt: Management guide
 
@@ -107,7 +107,7 @@ NeMo Run's architecture follows a clean separation of concerns:
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`code;1.5em;sd-mr-1` Configuration Layer
-:link: configuration
+:link: guides/configuration
 :link-type: ref
 :link-alt: Configuration guide
 
@@ -115,7 +115,7 @@ Fiddle-based configuration system with type safety and validation
 :::
 
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Execution Layer
-:link: execution
+:link: guides/execution
 :link-type: ref
 :link-alt: Execution guide
 
@@ -123,7 +123,7 @@ Executor abstraction with multi-platform support and intelligent packaging
 :::
 
 :::{grid-item-card} {octicon}`database;1.5em;sd-mr-1` Management Layer
-:link: management
+:link: guides/management
 :link-type: ref
 :link-alt: Management guide
 
@@ -148,7 +148,7 @@ Ready to start using NeMo Run? Begin with these essential guides:
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
-:link: get-started
+:link: get-started/index
 :link-type: ref
 :link-alt: Get started guide
 
@@ -165,4 +165,4 @@ Explore the technical capabilities and implementation details
 
 ::::
 
-For detailed information about specific features, explore the [Configuration](configuration), [Execution](execution), and [Management](management) guides.
+For detailed information about specific features, explore the [Configuration](guides/configuration), [Execution](guides/execution), and [Management](guides/management) guides.

@@ -1,6 +1,6 @@
 ---
 description: "Configure NeMo Run experiments using Python-based configuration with Fiddle or raw scripts and commands."
-tags: ["configuration", "fiddle", "python", "yaml", "scripts"]
+tags: ["configuration", "fiddle", "python", "YAML", "scripts", "machine-learning"]
 categories: ["guides"]
 ---
 
@@ -8,207 +8,725 @@ categories: ["guides"]
 
 # Configure NeMo Run
 
-NeMo Run supports two different configuration systems:
+NeMo Run provides a flexible configuration system that allows you to define machine learning experiments in a type-safe, reproducible manner. This guide covers the two main configuration approaches supported by NeMo Run.
 
-1. Python-based configuration: This system is supported by Fiddle.
-1. Raw scripts and commands: These can also be used for configuration.
+## Configuration Overview
 
-In the future, we may add a YAML/Hydra-based system and aim to achieve interoperability between Python and YAML if requested.
+NeMo Run supports two primary configuration systems:
 
-## Python Meets YAML
+1. **Python-based configuration**: Type-safe, structured configuration using Fiddle
+2. **Raw scripts and commands**: Direct script execution for custom workflows
 
-Let's break down the process of configuring a Llama3 pre-training run using Nemo 2.0 with the Python-based configuration system. For brevity, we'll use the default settings.
+The Python-based system is the recommended approach for most use cases, offering better type safety, validation, and reproducibility. Raw scripts provide flexibility for legacy workflows or custom execution requirements.
 
-### Configure in Python
+## Python-Based Configuration
 
-First, let's discuss the Pythonic configuration system in NeMo Run. The pretraining recipe for Llama3 appears as follows:
+NeMo Run's Python configuration system is built on top of Fiddle, providing a powerful and flexible way to define experiments. The system uses two main primitives: `run.Config` and `run.Partial`.
 
-```python
-from nemo.collections import llm
-from nemo.collections.llm import llama3_8b, default_log, default_resume, adam
-from nemo.collections.llm.gpt.data.mock import MockDataModule
+### Core Configuration Primitives
 
-partial = run.Partial(
-     llm.pretrain,
-     model=llama3_8b.model(),
-     trainer=llama3_8b.trainer(
-         tensor_parallelism=1,
-         pipeline_parallelism=1,
-         pipeline_parallelism_type=None,
-         virtual_pipeline_parallelism=None,
-         context_parallelism=2,
-         sequence_parallelism=False,
-         num_nodes=1,
-         num_gpus_per_node=8,
-     ),
-     data=Config(MockDataModule, seq_length=8192, global_batch_size=512, micro_batch_size=1),
-     log=default_log(ckpt_dir=ckpt_dir, name=name),
-     optim=adam.distributed_fused_adam_with_cosine_annealing(max_lr=3e-4),
-     resume=default_resume(),
- )
-```
+#### `run.Config`
 
-The `partial` object is an instance of `run.Partial`. In turn,`run.Partial` serves a configuration object that ties together the function `llm.pretrain` with the provided args, creating a `functools.partial` object when built. Args like `llama3_8b.model` are python functions in NeMo that return `run.Config` objects for the underlying class:
+`run.Config` creates a complete configuration for a class or function:
 
 ```python
-def model() -> run.Config[pl.LightningModule]:
-    return run.Config(LlamaModel, config=run.Config(Llama3Config8B))
-```
+import nemo_run as run
+from nemo.collections.llm import LlamaModel, Llama3Config8B
 
-Alternatively, you could also use `run.autoconvert` as shown:
-
-```python
-@run.autoconvert
-def automodel() -> pl.LightningModule:
-    return LlamaModel(config=Llama3Config8B())
-```
-
-`run.autoconvert` is a decorator that helps convert regular python functions to their `run.Config` or `run.Partial` counterparts. This means that `model() == automodel()`. `run.autoconvert` uses fiddle's autoconfig under the hood and conversion is done by parsing the AST of the underlying function.
-
-A `run.Config` instance is similar to `run.Partial`. However, `run.Partial` returns a `functools.partial` object whereas `run.Config` directly calls the configured entity. Functionally, this means that `run.Config` provides a more direct execution path.
-
-```python
-partial = run.Partial(
+# Create a configuration for a model
+model_config = run.Config(
     LlamaModel,
     config=run.Config(
         Llama3Config8B,
-        seq_length=16384
+        seq_length=16384,
+        hidden_size=4096,
+        num_attention_heads=32
     )
 )
-config = run.Config(
-    LlamaModel,
-    config=run.Config(
-        Llama3Config8B,
-        seq_length=16384
-    )
-)
-fdl.build(partial)() == fdl.build(config)
+
+# Build the configuration to instantiate the object
+model = fdl.build(model_config)
 ```
 
-Building is equivalent to instantiating the underlying Python object in case of `run.Config` or building a `functools.partial` with the specified args in case of `run.Partial`.
+#### `run.Partial`
 
-Currently, there are certain restrictions on control flow and complex code when using `run.autoconvert`. However, you can work around this limitation by defining a function that directly returns a `run.Config` directly. This function can then be used like any regular Python function. For example:
+`run.Partial` creates a partially applied function with some arguments fixed:
 
 ```python
-def llama3_8b_model_conf(seq_len: int) -> run.Config[LlamaModel]
+# Create a partial function for training
+train_fn = run.Partial(
+    train_model,
+    optimizer="adam",
+    learning_rate=0.001,
+    batch_size=32
+)
+
+# Later, you can call it with additional arguments
+result = fdl.build(train_fn)(data_path="/path/to/data")
+```
+
+### Configuration Patterns
+
+#### Basic Model Configuration
+
+```python
+def create_model_config(
+    model_size: str = "8b",
+    seq_length: int = 16384,
+    hidden_size: int = 4096
+) -> run.Config:
+    """Create a standardized model configuration."""
+
+    if model_size == "8b":
+        return run.Config(
+            LlamaModel,
+            config=run.Config(
+                Llama3Config8B,
+                seq_length=seq_length,
+                hidden_size=hidden_size
+            )
+        )
+    elif model_size == "70b":
+        return run.Config(
+            LlamaModel,
+            config=run.Config(
+                Llama3Config70B,
+                seq_length=seq_length,
+                hidden_size=8192
+            )
+        )
+    else:
+        raise ValueError(f"Unsupported model size: {model_size}")
+
+# Usage
+model_config = create_model_config(model_size="8b", seq_length=8192)
+```
+
+#### Training Configuration
+
+```python
+def create_training_config(
+    model_config: run.Config,
+    num_nodes: int = 1,
+    gpus_per_node: int = 8,
+    batch_size: int = 512
+) -> run.Config:
+    """Create a complete training configuration."""
+
     return run.Config(
-        LlamaModel,
-        config=run.Config(
-            Llama3Config8B,
-            seq_length=seq_len
+        TrainingJob,
+        model=model_config,
+        trainer=run.Config(
+            Trainer,
+            num_nodes=num_nodes,
+            gpus_per_node=gpus_per_node,
+            precision="bf16-mixed",
+            max_epochs=100
+        ),
+        data=run.Config(
+            DataModule,
+            batch_size=batch_size,
+            num_workers=4
+        ),
+        optimizer=run.Config(
+            AdamW,
+            lr=3e-4,
+            weight_decay=0.01
         )
     )
 
-llama3_8b_model_conf(seq_len=4096)
+# Usage
+training_config = create_training_config(
+    model_config=model_config,
+    num_nodes=4,
+    gpus_per_node=8
+)
 ```
 
-**As shown above, if you want to incorporate complex control flow, the preferred approach is to define a function that directly returns a run.Config. You can then use this function just like any regular Python function.**
+### Advanced Configuration Features
 
-This paradigm can be a bit too opinionated when it comes to defining configurations. If you're accustomed to YAML-based configurations, transitioning to this paradigm might feel a bit tricky. Let's explore how we can draw parallels between the two to build a better understanding.
+#### Configuration Composition
 
-### Equate to YAML
+Combine multiple configurations into complex workflows:
 
-Earlier we defined the llama3 8b model as follows:
+```python
+# Data preprocessing configuration
+preprocess_config = run.Config(
+    PreprocessData,
+    input_path="/data/raw",
+    output_path="/data/processed",
+    tokenizer="llama-tokenizer"
+)
 
+# Training configuration
+training_config = run.Config(
+    TrainModel,
+    model=model_config,
+    data_path="/data/processed"
+)
+
+# Evaluation configuration
+eval_config = run.Config(
+    EvaluateModel,
+    model_path="/checkpoints/best",
+    test_data="/data/test"
+)
+
+# Complete pipeline
+pipeline_config = run.Config(
+    TrainingPipeline,
+    preprocess=preprocess_config,
+    training=training_config,
+    evaluation=eval_config
+)
+```
+
+#### Configuration Validation
+
+Add validation to your configurations:
+
+```python
+def validate_training_config(config: run.Config) -> bool:
+    """Validate training configuration parameters."""
+
+    trainer = config.trainer
+    data = config.data
+
+    # Check resource requirements
+    if trainer.num_nodes * trainer.gpus_per_node < 1:
+        raise ValueError("At least one GPU is required")
+
+    # Check batch size compatibility
+    if data.batch_size % trainer.gpus_per_node != 0:
+        raise ValueError("Batch size must be divisible by number of GPUs")
+
+    # Check memory requirements
+    estimated_memory = data.batch_size * config.model.config.seq_length * 4  # bytes
+    if estimated_memory > 32 * 1024**3:  # 32GB
+        print("Warning: High memory usage detected")
+
+    return True
+
+# Usage
+if validate_training_config(training_config):
+    experiment = run.submit(training_config, executor)
+```
+
+### Using `run.autoconvert`
+
+The `@run.autoconvert` decorator automatically converts regular Python functions to NeMo Run configurations:
+
+```python
+import nemo_run as run
+from nemo.collections.llm import LlamaModel, Llama3Config8B
+
+@run.autoconvert
+def create_llama_model(seq_length: int = 16384) -> LlamaModel:
+    """Create a Llama model with specified sequence length."""
+    return LlamaModel(
+        config=Llama3Config8B(
+            seq_length=seq_length,
+            hidden_size=4096,
+            num_attention_heads=32
+        )
+    )
+
+# This automatically becomes a run.Config
+model_config = create_llama_model(seq_length=8192)
+```
+
+**Limitations of `@run.autoconvert`:**
+
+- No support for control flow (if/else, loops, comprehensions)
+- No support for complex expressions
+- Limited to simple function definitions
+
+**Workaround for complex logic:**
+
+```python
+def create_adaptive_model_config(
+    model_size: str,
+    seq_length: int,
+    use_flash_attention: bool = True
+) -> run.Config:
+    """Create model configuration with complex logic."""
+
+    # Complex logic that can't be in @run.autoconvert
+    if model_size == "8b":
+        base_config = Llama3Config8B
+        hidden_size = 4096
+    elif model_size == "70b":
+        base_config = Llama3Config70B
+        hidden_size = 8192
+    else:
+        raise ValueError(f"Unsupported model size: {model_size}")
+
+    # Dynamic parameter calculation
+    attention_heads = hidden_size // 128
+    if use_flash_attention:
+        attention_implementation = "flash_attention_2"
+    else:
+        attention_implementation = "eager"
+
+    return run.Config(
+        LlamaModel,
+        config=run.Config(
+            base_config,
+            seq_length=seq_length,
+            hidden_size=hidden_size,
+            num_attention_heads=attention_heads,
+            attention_implementation=attention_implementation
+        )
+    )
+```
+
+### Configuration Utilities
+
+#### Broadcasting Values
+
+Apply values across nested configurations:
+
+```python
+# Create base configuration
+config = run.Config(
+    TrainingJob,
+    model=run.Config(LlamaModel, config=run.Config(Llama3Config8B)),
+    data=run.Config(DataModule, batch_size=32),
+    optimizer=run.Config(AdamW, lr=0.001)
+)
+
+# Broadcast learning rate to all optimizers
+config.broadcast(lr=0.0001)
+
+# Broadcast batch size to all data modules
+config.broadcast(batch_size=64)
+```
+
+#### Walking Configurations
+
+Apply transformations to nested configurations:
+
+```python
+# Double all learning rates
+config.walk(lr=lambda cfg: cfg.lr * 2)
+
+# Set all sequence lengths to a specific value
+config.walk(seq_length=lambda cfg: 8192)
+
+# Apply custom transformation
+def scale_batch_size(cfg):
+    if hasattr(cfg, 'batch_size'):
+        cfg.batch_size = min(cfg.batch_size * 2, 1024)
+    return cfg
+
+config.walk(scale_batch_size)
+```
+
+## YAML Equivalence
+
+NeMo Run configurations can be understood in terms of YAML/Hydra syntax, making it easier to transition from YAML-based systems.
+
+### Basic Configuration Mapping
+
+**Python configuration:**
 ```python
 config = run.Config(
     LlamaModel,
     config=run.Config(
         Llama3Config8B,
-        seq_length=16384
+        seq_length=16384,
+        hidden_size=4096
     )
 )
 ```
 
-In our context, this is equivalent to:
-
+**Equivalent YAML:**
 ```yaml
- _target_: nemo.collections.llm.gpt.model.llama.LlamaModel
- config:
-     _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
-     seq_length: 16384
+_target_: nemo.collections.llm.gpt.model.llama.LlamaModel
+config:
+    _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
+    seq_length: 16384
+    hidden_size: 4096
 ```
 
-> Note: we've used the [Hydra instantiation](https://hydra.cc/docs/advanced/instantiate_objects/overview/) syntax here.
+### Partial Function Mapping
 
-Python operations are performed on the config rather than directly on the class. For example:
-
+**Python partial:**
 ```python
+partial = run.Partial(
+    train_model,
+    optimizer="adam",
+    learning_rate=0.001
+)
+```
+
+**Equivalent YAML:**
+```yaml
+_target_: train_model
+_partial_: true
+optimizer: adam
+learning_rate: 0.001
+```
+
+### Configuration Operations
+
+**Python operations:**
+```python
+# Modify configuration
 config.config.seq_length *= 2
+config.config.hidden_size = 8192
+
+# Broadcast values
+config.broadcast(learning_rate=0.0001)
 ```
 
-translates to
-
+**Equivalent YAML transformations:**
 ```yaml
- _target_: nemo.collections.llm.gpt.model.llama.LlamaModel
- config:
-     _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
-     seq_length: 32768
+# After modification
+_target_: nemo.collections.llm.gpt.model.llama.LlamaModel
+config:
+    _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
+    seq_length: 32768  # Doubled
+    hidden_size: 8192  # Changed
 ```
 
-We also provide `.broadcast` and `.walk` helper methods as part of `run.Config` and `run.Partial`. They can also be equated to yaml via the following example:
+## Raw Script Configuration
+
+For legacy workflows or custom execution requirements, NeMo Run supports direct script execution.
+
+### File-Based Scripts
+
+Execute scripts from files:
 
 ```python
-config = run.Config(
-    SomeObject,
-    a=5,
-    b=run.Config(
-        a=10
-    )
+# Execute a shell script
+script = run.Script("./scripts/train_model.sh")
+
+# Execute with environment variables
+script = run.Script(
+    "./scripts/train_model.sh",
+    env_vars={
+        "CUDA_VISIBLE_DEVICES": "0,1,2,3",
+        "PYTHONPATH": "/path/to/code",
+        "DATA_PATH": "/path/to/data"
+    }
 )
 
-config.broadcast(a=20)
-config.walk(a=lambda cfg: cfg.a * 2)
+# Execute with arguments
+script = run.Script(
+    "./scripts/train_model.sh",
+    args=["--model-size", "8b", "--batch-size", "512"]
+)
 ```
 
-`broadcast` will give the following YAML:
+### Inline Scripts
 
-```yaml
-_target_: SomeObject
-a: 20
-b:
-    _target_: SomeObject
-    a: 20
-```
-
-Afterwards, `walk` will provide the following:
-
-```yaml
-_target_: SomeObject
-a: 40
-b:
-    _target_: SomeObject
-    a: 40
-```
-
-A `run.Partial` can also be understood in this context. For example, if config were a `run.Partial` instance, it would relate to:
-
-```yaml
- _target_: nemo.collections.llm.gpt.model.llama.LlamaModel
- _partial_: true
- config:
-     _target_: nemo.collections.llm.gpt.model.llama.Llama3Config8B
-     seq_length: 16384
-```
-
-We hope this provides a clearer, more intuitive understanding of the Pythonic config system and how it corresponds to a YAML-based config system.
-
-Of course, you are entitled to choose either option. Our goal is to make the interoperability as seamless and robust as possible, and we aim to achieve this in future versions. In the meantime, please report any issues to us via GitHub.
-
-## Raw Scripts
-
-As an alternative, you can also configure pre-training using NeMo Run with raw scripts and commands. This is quite straightforward, as shown in the examples below:
+Execute scripts defined inline:
 
 ```python
-script = run.Script("./scripts/run_pretraining.sh")
+# Simple inline script
 inline_script = run.Script(
+    inline="""
+#!/bin/bash
+set -e
+
+echo "Starting training..."
+export CUDA_VISIBLE_DEVICES=0,1,2,3
+export PYTHONPATH=/path/to/code
+
+python train.py \
+    --model-size 8b \
+    --batch-size 512 \
+    --learning-rate 0.001 \
+    --max-epochs 100
+"""
+)
+
+# Complex inline script with multiple commands
+complex_script = run.Script(
+    inline="""
+#!/bin/bash
+set -e
+
+# Setup environment
+source /opt/conda/etc/profile.d/conda.sh
+conda activate nemo
+
+# Download data if not exists
+if [ ! -d "/data/dataset" ]; then
+    echo "Downloading dataset..."
+    python download_data.py --output /data/dataset
+fi
+
+# Preprocess data
+echo "Preprocessing data..."
+python preprocess.py \
+    --input /data/dataset \
+    --output /data/processed \
+    --tokenizer llama-tokenizer
+
+# Train model
+echo "Starting training..."
+python train.py \
+    --model-size 8b \
+    --data-path /data/processed \
+    --batch-size 512 \
+    --learning-rate 0.001 \
+    --max-epochs 100 \
+    --checkpoint-dir /checkpoints
+
+# Evaluate model
+echo "Evaluating model..."
+python evaluate.py \
+    --model-path /checkpoints/best \
+    --test-data /data/test
+"""
+)
+```
+
+### Script Configuration Patterns
+
+#### Parameterized Scripts
+
+Create reusable script templates:
+
+```python
+def create_training_script(
+    model_size: str,
+    batch_size: int,
+    learning_rate: float,
+    max_epochs: int
+) -> run.Script:
+    """Create a parameterized training script."""
+
+    script_content = f"""
+#!/bin/bash
+set -e
+
+# Training parameters
+MODEL_SIZE={model_size}
+BATCH_SIZE={batch_size}
+LEARNING_RATE={learning_rate}
+MAX_EPOCHS={max_epochs}
+
+echo "Training configuration:"
+echo "  Model size: $MODEL_SIZE"
+echo "  Batch size: $BATCH_SIZE"
+echo "  Learning rate: $LEARNING_RATE"
+echo "  Max epochs: $MAX_EPOCHS"
+
+# Execute training
+python train.py \\
+    --model-size $MODEL_SIZE \\
+    --batch-size $BATCH_SIZE \\
+    --learning-rate $LEARNING_RATE \\
+    --max-epochs $MAX_EPOCHS \\
+    --checkpoint-dir /checkpoints
+"""
+
+    return run.Script(inline=script_content)
+
+# Usage
+script = create_training_script(
+    model_size="8b",
+    batch_size=512,
+    learning_rate=0.001,
+    max_epochs=100
+)
+```
+
+#### Multi-Stage Scripts
+
+Create complex workflows with multiple stages:
+
+```python
+def create_pipeline_script() -> run.Script:
+    """Create a complete ML pipeline script."""
+
+    return run.Script(
         inline="""
-env
-export DATA_PATH="/some/tmp/path"
-bash ./scripts/run_pretraining.sh
+#!/bin/bash
+set -e
+
+# Stage 1: Data preparation
+echo "=== Stage 1: Data Preparation ==="
+python prepare_data.py \
+    --input /data/raw \
+    --output /data/processed \
+    --tokenizer llama-tokenizer
+
+# Stage 2: Model training
+echo "=== Stage 2: Model Training ==="
+python train.py \
+    --model-size 8b \
+    --data-path /data/processed \
+    --batch-size 512 \
+    --learning-rate 0.001 \
+    --max-epochs 100 \
+    --checkpoint-dir /checkpoints
+
+# Stage 3: Model evaluation
+echo "=== Stage 3: Model Evaluation ==="
+python evaluate.py \
+    --model-path /checkpoints/best \
+    --test-data /data/test \
+    --output /results/evaluation.json
+
+# Stage 4: Model deployment preparation
+echo "=== Stage 4: Deployment Preparation ==="
+python export_model.py \
+    --model-path /checkpoints/best \
+    --output /deployment/model.pt \
+    --format torchscript
+
+echo "Pipeline completed successfully!"
 """
     )
 ```
 
-You can take a configured instance and then run it on any supported environments via executors.
-See [execution](./execution.md) to read more about how to define executors.
+## Configuration Best Practices
+
+### Type Safety and Validation
+
+```python
+from typing import Optional, Union
+from dataclasses import dataclass
+
+@dataclass
+class TrainingConfig:
+    """Type-safe training configuration."""
+    model_size: str
+    batch_size: int
+    learning_rate: float
+    max_epochs: int
+    use_mixed_precision: bool = True
+
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        if self.model_size not in ["8b", "70b"]:
+            raise ValueError(f"Unsupported model size: {self.model_size}")
+
+        if self.batch_size <= 0:
+            raise ValueError("Batch size must be positive")
+
+        if self.learning_rate <= 0:
+            raise ValueError("Learning rate must be positive")
+
+        if self.max_epochs <= 0:
+            raise ValueError("Max epochs must be positive")
+
+def create_validated_config(config: TrainingConfig) -> run.Config:
+    """Create NeMo Run configuration from validated config."""
+    return run.Config(
+        TrainingJob,
+        model=create_model_config(config.model_size),
+        trainer=run.Config(
+            Trainer,
+            batch_size=config.batch_size,
+            learning_rate=config.learning_rate,
+            max_epochs=config.max_epochs,
+            precision="bf16-mixed" if config.use_mixed_precision else "32"
+        )
+    )
+```
+
+### Environment-Specific Configurations
+
+```python
+import os
+
+def get_environment_config() -> run.Config:
+    """Get configuration based on environment."""
+
+    env = os.getenv("NEMO_ENV", "development")
+
+    if env == "development":
+        return run.Config(
+            TrainingJob,
+            model=create_model_config("8b"),
+            trainer=run.Config(
+                Trainer,
+                num_nodes=1,
+                gpus_per_node=1,
+                batch_size=32,
+                max_epochs=5
+            )
+        )
+    elif env == "staging":
+        return run.Config(
+            TrainingJob,
+            model=create_model_config("8b"),
+            trainer=run.Config(
+                Trainer,
+                num_nodes=2,
+                gpus_per_node=4,
+                batch_size=256,
+                max_epochs=50
+            )
+        )
+    elif env == "production":
+        return run.Config(
+            TrainingJob,
+            model=create_model_config("70b"),
+            trainer=run.Config(
+                Trainer,
+                num_nodes=8,
+                gpus_per_node=8,
+                batch_size=512,
+                max_epochs=100
+            )
+        )
+    else:
+        raise ValueError(f"Unknown environment: {env}")
+```
+
+### Configuration Composition and Reuse
+
+```python
+# Base configurations for reuse
+BASE_MODEL_CONFIG = run.Config(
+    LlamaModel,
+    config=run.Config(
+        Llama3Config8B,
+        hidden_size=4096,
+        num_attention_heads=32
+    )
+)
+
+BASE_TRAINER_CONFIG = run.Config(
+    Trainer,
+    precision="bf16-mixed",
+    max_epochs=100,
+    gradient_clip_val=1.0
+)
+
+# Compose configurations
+def create_experiment_config(
+    model_size: str,
+    seq_length: int,
+    batch_size: int
+) -> run.Config:
+    """Create experiment configuration by composing base configs."""
+
+    # Start with base configurations
+    model_config = BASE_MODEL_CONFIG.copy()
+    trainer_config = BASE_TRAINER_CONFIG.copy()
+
+    # Customize model configuration
+    model_config.config.seq_length = seq_length
+    if model_size == "70b":
+        model_config.config = run.Config(Llama3Config70B)
+        model_config.config.hidden_size = 8192
+        model_config.config.num_attention_heads = 64
+
+    # Customize trainer configuration
+    trainer_config.batch_size = batch_size
+
+    return run.Config(
+        TrainingJob,
+        model=model_config,
+        trainer=trainer_config
+    )
+```
+
+This comprehensive guide covers all aspects of NeMo Run configuration, from basic usage to advanced patterns and best practices. Use these patterns to create robust, maintainable, and type-safe machine learning experiment configurations.

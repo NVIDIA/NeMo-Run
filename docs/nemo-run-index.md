@@ -14,7 +14,7 @@ NeMo Run is a powerful tool designed to streamline the configuration, execution 
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
-:link: configuration
+:link: guides/configuration
 :link-type: ref
 :link-alt: Configuration guide
 
@@ -22,7 +22,7 @@ Learn how to configure your ML experiments and environments.
 :::
 
 :::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
-:link: execution
+:link: guides/execution
 :link-type: ref
 :link-alt: Execution guide
 
@@ -30,7 +30,7 @@ Execute your configured experiments across various computing environments.
 :::
 
 :::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
-:link: management
+:link: guides/management
 :link-type: ref
 :link-alt: Management guide
 
@@ -49,7 +49,7 @@ This is the typical order Nemo Run users will follow to setup and launch experim
 :gutter: 1 1 1 2
 
 :::{grid-item-card} {octicon}`info;1.5em;sd-mr-1` About NeMo Run
-:link: about-overview
+:link: about/index
 :link-type: ref
 :link-alt: About NeMo Run
 
@@ -57,7 +57,7 @@ Overview of NeMo Run's core concepts and architecture.
 :::
 
 :::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Key Features
-:link: key-features
+:link: about/key-features
 :link-type: ref
 :link-alt: Key features
 
@@ -65,7 +65,7 @@ Explore the technical capabilities and implementation details.
 :::
 
 :::{grid-item-card} {octicon}`star;1.5em;sd-mr-1` Why Choose NeMo Run
-:link: why-nemo-run
+:link: about/why-nemo-run
 :link-type: ref
 :link-alt: Why choose NeMo Run
 
@@ -100,12 +100,14 @@ get-started/tutorials
 :hidden:
 :caption: Guides
 :maxdepth: 2
+guides/index
 guides/configuration
 guides/execution
 guides/management
 guides/ray
 guides/packaging
 guides/cli
+guides/admin
 ::::
 
 ::::{toctree}
@@ -114,4 +116,45 @@ guides/cli
 :maxdepth: 2
 faqs
 troubleshooting
+::::
+
+---
+
+## Guides
+
+::::{grid} 1 1 2 2
+:gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Interface
+:link: guides/cli
+:link-type: ref
+:link-alt: CLI guide
+
+Create command-line interfaces with rich argument parsing and factory functions.
+:::
+
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Ray Integration
+:link: guides/ray
+:link-type: ref
+:link-alt: Ray integration guide
+
+Distribute NeMo Run jobs with Ray clusters for scalable distributed computing.
+:::
+
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
+:link: guides/packaging
+:link-type: ref
+:link-alt: Packaging guide
+
+Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
+:::
+
+:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Administration
+:link: guides/admin
+:link-type: ref
+:link-alt: Administration guide
+
+Deploy, maintain, and operate NeMo Run in production environments.
+:::
+
 ::::

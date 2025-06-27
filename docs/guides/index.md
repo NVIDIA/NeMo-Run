@@ -63,6 +63,14 @@ Create command-line interfaces with rich argument parsing and factory functions.
 Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
 :::
 
+:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Administration
+:link: admin
+:link-type: ref
+:link-alt: Administration guide
+
+Deploy, maintain, and operate NeMo Run in production environments with comprehensive administrative procedures.
+:::
+
 ::::
 
 ## Get Started
@@ -75,6 +83,7 @@ If you're new to NeMo Run, we recommend following these guides in order:
 4. **Packaging** - Understand how to deploy your code to remote environments
 5. **CLI Interface** - Create command-line tools for your workflows
 6. **Ray Integration** - Scale up with distributed Ray clusters
+7. **Administration** - Deploy and maintain NeMo Run in production environments
 
 ## What You'll Learn
 
@@ -90,15 +99,15 @@ Each guide provides:
 
 Before diving into these guides, make sure you have:
 
-- NeMo Run installed (see [Installation Guide](install))
+- NeMo Run installed (see [Installation Guide](get-started/install))
 - Basic Python knowledge
 - Access to computing resources (local, cloud, or cluster)
 
 ## Need Help?
 
-- Check the [FAQs](faqs) for common questions
-- Explore the [About section](about-overview) for conceptual information
-- Review the [tutorials](tutorials) for hands-on examples
+- Check the [FAQs](../faqs) for common questions
+- Explore the [About section](../about/index) for conceptual information
+- Review the [tutorials](get-started/tutorials) for hands-on examples
 
 ```{toctree}
 :hidden:
@@ -110,4 +119,5 @@ management
 ray
 cli
 packaging
+admin
 ```
