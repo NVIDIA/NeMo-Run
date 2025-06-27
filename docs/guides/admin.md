@@ -1,18 +1,18 @@
 ---
-description: "Administrative guide for NeMo Run including deployment, maintenance, version management, and operational procedures."
+description: "Comprehensive guide for deploying and managing NeMo Run including installation, configuration, maintenance, version management, and operational procedures."
 tags: ["administration", "deployment", "maintenance", "configuration", "monitoring", "troubleshooting"]
 categories: ["guides"]
 ---
 
 (admin)=
 
-# NeMo Run Administration
+# Deploy and Manage NeMo Run
 
 This guide covers administrative tasks for NeMo Run including deployment, maintenance, version management, and operational procedures. This is essential reading for system administrators, DevOps engineers, and anyone responsible for managing NeMo Run installations.
 
 ## Overview
 
-NeMo Run administration encompasses several key areas:
+NeMo Run deployment and management encompasses several key areas:
 
 - **Deployment Management**: Installing and configuring NeMo Run across different environments
 - **Version Management**: Upgrading, downgrading, and managing NeMo Run versions
@@ -569,4 +569,4 @@ find /tmp/nemo-run-cache -mtime +7 -delete
 find ~/nemo-run-backups -name "*.tar.gz" -mtime +365 -delete
 ```
 
-This administrative guide provides comprehensive coverage of NeMo Run administration tasks. For specific deployment scenarios or advanced configurations, refer to the [Configuration Guide](configuration.md) and [Execution Guide](execution.md).
+This deployment and management guide provides comprehensive coverage of NeMo Run administration tasks. For specific deployment scenarios or advanced configurations, refer to the [Configuration Guide](configuration.md) and [Execution Guide](execution.md).

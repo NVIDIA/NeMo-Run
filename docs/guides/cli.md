@@ -1,12 +1,12 @@
 ---
-description: "Complete guide to NeMo Run's command-line interface, including entry point creation, factory functions, and CLI argument parsing."
+description: "Complete guide to NeMo Run CLI, including entry point creation, factory functions, and CLI argument parsing."
 tags: ["cli", "command-line", "entry points", "factories", "arguments"]
 categories: ["guides"]
 ---
 
 (cli)=
 
-# Command-Line Interface
+# NeMo Run CLI
 
 NeMo Run provides a powerful command-line interface that transforms Python functions into sophisticated CLI tools with rich argument parsing, type safety, and seamless integration with execution backends. This system enables AI researchers to create reproducible, configurable experiments that can be executed across diverse computing environments.
 

@@ -106,7 +106,6 @@ guides/execution
 guides/management
 guides/ray
 guides/packaging
-guides/cli
 guides/admin
 ::::
 
@@ -116,6 +115,7 @@ guides/admin
 :maxdepth: 2
 faqs
 troubleshooting
+cli
 ::::
 
 ---
@@ -125,14 +125,6 @@ troubleshooting
 ::::{grid} 1 1 2 2
 :gutter: 1 1 1 2
 
-:::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Interface
-:link: guides/cli
-:link-type: doc
-:link-alt: CLI guide
-
-Create command-line interfaces with rich argument parsing and factory functions.
-:::
-
 :::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Deploy Ray Clusters and Jobs
 :link: guides/ray
 :link-type: doc
@@ -141,20 +133,20 @@ Create command-line interfaces with rich argument parsing and factory functions.
 Deploy and manage Ray clusters and jobs for scalable distributed computing.
 :::
 
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` NeMo Run Packaging Strategies
 :link: guides/packaging
 :link-type: doc
-:link-alt: Packaging guide
+:link-alt: NeMo Run Packaging Strategies guide
 
 Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
 :::
 
-:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Administration
+:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy and Manage NeMo Run
 :link: guides/admin
 :link-type: doc
-:link-alt: Administration guide
+:link-alt: Deploy and Manage NeMo Run
 
-Deploy, maintain, and operate NeMo Run in production environments.
+Deploy, configure, and maintain NeMo Run in production environments.
 :::
 
 ::::

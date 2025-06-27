@@ -1,12 +1,12 @@
 ---
-description: "Complete guide to NeMo Run's packaging strategies including GitArchive, Pattern, and Hybrid packagers for code deployment."
-tags: ["packaging", "git", "deployment", "code", "archives"]
+description: "Complete guide to NeMo Run packaging strategies including GitArchive, Pattern, and Hybrid packagers for code deployment."
+tags: ["packaging", "deployment", "code", "archives", "remote-execution"]
 categories: ["guides"]
 ---
 
 (packaging)=
 
-# Packaging Strategies
+# NeMo Run Packaging Strategies
 
 NeMo Run provides flexible packaging strategies to deploy your code to remote execution environments. Understanding these packaging options is crucial for ensuring your experiments run correctly across different computing environments.
 
@@ -14,7 +14,7 @@ NeMo Run provides flexible packaging strategies to deploy your code to remote ex
 
 Packaging determines how your local code is transferred to remote execution environments. NeMo Run supports multiple packaging strategies:
 
-- **Base Packager**: Simple passthrough packaging
+- **Base Packager**: Simple pass-through packaging
 - **Git Archive Packager**: Version-controlled code packaging
 - **Pattern Packager**: File pattern-based packaging
 - **Hybrid Packager**: Combine multiple packaging strategies
@@ -32,7 +32,7 @@ Packaging determines how your local code is transferred to remote execution envi
 
 ## Base Packager
 
-The `run.Packager` is a simple passthrough packager that doesn't perform any special packaging operations.
+The `run.Packager` is a simple pass-through packager that doesn't perform any special packaging operations.
 
 ```python
 import nemo_run as run
@@ -59,7 +59,7 @@ The `run.GitArchivePackager` uses `git archive` to package version-controlled co
 ### How It Works
 
 1. **Base Path Detection**: Uses `git rev-parse --show-toplevel` to find the repository root
-2. **Subpath Configuration**: Optionally defines a subpath within the repository
+2. **Subpath (sub-directory path) Configuration**: Optionally defines a subpath within the repository
 3. **Archive Creation**: Creates a tar.gz archive of the specified code
 4. **Working Directory**: The extracted archive becomes the working directory for your job
 
@@ -155,7 +155,7 @@ packager = run.GitArchivePackager(
    git commit -m "Update model configuration"
    ```
 
-2. **Use Meaningful Subpaths**
+2. **Use Meaningful Subpaths (sub-directory paths)**
 
    ```python
    # Good: Clear subpath

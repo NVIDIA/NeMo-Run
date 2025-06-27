@@ -47,28 +47,20 @@ Manage and monitor your experiments with comprehensive tracking and reproducibil
 Deploy and manage Ray clusters and jobs for scalable distributed computing.
 :::
 
-:::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Interface
-:link: cli
-:link-type: doc
-:link-alt: CLI guide
-
-Create command-line interfaces with rich argument parsing and factory functions.
-:::
-
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` Packaging
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` NeMo Run Packaging Strategies
 :link: packaging
 :link-type: doc
-:link-alt: Packaging guide
+:link-alt: NeMo Run Packaging Strategies guide
 
 Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
 :::
 
-:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Administration
+:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy and Manage NeMo Run
 :link: admin
 :link-type: doc
-:link-alt: Administration guide
+:link-alt: Deploy and Manage NeMo Run
 
-Deploy, maintain, and operate NeMo Run in production environments with comprehensive administrative procedures.
+Deploy, configure, and maintain NeMo Run in production environments with comprehensive administrative procedures.
 :::
 
 ::::
@@ -80,10 +72,9 @@ If you're new to NeMo Run, we recommend following these guides in order:
 1. **Configuration** - Start here to understand how to configure your experiments
 2. **Execution** - Learn how to run your configured experiments
 3. **Management** - Discover how to track and manage your experiments
-4. **Packaging** - Understand how to deploy your code to remote environments
-5. **CLI Interface** - Create command-line tools for your workflows
-6. **Deploy Ray Clusters and Jobs** - Scale up with distributed Ray clusters
-7. **Administration** - Deploy and maintain NeMo Run in production environments
+4. **NeMo Run Packaging Strategies** - Understand how to deploy your code to remote environments
+5. **Deploy Ray Clusters and Jobs** - Scale up with distributed Ray clusters
+6. **Deploy and Manage NeMo Run** - Deploy and maintain NeMo Run in production environments
 
 ## What You'll Learn
 
@@ -117,7 +108,6 @@ configuration
 execution
 management
 ray
-cli
 packaging
 admin
 ```

@@ -354,7 +354,7 @@ After successful installation:
 3. **Explore Execution Backends**: Test different execution environments
 4. **Check the Examples**: Review example configurations and workflows
 
-For more detailed information, refer to the [Configuration Guide](configuration.md), [CLI Guide](cli.md), and [Execution Guide](execution.md).
+For more detailed information, refer to the [Configuration Guide](../guides/configuration), [CLI Guide](../guides/cli), and [Execution Guide](../guides/execution).
 
 ---
 
