@@ -151,7 +151,7 @@ Deploy your code using Git archives, pattern matching, or hybrid packaging strat
 :::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy and Manage NeMo Run
 :link: deploy/admin
 :link-type: doc
-:link-alt: Deploy and Manage NeMo Run
+:link-alt: Manage NeMo Run Deployments
 
 Deploy, configure, and maintain NeMo Run in production environments.
 :::
