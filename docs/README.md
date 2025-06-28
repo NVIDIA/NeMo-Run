@@ -11,28 +11,35 @@ This is a comprehensive Sphinx documentation template designed for technical wri
 This template showcases advanced Sphinx documentation patterns and features:
 
 (️-complex-structure)=
+
 ### 🏗️ **Complex Structure**
+
 - Multi-level navigation with toctrees
 - Product-based content organization (Product A, B, C)
 - Hierarchical information architecture
 
 ### 🎨 **Modern Design**
+
 - Grid-based layouts with responsive cards
 - Rich visual elements (icons, badges, images)
 - Professional styling with the Furo theme
 
 ### 🔗 **Advanced Navigation**
+
 - Cross-references and internal linking
 - Conditional content rendering
 - Multi-section organization
 
 (️-sphinx-extensions)=
+
 ### 🛠️ **Sphinx Extensions**
+
 - MyST Markdown with advanced features
 - Sphinx Design for grid layouts
 - Custom extensions for specialized functionality
 
 ### 📊 **Content Patterns**
+
 - Concept documentation with detailed explanations
 - Tutorial and how-to guide structures
 - Reference documentation organization
@@ -86,6 +93,7 @@ docs/
 ## Features Demonstrated
 
 ### Grid Layouts
+
 The template uses `sphinx-design` for responsive grid layouts:
 
 ```markdown
@@ -104,6 +112,7 @@ Description text
 ```
 
 ### Conditional Content
+
 Content can be conditionally included based on build configuration:
 
 ```markdown
@@ -114,6 +123,7 @@ This content only appears in non-GA builds
 ```
 
 ### Cross-References
+
 Comprehensive linking system with labeled references:
 
 ```markdown
@@ -203,7 +213,6 @@ This template provides a solid foundation for creating professional, maintainabl
       - [Ansible with Mixed Syntax](#ansible-with-mixed-syntax)
       - [Benefits](#benefits)
 
-
 ## Set Up the Documentation Environment
 
 Before building or serving the documentation, set up the docs environment using the Makefile:
@@ -223,8 +232,8 @@ To build the NeMo Curator documentation, run:
 make docs-html
 ```
 
-* The resulting HTML files are generated in a `_build/html` folder under the project `docs/` folder.
-* The generated Python API docs are placed in `apidocs` under the `docs/` folder.
+- The resulting HTML files are generated in a `_build/html` folder under the project `docs/` folder.
+- The generated Python API docs are placed in `apidocs` under the `docs/` folder.
 
 ### Build Variants
 
@@ -261,6 +270,7 @@ only: not ga
 ```
 
 **Supported conditions:**
+
 - `only: not ga` - Exclude from GA builds (EA-only content)
 - `only: ga` - Include only in GA builds
 - `only: not ea` - Exclude from EA builds
@@ -399,6 +409,7 @@ myst_substitutions = {
 ### Usage
 
 #### Basic MyST Substitutions in Text
+
 Use `{{ variable }}` syntax in regular markdown text:
 
 ```markdown
@@ -427,6 +438,7 @@ The extension intelligently protects template languages from unwanted substituti
 #### Protected Languages
 
 These languages are treated carefully to preserve their native `{{ }}` syntax:
+
 - `yaml`, `yml` (Kubernetes, Docker Compose)
 - `helm`, `gotmpl`, `go-template` (Helm charts)
 - `jinja`, `jinja2`, `j2` (Ansible, Python templates)
@@ -437,6 +449,7 @@ These languages are treated carefully to preserve their native `{{ }}` syntax:
 #### Pattern Protection
 
 The extension automatically detects and preserves common template patterns:
+
 - `{{ .Values.something }}` (Helm values)
 - `{{ ansible_variable }}` (Ansible variables)
 - `{{ item.property }}` (Template loops)

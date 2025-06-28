@@ -74,6 +74,140 @@ Learn why NeMo Run is the preferred choice for ML experiment management.
 
 ::::
 
+---
+
+## Get Started
+
+::::{grid} 1 1 1 2
+:gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`rocket;1.5em;sd-mr-1` Quick Start
+:link: get-started/index
+:link-type: doc
+:link-alt: Get started guide
+
+Set up your first NeMo Run experiment in minutes
+:::
+
+:::{grid-item-card} {octicon}`download;1.5em;sd-mr-1` Installation
+:link: get-started/install
+:link-type: doc
+:link-alt: Installation guide
+
+Install NeMo Run and optional dependencies for your environment
+:::
+
+:::{grid-item-card} {octicon}`book;1.5em;sd-mr-1` Tutorials
+:link: get-started/tutorials
+:link-type: doc
+:link-alt: Tutorial collection
+
+Learn NeMo Run with hands-on tutorials and examples
+:::
+
+::::
+
+---
+
+## Guides
+
+::::{grid} 1 1 1 3
+:gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
+:link: guides/configuration
+:link-type: doc
+:link-alt: Configuration guide
+
+Learn how to configure your ML experiments with type-safe, flexible configuration management.
+:::
+
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
+:link: guides/execution
+:link-type: doc
+:link-alt: Execution guide
+
+Execute your experiments across local, Docker, Slurm, Kubernetes, and cloud environments.
+:::
+
+:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
+:link: guides/management
+:link-type: doc
+:link-alt: Management guide
+
+Manage and monitor your experiments with comprehensive tracking and reproducibility.
+:::
+
+::::
+
+---
+
+## Deploy
+
+::::{grid} 1 1 2 2
+:gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Deploy Ray Clusters and Jobs
+:link: deploy/ray
+:link-type: doc
+:link-alt: Deploy Ray Clusters and Jobs
+
+Deploy and manage Ray clusters and jobs for scalable distributed computing.
+:::
+
+:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` NeMo Run Packaging Strategies
+:link: deploy/packaging
+:link-type: doc
+:link-alt: NeMo Run Packaging Strategies guide
+
+Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
+:::
+
+:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy and Manage NeMo Run
+:link: deploy/admin
+:link-type: doc
+:link-alt: Manage NeMo Run Deployments
+
+Deploy, configure, and maintain NeMo Run in production environments.
+:::
+
+::::
+
+---
+
+## Reference
+
+::::{grid} 1 1 1 3
+:gutter: 1 1 1 2
+
+:::{grid-item-card} {octicon}`terminal;1.5em;sd-mr-1` CLI Reference
+:link: reference/cli
+:link-type: doc
+:link-alt: CLI Reference
+
+Complete command-line interface documentation and usage examples.
+:::
+
+:::{grid-item-card} {octicon}`question;1.5em;sd-mr-1` FAQs
+:link: reference/faqs
+:link-type: doc
+:link-alt: Frequently Asked Questions
+
+Find answers to common questions about NeMo Run.
+:::
+
+:::{grid-item-card} {octicon}`tools;1.5em;sd-mr-1` Troubleshooting
+:link: reference/troubleshooting
+:link-type: doc
+:link-alt: Troubleshooting Guide
+
+Solutions for common issues and error messages.
+:::
+
+::::
+
+---
+
 ::::{toctree}
 :hidden:
 :caption: About
@@ -82,10 +216,6 @@ about/index
 about/key-features
 about/why-nemo-run
 ::::
-
----
-
-## Get Started
 
 ::::{toctree}
 :hidden:
@@ -120,40 +250,8 @@ deploy/ray
 :hidden:
 :caption: Reference
 :maxdepth: 2
+reference/index
 reference/cli
 reference/faqs
 reference/troubleshooting
-::::
-
----
-
-## Deploy
-
-::::{grid} 1 1 2 2
-:gutter: 1 1 1 2
-
-:::{grid-item-card} {octicon}`server;1.5em;sd-mr-1` Deploy Ray Clusters and Jobs
-:link: deploy/ray
-:link-type: doc
-:link-alt: Deploy Ray Clusters and Jobs
-
-Deploy and manage Ray clusters and jobs for scalable distributed computing.
-:::
-
-:::{grid-item-card} {octicon}`package;1.5em;sd-mr-1` NeMo Run Packaging Strategies
-:link: deploy/packaging
-:link-type: doc
-:link-alt: NeMo Run Packaging Strategies guide
-
-Deploy your code using Git archives, pattern matching, or hybrid packaging strategies.
-:::
-
-:::{grid-item-card} {octicon}`shield;1.5em;sd-mr-1` Deploy and Manage NeMo Run
-:link: deploy/admin
-:link-type: doc
-:link-alt: Manage NeMo Run Deployments
-
-Deploy, configure, and maintain NeMo Run in production environments.
-:::
-
 ::::

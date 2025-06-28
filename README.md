@@ -1,109 +1,188 @@
 # NeMo Run
 
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](https://docs.nvidia.com/nemo-run)
+[![PyPI](https://img.shields.io/badge/pypi-nemo--run-blue.svg)](https://pypi.org/project/nemo-run/)
+
 > [!IMPORTANT]
-> NeMo Run is still in active development and this is a pre-release. The API is subject to change without notice while in pre-release. First official release will be 0.1.0 and will be included in NeMo FW 24.09 as well.
+> NeMo Run is currently in active development and this is a pre-release. The API is subject to change without notice while in pre-release. The first official release will be 0.1.0 and will be included in NeMo FW 24.09.
 
-NeMo Run is a powerful tool designed to streamline the configuration, execution, and management of machine learning experiments across various computing environments. NeMo Run has three core responsibilities:
+**NeMo Run** is a comprehensive Python framework for configuring, executing, and managing machine learning experiments across diverse computing environments. Built with a focus on reproducibility, flexibility, and scalability, NeMo Run decouples experiment configuration from execution, enabling researchers and ML engineers to seamlessly transition between local development, cloud platforms, and high-performance computing clusters.
 
-1. [Configuration](./docs/guides/configuration.md)
-2. [Execution](./docs/guides/execution.md)
-3. [Management](./docs/guides/management.md)
+## 🚀 Key Features
 
-To learn more, click on each link. This represents the typical order that NeMo Run users follow for setting up and launching experiments.
+- **🔧 Type-Safe Configuration**: Python-based configuration using Fiddle with automatic validation and type safety
+- **🌐 Multi-Environment Execution**: Support for local, Docker, Slurm, Kubernetes, and cloud platforms (AWS, GCP, Azure, DGX Cloud)
+- **📊 Experiment Management**: Comprehensive experiment tracking with metadata preservation and reproducibility
+- **🎯 Modular Architecture**: Clean separation between configuration, execution, and management layers
+- **⚡ Ray Integration**: Native support for distributed computing with Ray
+- **🔍 Rich CLI**: Intelligent command-line interface with type-safe argument parsing
 
-- [NeMo Run](#nemo-run)
-  - [Why Use NeMo Run?](#why-use-nemo-run)
-  - [Install NeMo Run](#install-nemo-run)
-  - [Get Started](#get-started)
-  - [Design Philosophy and Inspiration](#design-philosophy-and-inspiration)
-    - [Pythonic](#pythonic)
-    - [Modular](#modular)
-    - [Opinionated but Flexible](#opinionated-but-flexible)
-    - [Set Up Once and Scale Easily](#set-up-once-and-scale-easily)
-  - [Tutorials](#tutorials)
-      - [Hello world](#hello-world)
-  - [Contribute to NeMo Run](#contribute-to-nemo-run)
-  - [FAQs](#faqs)
+## 🏗️ Core Architecture
 
+NeMo Run is built around three core pillars:
 
-## Why Use NeMo Run?
-Please see this [detailed guide](./docs/about/why-nemo-run.md) for reasons to use NeMo Run.
+::::{grid} 1 1 1 3
+:gutter: 1 1 1 2
 
-## Install NeMo Run
-To install the project, use the following command:
+:::{grid-item-card} {octicon}`gear;1.5em;sd-mr-1` Configuration
+:link: docs/guides/configuration.md
+:link-type: doc
+:link-alt: Configuration guide
+
+Python-based configuration using Fiddle, supporting complex nested structures and type safety
+:::
+
+:::{grid-item-card} {octicon}`play;1.5em;sd-mr-1` Execution
+:link: docs/guides/execution.md
+:link-type: doc
+:link-alt: Execution guide
+
+Multi-environment execution with executors for local, Docker, Slurm, Kubernetes, and cloud platforms
+:::
+
+:::{grid-item-card} {octicon}`graph;1.5em;sd-mr-1` Management
+:link: docs/guides/management.md
+:link-type: doc
+:link-alt: Management guide
+
+Experiment lifecycle management with metadata tracking, logging, and reproducibility
+:::
+
+::::
+
+## 📦 Installation
 
 ```bash
 pip install git+https://github.com/NVIDIA-NeMo/Run.git
 ```
 
-Make sure you have `pip` installed and configured properly.
+### Requirements
 
-## Get Started
-To get started with NeMo Run, follow these three steps based on the core responsibilities mentioned above. For this example, we'll showcase a pre-training example in Nemo 2.0 using Llama3.
+- Python 3.8+
+- pip (for package installation)
+- Access to computing resources (local, cloud, or cluster)
 
-1. Configure your function:
+## 🚀 Quick Start
+
+Get started with NeMo Run in three simple steps:
+
+### 1. Configure Your Function
+
 ```python
 from nemo.collections import llm
-partial_func = llm.llama3_8b.pretrain_recipe(name="llama3-8b", ckpt_dir="/path/to/store/checkpoints", num_nodes=1, num_gpus_per_node=8)
+
+# Configure a pre-training recipe
+partial_func = llm.llama3_8b.pretrain_recipe(
+    name="llama3-8b",
+    ckpt_dir="/path/to/store/checkpoints",
+    num_nodes=1,
+    num_gpus_per_node=8
+)
 ```
 
-2. Define your Executor:
+### 2. Define Your Executor
+
 ```python
 import nemo_run as run
-# Local executor
-local_executor = run.LocalExecutor()
+
+# Choose your execution environment
+local_executor = run.LocalExecutor()  # Local execution
+# docker_executor = run.DockerExecutor()  # Docker execution
+# slurm_executor = run.SlurmExecutor()    # Slurm cluster
+# ray_executor = run.RayExecutor()        # Ray distributed
 ```
 
-3. Run your experiment:
+### 3. Run Your Experiment
+
 ```python
+# Execute your experiment
 run.run(partial_func, executor=local_executor, name="llama3_8b_pretraining")
 ```
 
-## Design Philosophy and Inspiration
-In building NeMo Run, we drew inspiration from and relied on the following primary libraries. We would like to extend our gratitude for their work.
+## 🎯 Why Use NeMo Run?
 
-- [Fiddle](https://github.com/google/fiddle)
-- [TorchX](https://github.com/pytorch/torchx/)
-- [Skypilot](https://github.com/skypilot-org/skypilot/)
-- [XManager](https://github.com/google-deepmind/xmanager/tree/main)
-- [Fabric](https://github.com/fabric/fabric) and [Paramiko](https://github.com/paramiko/paramiko)
-- [Rich](https://github.com/Textualize/rich)
-- [Jinja](https://github.com/pallets/jinja/)
+NeMo Run addresses critical challenges in ML experiment management:
 
-Apart from these, we also build on other libraries. A full list of dependencies can be found in [pyproject.toml](pyproject.toml).
+- **🔧 Configuration Flexibility**: Type-safe, composable configurations with Python's type system
+- **🚀 Execution Modularity**: True environment independence with executor abstraction
+- **📊 Experiment Management**: Comprehensive tracking with full metadata preservation
+- **🔄 Reproducibility**: One-command experiment reconstruction from metadata
+- **⚡ Scalability**: Seamless transition from local development to distributed clusters
 
-NeMo Run was designed keeping the following principles in mind:
+For detailed information, see our [Why Use NeMo Run guide](docs/about/why-nemo-run.md).
+
+## 📚 Documentation
+
+- **[Getting Started](docs/get-started/index.md)** - Quick setup and tutorials
+- **[Configuration Guide](docs/guides/configuration.md)** - Type-safe configuration management
+- **[Execution Guide](docs/guides/execution.md)** - Multi-environment execution
+- **[Management Guide](docs/guides/management.md)** - Experiment lifecycle management
+- **[CLI Reference](docs/reference/cli.md)** - Command-line interface documentation
+- **[FAQs](docs/reference/faqs.md)** - Frequently asked questions
+
+## 🎓 Tutorials
+
+### Hello World Series
+
+The `hello_world` tutorial series provides a comprehensive introduction to NeMo Run:
+
+- **[Part 1](examples/hello-world/hello_world.ipynb)** - Basic configuration and execution
+- **[Part 2](examples/hello-world/hello_experiments.ipynb)** - Experiment management
+- **[Part 3](examples/hello-world/hello_scripts.py)** - Script-based execution
+
+## 🏛️ Design Philosophy
+
+NeMo Run was designed with these core principles:
 
 ### Pythonic
-In NeMo Run, you can build and configure everything using Python, eliminating the need for multiple combinations of tools to manage your experiments. The only exception is when setting up the environment for remote execution, where we rely on Docker.
+
+Build and configure everything using Python, eliminating the need for multiple tools to manage experiments.
 
 ### Modular
-The decoupling of task and executor allows you to form different combinations of execution units with relative ease. You configure different remote environments once, and you can reuse it across a variety of tasks in a Pythonic way.
+
+Decoupled task and executor design allows easy combination of different execution environments.
 
 ### Opinionated but Flexible
-NeMo Run is opinionated in some places, like storing of metadata information for experiments in a particular manner. However, it remains flexible enough to accommodate most user experiments.
+
+Opinionated in metadata storage and experiment structure, but flexible enough for most use cases.
 
 ### Set Up Once and Scale Easily
-While it may take some time initially for users to become familiar with NeMo Run concepts, the tool is designed to scale experimentation in a fluid and easy manner.
 
-## Tutorials
+Initial learning curve pays off with fluid and easy experimentation scaling.
 
-#### Hello world
+## 🤝 Contributing
 
-The `hello_world` tutorial series provides a comprehensive introduction to NeMo Run, demonstrating its capabilities through a simple example. The tutorial covers:
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
 
-- Configuring Python functions using `Partial` and `Config` classes.
-- Executing configured functions locally and on remote clusters.
-- Visualizing configurations with `graphviz`.
-- Creating and managing experiments using `run.Experiment`.
+- Code of Conduct
+- Development Setup
+- Pull Request Process
+- Issue Reporting
 
-You can find the tutorial series below:
-- [Part 1](examples/hello-world/hello_world.ipynb).
-- [Part 2](examples/hello-world/hello_experiments.ipynb).
-- [Part 3](examples/hello-world/hello_scripts.py).
+## 📄 License
 
-## Contribute to NeMo Run
-Please see the [contribution guide](./CONTRIBUTING.md) to contribute to NeMo Run.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-## FAQs
-Please find a list of frequently asked questions [here](./docs/reference/faqs.md).
+## 🙏 Acknowledgments
+
+NeMo Run builds upon the excellent work of these open-source projects:
+
+- [Fiddle](https://github.com/google/fiddle) - Configuration framework
+- [TorchX](https://github.com/pytorch/torchx/) - Job submission framework
+- [Skypilot](https://github.com/skypilot-org/skypilot/) - Multi-cloud execution
+- [XManager](https://github.com/google-deepmind/xmanager) - Experiment management
+- [Ray](https://github.com/ray-project/ray) - Distributed computing
+- [Rich](https://github.com/Textualize/rich) - Rich terminal output
+- [Typer](https://github.com/tiangolo/typer) - CLI framework
+
+## 📞 Support
+
+- **Documentation**: [docs.nvidia.com/nemo-run](https://docs.nvidia.com/nemo-run)
+- **Issues**: [GitHub Issues](https://github.com/NVIDIA-NeMo/Run/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/NVIDIA-NeMo/Run/discussions)
+
+---
+
+**NeMo Run** is developed by [NVIDIA](https://www.nvidia.com/) as part of the NeMo framework for large language models and AI research.

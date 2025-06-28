@@ -75,11 +75,10 @@ Before diving into these guides, make sure you have:
 - Explore the [About section](../about/index) for conceptual information
 - Review the [tutorials](../get-started/tutorials) for hands-on examples
 
-```{toctree}
+::::{toctree}
 :hidden:
 :maxdepth: 2
-
 configuration
 execution
 management
-```
+::::

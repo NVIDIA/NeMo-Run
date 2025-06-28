@@ -569,4 +569,4 @@ find /tmp/nemo-run-cache -mtime +7 -delete
 find ~/nemo-run-backups -name "*.tar.gz" -mtime +365 -delete
 ```
 
-This deployment and management guide provides comprehensive coverage of NeMo Run administration tasks. For specific deployment scenarios or advanced configurations, refer to the [Configuration Guide](configuration.md) and [Execution Guide](execution.md).
+This deployment and management guide provides comprehensive coverage of NeMo Run administration tasks. For specific deployment scenarios or advanced configurations, refer to the [Configuration Guide](../guides/configuration) and [Execution Guide](../guides/execution).

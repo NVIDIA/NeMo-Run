@@ -472,4 +472,4 @@ executor = run.LocalExecutor(plugins=[WandBPlugin()])
    experiment.launch(sequential=False)
    ```
 
-This FAQ covers the most common questions about NeMo Run. For more detailed information, refer to the specific guides for [Configuration](guides/configuration), [CLI](guides/cli), [Execution](guides/execution), and [Management](guides/management).
+This FAQ covers the most common questions about NeMo Run. For more detailed information, refer to the specific guides for [Configuration](../guides/configuration), [CLI Reference](cli.md), [Execution](../guides/execution), and [Management](../guides/management).
